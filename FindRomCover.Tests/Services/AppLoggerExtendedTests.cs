@@ -1,6 +1,6 @@
-using FluentAssertions;
 using FindRomCover.Models;
 using FindRomCover.Services;
+using FluentAssertions;
 using Xunit;
 
 namespace FindRomCover.Tests.Services;
@@ -60,7 +60,7 @@ public class AppLoggerExtendedTests
         var result = AppLogger.FormatJson(jsonWithUnicode);
 
         // JSON serializer may keep unicode as-is or escape it; either is acceptable
-        (result.Contains("\\u30DD") || result.Contains("ポケモン")).Should().BeTrue();
+        (result.Contains("\\u30DD", StringComparison.OrdinalIgnoreCase) || result.Contains("ポケモン", StringComparison.OrdinalIgnoreCase)).Should().BeTrue();
     }
 
     [Fact]
@@ -71,7 +71,7 @@ public class AppLoggerExtendedTests
         var result = AppLogger.FormatJson(jsonWithUnicode);
 
         // JSON serializer may keep unicode as-is or escape it; either is fine
-        (result.Contains("\\u30DE") || result.Contains("マリオ")).Should().BeTrue();
+        (result.Contains("\\u30DE", StringComparison.OrdinalIgnoreCase) || result.Contains("マリオ", StringComparison.OrdinalIgnoreCase)).Should().BeTrue();
     }
 
     [Fact]

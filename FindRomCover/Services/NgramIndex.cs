@@ -7,7 +7,7 @@ public class NgramIndex
     private const int N = 3;
     private const int MinTrigramMatches = 2;
 
-    private readonly Dictionary<string, HashSet<string>> _trigramToFiles = new();
+    private readonly Dictionary<string, HashSet<string>> _trigramToFiles = new(StringComparer.OrdinalIgnoreCase);
 
     public int FileCount { get; private set; }
 
@@ -27,7 +27,7 @@ public class NgramIndex
                 var trigram = padded.Substring(i, N);
                 if (!_trigramToFiles.TryGetValue(trigram, out var files))
                 {
-                    files = new HashSet<string>();
+                    files = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                     _trigramToFiles[trigram] = files;
                 }
 
@@ -42,27 +42,20 @@ public class NgramIndex
 
         var padded = new string(' ', N - 1) + query.ToLowerInvariant() + new string(' ', N - 1);
 
-        var queryTrigrams = new HashSet<string>();
-        for (var i = 0; i <= padded.Length - N; i++)
-        {
-            queryTrigrams.Add(padded.Substring(i, N));
-        }
+        var queryTrigrams = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        for (var i = 0; i <= padded.Length - N; i++) queryTrigrams.Add(padded.Substring(i, N));
 
         if (queryTrigrams.Count == 0)
             return new List<string>();
 
-        var fileMatchCounts = new Dictionary<string, int>();
+        var fileMatchCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         foreach (var trigram in queryTrigrams)
-        {
             if (_trigramToFiles.TryGetValue(trigram, out var files))
-            {
                 foreach (var file in files)
                 {
                     fileMatchCounts.TryAdd(file, 0);
                     fileMatchCounts[file]++;
                 }
-            }
-        }
 
         return fileMatchCounts
             .Where(static kvp => kvp.Value >= MinTrigramMatches)

@@ -8,10 +8,10 @@
     <Grid Margin="20">
         <Grid.RowDefinitions>
             <!-- Adjusted row definitions -->
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <!-- Original Title Text -->
@@ -37,10 +37,11 @@
                         <TextBox x:Name="TxtGoogleKey"
                                  controls:TextBoxHelper.Watermark="Enter your Google API key"
                                  ToolTip="Your unique key for accessing the Google Custom Search API."
-                                 Margin="0,5"/>
+                                 Margin="0,5" />
                         <TextBlock Margin="0,5,0,0"
                                    ToolTip="Open the Google API key registration page in your browser">
-                            <Hyperlink NavigateUri="https://developers.google.com/custom-search/v1/overview" RequestNavigate="Hyperlink_RequestNavigate">
+                            <Hyperlink NavigateUri="https://developers.google.com/custom-search/v1/overview"
+                                       RequestNavigate="Hyperlink_RequestNavigate">
                                 Get Google API Key
                             </Hyperlink>
                         </TextBlock>

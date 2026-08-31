@@ -1,5 +1,7 @@
+using System.Net;
 using System.Net.Http;
 using System.Reflection;
+using System.Text;
 using System.Text.Json;
 
 namespace FindRomCover.Services;
@@ -23,7 +25,7 @@ public static class ApplicationStatsService
             };
 
             var jsonPayload = JsonSerializer.Serialize(payload);
-            using var content = new StringContent(jsonPayload, System.Text.Encoding.UTF8, "application/json");
+            using var content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
             using var request = new HttpRequestMessage(HttpMethod.Post, StatsApiUrl);
 
             request.Content = content;
@@ -33,17 +35,11 @@ public static class ApplicationStatsService
             using var response = await HttpClientHelper.Client.SendAsync(request, cts.Token);
 
             if (response.IsSuccessStatusCode)
-            {
                 LogService.Information("Application stats recorded successfully.");
-            }
-            else if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
-            {
+            else if (response.StatusCode == HttpStatusCode.TooManyRequests)
                 LogService.Debug("Application stats API rate-limited (429).");
-            }
             else
-            {
                 LogService.Warning($"Application stats API returned: {response.StatusCode}");
-            }
         }
         catch (TaskCanceledException ex)
         {

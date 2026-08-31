@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http;
 using System.Reflection;
 using System.Text.Json;
@@ -7,16 +8,18 @@ namespace FindRomCover.Services;
 
 public static class UpdateCheckService
 {
-    private const string GitHubReleasesUrl = "https://api.github.com/repos/drpetersonfernandes/FindRomCover/releases/latest";
+    private const string GitHubReleasesUrl =
+        "https://api.github.com/repos/drpetersonfernandes/FindRomCover/releases/latest";
+
     private const string ReleasesPageUrl = "https://github.com/drpetersonfernandes/FindRomCover/releases";
 
     /// <summary>
-    /// Checks for application updates via the GitHub API.
+    ///     Checks for application updates via the GitHub API.
     /// </summary>
     /// <param name="httpClient">
-    /// An optional HttpClient to use. The caller retains ownership of the client's lifecycle
-    /// and is responsible for disposing it when no longer needed. If null, the shared
-    /// <see cref="HttpClientHelper.Client"/> is used.
+    ///     An optional HttpClient to use. The caller retains ownership of the client's lifecycle
+    ///     and is responsible for disposing it when no longer needed. If null, the shared
+    ///     <see cref="HttpClientHelper.Client" /> is used.
     /// </param>
     public static async Task<UpdateInfo> CheckForUpdateAsync(HttpClient? httpClient = null)
     {
@@ -39,14 +42,10 @@ public static class UpdateCheckService
 
             if (!response.IsSuccessStatusCode)
             {
-                if (response.StatusCode is System.Net.HttpStatusCode.Forbidden or System.Net.HttpStatusCode.TooManyRequests)
-                {
+                if (response.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.TooManyRequests)
                     LogService.Debug($"GitHub API returned status code: {response.StatusCode} (likely rate-limited)");
-                }
                 else
-                {
                     LogService.Warning($"GitHub API returned status code: {response.StatusCode}");
-                }
                 return new UpdateInfo { IsUpdateAvailable = false };
             }
 
@@ -105,13 +104,9 @@ public static class UpdateCheckService
         var isUpdateAvailable = latestVersion > currentVersion;
 
         if (isUpdateAvailable)
-        {
             LogService.Information($"Update available: current={currentVersion}, latest={latestVersion}");
-        }
         else
-        {
             LogService.Information($"Application is up to date (v{currentVersion}).");
-        }
 
         return new UpdateInfo
         {
@@ -132,10 +127,8 @@ public static class UpdateCheckService
             .Replace("release-", "", StringComparison.OrdinalIgnoreCase)
             .TrimStart('v', 'V');
 
-        if (Version.TryParse(versionString, out var version) || Version.TryParse(versionString + ".0", out version))
-        {
-            return version;
-        }
+        if (Version.TryParse(versionString, out var version) ||
+            Version.TryParse(versionString + ".0", out version)) return version;
 
         return null;
     }

@@ -8,7 +8,8 @@
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/Controls.xaml" />
                 <ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/Fonts.xaml" />
-                <ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/Themes/Light.Blue.xaml" />
+                <ResourceDictionary
+                    Source="pack://application:,,,/MahApps.Metro;component/Styles/Themes/Light.Blue.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
             <services:ObjectToBoolConverter x:Key="IsNotNullConverter" />
@@ -49,7 +50,8 @@
                                     <Setter TargetName="ButtonBorder" Property="Effect">
                                         <Setter.Value>
                                             <DropShadowEffect Color="{DynamicResource MahApps.Colors.Accent}"
-                                                              Direction="315" ShadowDepth="5" Opacity="0.6" BlurRadius="8" />
+                                                              Direction="315" ShadowDepth="5" Opacity="0.6"
+                                                              BlurRadius="8" />
                                         </Setter.Value>
                                     </Setter>
                                     <Setter TargetName="ButtonBorder" Property="RenderTransform">
@@ -63,7 +65,8 @@
                                             Value="{DynamicResource MahApps.Brushes.Accent}" />
                                     <Setter TargetName="ButtonBorder" Property="Effect">
                                         <Setter.Value>
-                                            <DropShadowEffect Color="Black" Direction="315" ShadowDepth="1" Opacity="0.7" BlurRadius="2" />
+                                            <DropShadowEffect Color="Black" Direction="315" ShadowDepth="1"
+                                                              Opacity="0.7" BlurRadius="2" />
                                         </Setter.Value>
                                     </Setter>
                                     <Setter TargetName="ButtonContentPresenter" Property="RenderTransform">
@@ -186,7 +189,8 @@
                             <Condition Binding="{Binding HasSearchedApi}" Value="True" />
                         </MultiDataTrigger.Conditions>
                         <Setter Property="Visibility" Value="Visible" />
-                        <Setter Property="Text" Value="No results found. Try adjusting your search query or API settings." />
+                        <Setter Property="Text"
+                                Value="No results found. Try adjusting your search query or API settings." />
                     </MultiDataTrigger>
                 </Style.Triggers>
             </Style>

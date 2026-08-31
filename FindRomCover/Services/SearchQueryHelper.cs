@@ -25,10 +25,7 @@ internal static partial class SearchQueryHelper
         var invalidChars = Path.GetInvalidFileNameChars();
 
         var sanitized = fileName;
-        while (sanitized.Contains(".."))
-        {
-            sanitized = sanitized.Replace("..", "");
-        }
+        while (sanitized.Contains("..", StringComparison.OrdinalIgnoreCase)) sanitized = sanitized.Replace("..", "");
 
         sanitized = new string(sanitized
             .Replace("/", "")
@@ -41,6 +38,6 @@ internal static partial class SearchQueryHelper
         return string.IsNullOrWhiteSpace(sanitized) ? "unnamed" : sanitized;
     }
 
-    [GeneratedRegex(@"\s*(\(.*?\)|\[.*?\]|\{.*?\})")]
+    [GeneratedRegex(@"\s*(\(.*?\)|\[.*?\]|\{.*?\})", RegexOptions.None | RegexOptions.ExplicitCapture, 500)]
     private static partial Regex MyRegex();
 }

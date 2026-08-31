@@ -1,6 +1,7 @@
+using System.Net;
 using System.Text.Json;
-using FluentAssertions;
 using FindRomCover.Services;
+using FluentAssertions;
 using Moq;
 using Moq.Protected;
 using Xunit;
@@ -137,7 +138,7 @@ public class UpdateCheckServiceEdgeCaseTests
             .Callback<HttpRequestMessage, CancellationToken>((req, _) => { capturedRequest = req; })
             .ReturnsAsync(new HttpResponseMessage
             {
-                StatusCode = System.Net.HttpStatusCode.OK,
+                StatusCode = HttpStatusCode.OK,
                 Content = new StringContent(json)
             });
 

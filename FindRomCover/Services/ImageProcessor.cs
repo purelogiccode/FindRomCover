@@ -6,14 +6,6 @@ namespace FindRomCover.Services;
 
 public static class ImageProcessor
 {
-    public sealed record ImageSaveResult(
-        bool Success,
-        string? ErrorMessage = null,
-        string? ErrorTitle = null,
-        MessageBoxImage ErrorIcon = MessageBoxImage.None,
-        Exception? Exception = null,
-        string? LogContext = null);
-
     public static void CleanupOrphanedTempFiles(string directoryPath)
     {
         if (!Directory.Exists(directoryPath))
@@ -23,7 +15,6 @@ public static class ImageProcessor
         {
             var tempFiles = Directory.GetFiles(directoryPath, "*.tmp");
             foreach (var tempFile in tempFiles)
-            {
                 try
                 {
                     File.Delete(tempFile);
@@ -32,7 +23,6 @@ public static class ImageProcessor
                 {
                     LogService.Warning(ex, $"Failed to delete orphaned temp file: {tempFile}");
                 }
-            }
         }
         catch (Exception ex)
         {
@@ -40,29 +30,28 @@ public static class ImageProcessor
         }
     }
 
-    public static Task<ImageSaveResult> ConvertAndSaveImageAsync(string sourcePath, string? targetPath, CancellationToken cancellationToken)
+    public static Task<ImageSaveResult> ConvertAndSaveImageAsync(string sourcePath, string? targetPath,
+        CancellationToken cancellationToken)
     {
         if (targetPath != null) return ConvertAndSaveImageCoreAsync(sourcePath, targetPath, cancellationToken);
 
         return Task.FromResult(new ImageSaveResult(false, "Target path is null.", "Error", MessageBoxImage.Error));
     }
 
-    private static async Task<ImageSaveResult> ConvertAndSaveImageCoreAsync(string sourcePath, string targetPath, CancellationToken cancellationToken)
+    private static async Task<ImageSaveResult> ConvertAndSaveImageCoreAsync(string sourcePath, string targetPath,
+        CancellationToken cancellationToken)
     {
         var directory = Path.GetDirectoryName(targetPath);
         if (directory == null)
-        {
             return new ImageSaveResult(false, "Invalid target path.", "Error", MessageBoxImage.Error);
-        }
 
-        if (sourcePath == targetPath)
-        {
-            return new ImageSaveResult(false, "Source and target paths are the same.\n\nPlease choose another target path.", "Error", MessageBoxImage.Error);
-        }
+        if (string.Equals(sourcePath, targetPath, StringComparison.OrdinalIgnoreCase))
+            return new ImageSaveResult(false,
+                "Source and target paths are the same.\n\nPlease choose another target path.", "Error",
+                MessageBoxImage.Error);
 
         const int maxAttempts = 3;
         for (var attempt = 0;; attempt++)
-        {
             try
             {
                 var testFile = Path.Combine(directory, $"{Guid.NewGuid()}.tmp");
@@ -77,7 +66,6 @@ public static class ImageProcessor
             catch (Exception ex)
             {
                 if (attempt >= maxAttempts - 1)
-                {
                     return new ImageSaveResult(
                         false,
                         $"Cannot write to directory: {directory}\n\nError: {ex.Message}\n\nTry running as administrator.",
@@ -85,14 +73,11 @@ public static class ImageProcessor
                         MessageBoxImage.Error,
                         ex,
                         $"Cannot write to directory: {directory}");
-                }
             }
-        }
 
         cancellationToken.ThrowIfCancellationRequested();
 
         if (File.Exists(targetPath))
-        {
             try
             {
                 File.Delete(targetPath);
@@ -124,17 +109,18 @@ public static class ImageProcessor
                     ex,
                     $"Error deleting file: {targetPath}");
             }
-        }
 
         cancellationToken.ThrowIfCancellationRequested();
 
         return await ProcessImageAsync(sourcePath, targetPath, cancellationToken);
     }
 
-    private static async Task<ImageSaveResult> ProcessImageAsync(string sourcePath, string targetPath, CancellationToken cancellationToken)
+    private static async Task<ImageSaveResult> ProcessImageAsync(string sourcePath, string targetPath,
+        CancellationToken cancellationToken)
     {
         if (string.IsNullOrEmpty(sourcePath) || !File.Exists(sourcePath))
-            return new ImageSaveResult(false, "Source image could not be found.", "Image Not Found", MessageBoxImage.Error);
+            return new ImageSaveResult(false, "Source image could not be found.", "Image Not Found",
+                MessageBoxImage.Error);
 
         try
         {
@@ -161,7 +147,8 @@ public static class ImageProcessor
         }
     }
 
-    private static async Task<ImageSaveResult> WriteImageWithRetryAsync(MagickImage magickImage, string targetPath, string sourcePath, CancellationToken cancellationToken)
+    private static async Task<ImageSaveResult> WriteImageWithRetryAsync(MagickImage magickImage, string targetPath,
+        string sourcePath, CancellationToken cancellationToken)
     {
         const int maxRetries = 5;
         const int baseDelayMs = 100;
@@ -177,7 +164,6 @@ public static class ImageProcessor
                 try
                 {
                     if (File.Exists(tempPath))
-                    {
                         try
                         {
                             File.Delete(tempPath);
@@ -190,14 +176,10 @@ public static class ImageProcessor
                         {
                             // Permission issue on temp file; will be retried
                         }
-                    }
 
                     await magickImage.WriteAsync(tempPath, magickImage.Format, cancellationToken);
 
-                    if (!File.Exists(tempPath))
-                    {
-                        throw new IOException("Failed to write temporary file");
-                    }
+                    if (!File.Exists(tempPath)) throw new IOException("Failed to write temporary file");
 
                     File.Move(tempPath, targetPath, true);
 
@@ -226,7 +208,7 @@ public static class ImageProcessor
                     var delay = baseDelayMs * Math.Pow(2, attempt - 1);
                     await Task.Delay((int)delay, cancellationToken);
                 }
-                catch (MagickException ex) when (attempt < maxRetries && ex.Message.Contains("WriteBlob"))
+                catch (MagickException ex) when (attempt < maxRetries && ex.Message.Contains("WriteBlob", StringComparison.OrdinalIgnoreCase))
                 {
                     lastException = ex;
                     var delay = baseDelayMs * Math.Pow(2, attempt - 1);
@@ -243,7 +225,6 @@ public static class ImageProcessor
         finally
         {
             if (File.Exists(tempPath))
-            {
                 try
                 {
                     File.Delete(tempPath);
@@ -256,14 +237,11 @@ public static class ImageProcessor
                 {
                     // Best effort cleanup
                 }
-            }
         }
 
-        var errorMessage = $"Failed to save image after {maxRetries} attempts. The file may be locked by another process (e.g., OneDrive sync, antivirus).\n\nTarget: {targetPath}";
-        if (lastException != null)
-        {
-            errorMessage += $"\n\nLast error: {lastException.Message}";
-        }
+        var errorMessage =
+            $"Failed to save image after {maxRetries} attempts. The file may be locked by another process (e.g., OneDrive sync, antivirus).\n\nTarget: {targetPath}";
+        if (lastException != null) errorMessage += $"\n\nLast error: {lastException.Message}";
 
         return new ImageSaveResult(
             false,
@@ -299,4 +277,12 @@ public static class ImageProcessor
 
         return settings;
     }
+
+    public sealed record ImageSaveResult(
+        bool Success,
+        string? ErrorMessage = null,
+        string? ErrorTitle = null,
+        MessageBoxImage ErrorIcon = MessageBoxImage.None,
+        Exception? Exception = null,
+        string? LogContext = null);
 }

@@ -1,6 +1,6 @@
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Navigation;
-using System.Diagnostics;
 using FindRomCover.Managers;
 using FindRomCover.Services;
 
@@ -23,7 +23,10 @@ public partial class ApiSettingsWindow
         {
             TxtGoogleKey.Text = _settingsManager.GoogleKey;
         }
-        catch (Exception ex) { LogService.Error(ex, "Error in LoadSettings"); }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "Error in LoadSettings");
+        }
     }
 
     private void BtnSave_Click(object sender, RoutedEventArgs e)
@@ -65,7 +68,8 @@ public partial class ApiSettingsWindow
         {
             // Log the error and show a user-friendly message
             LogService.Error(ex, $"Failed to open hyperlink: {e.Uri.AbsoluteUri}");
-            MessageBox.Show("Could not open the link. Please copy and paste the URL into your browser.", "Link Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show("Could not open the link. Please copy and paste the URL into your browser.", "Link Error",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
 }

@@ -1,5 +1,5 @@
-using FluentAssertions;
 using FindRomCover.Services;
+using FluentAssertions;
 using Xunit;
 
 namespace FindRomCover.Tests.Services;
@@ -54,26 +54,23 @@ public class SimilarityCalculatorEdgeCaseTests
     [InlineData("abc", "xyz", 95)]
     [InlineData("abc", "abc", 50)]
     [InlineData("abc", "abc", 100)]
-    public void CalculateLevenshteinSimilarityWithThresholdShouldReturnZeroWhenBelowThreshold(string a, string b, double threshold)
+    public void CalculateLevenshteinSimilarityWithThresholdShouldReturnZeroWhenBelowThreshold(string a, string b,
+        double threshold)
     {
         var resultWithoutThreshold = SimilarityCalculator.CalculateLevenshteinSimilarity(a, b);
         var resultWithThreshold = SimilarityCalculator.CalculateLevenshteinSimilarity(a, b, threshold);
 
         if (resultWithoutThreshold < threshold)
-        {
             resultWithThreshold.Should().Be(0);
-        }
         else
-        {
             resultWithThreshold.Should().Be(resultWithoutThreshold);
-        }
     }
 
     [Fact]
     public void CalculateLevenshteinSimilarityWithThresholdOfZeroShouldNotAffectResult()
     {
         var withoutThreshold = SimilarityCalculator.CalculateLevenshteinSimilarity("hello", "hallo");
-        var withZeroThreshold = SimilarityCalculator.CalculateLevenshteinSimilarity("hello", "hallo", 0);
+        var withZeroThreshold = SimilarityCalculator.CalculateLevenshteinSimilarity("hello", "hallo");
 
         withZeroThreshold.Should().Be(withoutThreshold);
     }

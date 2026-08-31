@@ -1,30 +1,26 @@
-using FluentAssertions;
 using FindRomCover.Managers;
 using FindRomCover.Models;
+using FluentAssertions;
 using Xunit;
 
 namespace FindRomCover.Tests.Managers;
 
 public class MameManagerTests : IDisposable
 {
-    private readonly string _testDirectory;
     private readonly string _originalDatPath;
+    private readonly string _testDirectory;
 
     public MameManagerTests()
     {
         _testDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "MameManagerTests");
         _originalDatPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "mame.dat");
 
-        if (!Directory.Exists(_testDirectory))
-        {
-            Directory.CreateDirectory(_testDirectory);
-        }
+        if (!Directory.Exists(_testDirectory)) Directory.CreateDirectory(_testDirectory);
     }
 
     public void Dispose()
     {
         if (Directory.Exists(_testDirectory))
-        {
             try
             {
                 Directory.Delete(_testDirectory, true);
@@ -33,7 +29,6 @@ public class MameManagerTests : IDisposable
             {
                 // Best effort cleanup
             }
-        }
 
         GC.SuppressFinalize(this);
     }
@@ -41,10 +36,7 @@ public class MameManagerTests : IDisposable
     [Fact]
     public void LoadFromDatWhenFileDoesNotExistShouldThrowMameDatNotFoundException()
     {
-        if (File.Exists(_originalDatPath))
-        {
-            return;
-        }
+        if (File.Exists(_originalDatPath)) return;
 
         var act = static () => MameManager.LoadFromDat();
 

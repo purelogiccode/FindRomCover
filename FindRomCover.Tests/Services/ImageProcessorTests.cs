@@ -1,5 +1,6 @@
-using FluentAssertions;
+using System.Windows;
 using FindRomCover.Services;
+using FluentAssertions;
 using ImageMagick;
 using Xunit;
 
@@ -12,19 +13,21 @@ public class ImageProcessorTests : IDisposable
     public ImageProcessorTests()
     {
         _testDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ImageProcessorTests");
-        if (!Directory.Exists(_testDir))
-        {
-            Directory.CreateDirectory(_testDir);
-        }
+        if (!Directory.Exists(_testDir)) Directory.CreateDirectory(_testDir);
     }
 
     public void Dispose()
     {
         if (Directory.Exists(_testDir))
-        {
-            try { Directory.Delete(_testDir, true); }
-            catch { /* best effort */ }
-        }
+            try
+            {
+                Directory.Delete(_testDir, true);
+            }
+            catch
+            {
+                /* best effort */
+            }
+
         GC.SuppressFinalize(this);
     }
 
@@ -134,6 +137,7 @@ public class ImageProcessorTests : IDisposable
             image.Format = MagickFormat.Jpeg;
             image.Write(jpgPath);
         }
+
         var targetPath = Path.Combine(_testDir, "converted.png");
 
         var result = await ImageProcessor.ConvertAndSaveImageAsync(jpgPath, targetPath, CancellationToken.None);
@@ -147,7 +151,7 @@ public class ImageProcessorTests : IDisposable
     [Fact]
     public async Task ConvertAndSaveImageAsyncShouldOverwriteExistingTarget()
     {
-        var sourcePath = CreateTestImage("overwrite_src.png", 10, 10);
+        var sourcePath = CreateTestImage("overwrite_src.png");
         var targetPath = Path.Combine(_testDir, "overwrite_target.png");
         using (var existing = new MagickImage(MagickColors.Green, 50, 50))
         {
@@ -206,7 +210,7 @@ public class ImageProcessorTests : IDisposable
             false,
             "Something went wrong",
             "Error Title",
-            System.Windows.MessageBoxImage.Error,
+            MessageBoxImage.Error,
             ex,
             "log context");
 
@@ -284,6 +288,7 @@ public class ImageProcessorTests : IDisposable
             image.Format = MagickFormat.Bmp;
             image.Write(bmpPath);
         }
+
         var targetPath = Path.Combine(_testDir, "from_bmp.png");
 
         var result = await ImageProcessor.ConvertAndSaveImageAsync(bmpPath, targetPath, CancellationToken.None);
@@ -302,6 +307,7 @@ public class ImageProcessorTests : IDisposable
             image.Format = MagickFormat.Gif;
             image.Write(gifPath);
         }
+
         var targetPath = Path.Combine(_testDir, "from_gif.png");
 
         var result = await ImageProcessor.ConvertAndSaveImageAsync(gifPath, targetPath, CancellationToken.None);
@@ -320,6 +326,7 @@ public class ImageProcessorTests : IDisposable
             image.Format = MagickFormat.WebP;
             image.Write(webpPath);
         }
+
         var targetPath = Path.Combine(_testDir, "from_webp.png");
 
         var result = await ImageProcessor.ConvertAndSaveImageAsync(webpPath, targetPath, CancellationToken.None);
@@ -338,6 +345,7 @@ public class ImageProcessorTests : IDisposable
             image.Format = MagickFormat.Tiff;
             image.Write(tiffPath);
         }
+
         var targetPath = Path.Combine(_testDir, "from_tiff.png");
 
         var result = await ImageProcessor.ConvertAndSaveImageAsync(tiffPath, targetPath, CancellationToken.None);
@@ -356,6 +364,7 @@ public class ImageProcessorTests : IDisposable
             image.Format = MagickFormat.Png;
             image.Write(sourcePath);
         }
+
         var targetPath = Path.Combine(_testDir, "content_out.png");
 
         var result = await ImageProcessor.ConvertAndSaveImageAsync(sourcePath, targetPath, CancellationToken.None);

@@ -11,15 +11,21 @@ namespace FindRomCover.Services;
 
 public static class ErrorLogger
 {
-    internal static volatile bool IsDisposed;
-    internal static readonly object DisposeLock = new();
-
     private const string ApiKey = AppConstants.BugReportApiKey;
     private const string BugReportApiUrl = AppConstants.BugReportApiUrl;
 
-    internal static readonly string ApiLogFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ApiLogError.txt");
-    internal static readonly string UserLogFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "UserLogError.txt");
-    internal static readonly string InternalLogFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "InternalLog.txt");
+    public const int DefaultApiTimeoutSeconds = 30;
+    internal static volatile bool IsDisposed;
+    internal static readonly Lock DisposeLock = new();
+
+    internal static readonly string ApiLogFilePath =
+        Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ApiLogError.txt");
+
+    internal static readonly string UserLogFilePath =
+        Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "UserLogError.txt");
+
+    internal static readonly string InternalLogFilePath =
+        Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "InternalLog.txt");
 
     private static readonly SemaphoreSlim LogFileLock = new(1, 1);
     private static readonly SemaphoreSlim InternalLogSemaphore = new(1, 1);
@@ -30,13 +36,11 @@ public static class ErrorLogger
         WriteIndented = false
     };
 
-    public const int DefaultApiTimeoutSeconds = 30;
-
     internal static Func<BugReportModel, int, Task<bool>>? SendToApiOverride;
 
     public static void Dispose()
     {
-        lock (DisposeLock)
+        using (var scope = DisposeLock.EnterScope())
         {
             if (IsDisposed) return;
 
@@ -44,12 +48,10 @@ public static class ErrorLogger
         }
     }
 
-    public static async Task LogAsync(Exception? ex, string? contextMessage = null, int apiTimeoutSeconds = DefaultApiTimeoutSeconds)
+    public static async Task LogAsync(Exception? ex, string? contextMessage = null,
+        int apiTimeoutSeconds = DefaultApiTimeoutSeconds)
     {
-        if (IsDisposed)
-        {
-            return;
-        }
+        if (IsDisposed) return;
 
         apiTimeoutSeconds = ResolveApiTimeoutSeconds(apiTimeoutSeconds);
 
@@ -62,10 +64,7 @@ public static class ErrorLogger
             await LogFileLock.WaitAsync();
             lockAcquired = true;
 
-            if (IsDisposed)
-            {
-                return;
-            }
+            if (IsDisposed) return;
 
             await File.AppendAllTextAsync(UserLogFilePath, currentErrorMessage);
             await File.AppendAllTextAsync(ApiLogFilePath, currentErrorMessage);
@@ -81,19 +80,14 @@ public static class ErrorLogger
             }
 
             if (sendSuccess)
-            {
                 try
                 {
-                    if (File.Exists(ApiLogFilePath))
-                    {
-                        await File.WriteAllTextAsync(ApiLogFilePath, string.Empty);
-                    }
+                    if (File.Exists(ApiLogFilePath)) await File.WriteAllTextAsync(ApiLogFilePath, string.Empty);
                 }
                 catch (Exception loggingEx)
                 {
                     _ = WriteInternalLogAsync("Failed to clear API log file.", loggingEx);
                 }
-            }
         }
         catch (Exception loggingEx)
         {
@@ -101,10 +95,7 @@ public static class ErrorLogger
         }
         finally
         {
-            if (lockAcquired)
-            {
-                LogFileLock.Release();
-            }
+            if (lockAcquired) LogFileLock.Release();
         }
     }
 
@@ -112,10 +103,7 @@ public static class ErrorLogger
     {
         try
         {
-            if (apiTimeoutSeconds > 0 && apiTimeoutSeconds != DefaultApiTimeoutSeconds)
-            {
-                return apiTimeoutSeconds;
-            }
+            if (apiTimeoutSeconds > 0 && apiTimeoutSeconds != DefaultApiTimeoutSeconds) return apiTimeoutSeconds;
 
             return SettingsManager.CurrentInstance?.ApiTimeoutSeconds ?? DefaultApiTimeoutSeconds;
         }
@@ -128,15 +116,9 @@ public static class ErrorLogger
 
     private static async Task<bool> SendLogToApiAsync(BugReportModel bugReport, int apiTimeoutSeconds)
     {
-        if (IsDisposed)
-        {
-            return false;
-        }
+        if (IsDisposed) return false;
 
-        if (SendToApiOverride != null)
-        {
-            return await SendToApiOverride(bugReport, apiTimeoutSeconds);
-        }
+        if (SendToApiOverride != null) return await SendToApiOverride(bugReport, apiTimeoutSeconds);
 
         try
         {
@@ -144,7 +126,8 @@ public static class ErrorLogger
             messageBuilder.AppendLine("=== Environment Details ===");
             messageBuilder.AppendLine(CultureInfo.InvariantCulture, $"Date: {bugReport.Date:yyyy-MM-dd HH:mm:ss}");
             messageBuilder.AppendLine(CultureInfo.InvariantCulture, $"Application Name: {bugReport.ApplicationName}");
-            messageBuilder.AppendLine(CultureInfo.InvariantCulture, $"Application Version: {bugReport.ApplicationVersion}");
+            messageBuilder.AppendLine(CultureInfo.InvariantCulture,
+                $"Application Version: {bugReport.ApplicationVersion}");
             messageBuilder.AppendLine(CultureInfo.InvariantCulture, $"OS Version: {bugReport.OsVersion}");
             messageBuilder.AppendLine(CultureInfo.InvariantCulture, $"Architecture: {bugReport.Architecture}");
             messageBuilder.AppendLine(CultureInfo.InvariantCulture, $"Bitness: {bugReport.Bitness}");
@@ -157,10 +140,7 @@ public static class ErrorLogger
             messageBuilder.AppendLine(CultureInfo.InvariantCulture, $"Error Message: {bugReport.ErrorMessage}");
 
             var message = messageBuilder.ToString();
-            if (message.Length > 4000)
-            {
-                message = message[..3997] + "...";
-            }
+            if (message.Length > 4000) message = message[..3997] + "...";
 
             var stackTraceBuilder = new StringBuilder();
             stackTraceBuilder.AppendLine("=== Exception Details ===");
@@ -173,17 +153,18 @@ public static class ErrorLogger
             {
                 stackTraceBuilder.AppendLine();
                 stackTraceBuilder.AppendLine("--- Inner Exception ---");
-                stackTraceBuilder.AppendLine(CultureInfo.InvariantCulture, $"Type: {bugReport.Exception.InnerException.Type}");
-                stackTraceBuilder.AppendLine(CultureInfo.InvariantCulture, $"Message: {bugReport.Exception.InnerException.Message}");
-                stackTraceBuilder.AppendLine(CultureInfo.InvariantCulture, $"Source: {bugReport.Exception.InnerException.Source}");
-                stackTraceBuilder.AppendLine(CultureInfo.InvariantCulture, $"StackTrace: {bugReport.Exception.InnerException.StackTrace}");
+                stackTraceBuilder.AppendLine(CultureInfo.InvariantCulture,
+                    $"Type: {bugReport.Exception.InnerException.Type}");
+                stackTraceBuilder.AppendLine(CultureInfo.InvariantCulture,
+                    $"Message: {bugReport.Exception.InnerException.Message}");
+                stackTraceBuilder.AppendLine(CultureInfo.InvariantCulture,
+                    $"Source: {bugReport.Exception.InnerException.Source}");
+                stackTraceBuilder.AppendLine(CultureInfo.InvariantCulture,
+                    $"StackTrace: {bugReport.Exception.InnerException.StackTrace}");
             }
 
             var stackTrace = stackTraceBuilder.ToString();
-            if (stackTrace.Length > 8000)
-            {
-                stackTrace = stackTrace[..7997] + "...";
-            }
+            if (stackTrace.Length > 8000) stackTrace = stackTrace[..7997] + "...";
 
             var bugReportPayload = new
             {
@@ -205,16 +186,12 @@ public static class ErrorLogger
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(apiTimeoutSeconds));
             using var response = await HttpClientHelper.Client.SendAsync(request, cts.Token);
 
-            if (response.IsSuccessStatusCode)
-            {
-                return true;
-            }
-            else
-            {
-                var errorContent = await response.Content.ReadAsStringAsync(cts.Token);
-                _ = WriteInternalLogAsync($"API returned non-success status code: {response.StatusCode}. Response: {errorContent}");
-                return false;
-            }
+            if (response.IsSuccessStatusCode) return true;
+
+            var errorContent = await response.Content.ReadAsStringAsync(cts.Token);
+            _ = WriteInternalLogAsync(
+                $"API returned non-success status code: {response.StatusCode}. Response: {errorContent}");
+            return false;
         }
         catch (HttpRequestException httpEx)
         {
@@ -249,10 +226,7 @@ public static class ErrorLogger
             {
                 logMessage.AppendLine(CultureInfo.InvariantCulture, $"{exception.GetType().Name}: {exception.Message}");
 
-                if (!string.IsNullOrWhiteSpace(exception.StackTrace))
-                {
-                    logMessage.AppendLine(exception.StackTrace);
-                }
+                if (!string.IsNullOrWhiteSpace(exception.StackTrace)) logMessage.AppendLine(exception.StackTrace);
             }
 
             await InternalLogSemaphore.WaitAsync();

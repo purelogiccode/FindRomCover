@@ -1,5 +1,5 @@
-using FluentAssertions;
 using FindRomCover.Services;
+using FluentAssertions;
 using Xunit;
 
 namespace FindRomCover.Tests.Services;
@@ -25,7 +25,7 @@ public class BugReportAdditionalTests
     [Fact]
     public async Task LogErrorAsyncWithNullContextShouldNotThrow()
     {
-        var act = () => BugReport.LogErrorAsync(new InvalidOperationException("test"), null);
+        var act = () => BugReport.LogErrorAsync(new InvalidOperationException("test"));
 
         await act.Should().NotThrowAsync();
     }
@@ -33,7 +33,7 @@ public class BugReportAdditionalTests
     [Fact]
     public async Task LogErrorAsyncWithBothNullShouldNotThrow()
     {
-        var act = () => BugReport.LogErrorAsync(null, null);
+        var act = () => BugReport.LogErrorAsync(null);
 
         await act.Should().NotThrowAsync();
     }

@@ -1,8 +1,8 @@
 using System.Text.Json;
-using FluentAssertions;
 using FindRomCover.ApiProvider;
 using FindRomCover.Managers;
 using FindRomCover.Models;
+using FluentAssertions;
 using Xunit;
 
 namespace FindRomCover.Tests.ApiProvider;

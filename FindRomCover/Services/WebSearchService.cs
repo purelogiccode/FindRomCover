@@ -5,7 +5,7 @@ namespace FindRomCover.Services;
 public class WebSearchService
 {
     /// <summary>
-    /// Builds a Bing Images search URL for the given query.
+    ///     Builds a Bing Images search URL for the given query.
     /// </summary>
     /// <param name="searchQuery">The search query string.</param>
     /// <returns>The full Bing Images search URL.</returns>
@@ -20,7 +20,7 @@ public class WebSearchService
     }
 
     /// <summary>
-    /// Builds a Google Images search URL for the given query.
+    ///     Builds a Google Images search URL for the given query.
     /// </summary>
     /// <param name="searchQuery">The search query string.</param>
     /// <returns>The full Google Images search URL.</returns>

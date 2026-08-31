@@ -1,4 +1,5 @@
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
@@ -44,8 +45,11 @@ public partial class MainWindow
             _selectedRomFileName = selectedItemRomName;
             _imageFolderWatcher?.PendingRenameTarget = selectedItemRomName;
 
-            try { Clipboard.SetText(selectedItemRomName); }
-            catch (System.Runtime.InteropServices.COMException)
+            try
+            {
+                Clipboard.SetText(selectedItemRomName);
+            }
+            catch (COMException)
             {
                 // Clipboard may be locked by another process
             }
@@ -56,7 +60,10 @@ public partial class MainWindow
 
             TriggerActiveTabSearch(selectedItemSearchName);
         }
-        catch (Exception ex) { LogService.Error(ex, "Error in LstMissingImages_SelectionChanged"); }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "Error in LstMissingImages_SelectionChanged");
+        }
     }
 
     private void TriggerActiveTabSearch(string searchName)
@@ -66,7 +73,9 @@ public partial class MainWindow
         // Build the search query for web/API tabs
         var extraQuery = TxtExtraQuery.Text.Trim();
         var cleanedSearchName = SearchQueryHelper.CleanSearchQuery(searchName);
-        var searchQuery = !string.IsNullOrWhiteSpace(extraQuery) ? $"\"{cleanedSearchName}\" {extraQuery}" : $"\"{cleanedSearchName}\"";
+        var searchQuery = !string.IsNullOrWhiteSpace(extraQuery)
+            ? $"\"{cleanedSearchName}\" {extraQuery}"
+            : $"\"{cleanedSearchName}\"";
 
         // Dispatch based on active tab
         switch (activeTab)
@@ -148,7 +157,8 @@ public partial class MainWindow
             textBlock.Inlines.Add(new Run("for ROM: "));
             textBlock.Inlines.Add(new Run($"{romName} ") { FontWeight = FontWeights.Bold });
             textBlock.Inlines.Add(new Run("with "));
-            textBlock.Inlines.Add(new Run($"{Settings.SelectedSimilarityAlgorithm} ") { FontWeight = FontWeights.Bold });
+            textBlock.Inlines.Add(new Run($"{Settings.SelectedSimilarityAlgorithm} ")
+                { FontWeight = FontWeights.Bold });
             textBlock.Inlines.Add(new Run("algorithm"));
             LblLocalSearchQuery.Content = textBlock;
 
@@ -194,20 +204,23 @@ public partial class MainWindow
 
                     if (similarityResult.ProcessingErrors.Count > 0)
                     {
-                        var errorSummary = $"Encountered {similarityResult.ProcessingErrors.Count} issues while processing images:\n\n";
+                        var errorSummary =
+                            $"Encountered {similarityResult.ProcessingErrors.Count} issues while processing images:\n\n";
                         errorSummary += string.Join("\n", similarityResult.ProcessingErrors.Take(5));
                         if (similarityResult.ProcessingErrors.Count > 5)
-                        {
                             errorSummary += $"\n...and {similarityResult.ProcessingErrors.Count - 5} more.";
-                        }
 
-                        MessageBox.Show(errorSummary, "Image Processing Warnings", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        MessageBox.Show(errorSummary, "Image Processing Warnings", MessageBoxButton.OK,
+                            MessageBoxImage.Warning);
                     }
 
                     LocalImageScrollViewer.ScrollToTop();
                 }
             }
-            finally { _findSimilarSemaphore.Release(); }
+            finally
+            {
+                _findSimilarSemaphore.Release();
+            }
         }
         catch (OperationCanceledException)
         {
@@ -216,11 +229,15 @@ public partial class MainWindow
         {
             if (!cancellationToken.IsCancellationRequested)
             {
-                MessageBox.Show($"Error searching for similar images: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Error searching for similar images: {ex.Message}", "Error", MessageBoxButton.OK,
+                    MessageBoxImage.Error);
                 LogService.Error(ex, "Error in RunLocalSearchAsync");
             }
         }
-        finally { IsFindingSimilar = false; }
+        finally
+        {
+            IsFindingSimilar = false;
+        }
     }
 
     private void ImageCell_Click(object sender, RoutedEventArgs e)
@@ -228,17 +245,19 @@ public partial class MainWindow
         try
         {
             if (sender is FrameworkElement { DataContext: ImageData { ImagePath: not null } imageData })
-            {
                 _ = UseImageAsync(imageData.ImagePath);
-            }
         }
-        catch (Exception ex) { LogService.Error(ex, "Error in ImageCell_Click"); }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "Error in ImageCell_Click");
+        }
     }
 
     private async Task UseImageAsync(string? imagePath)
     {
         var imageFolderPath = GetValidatedImageFolderPath(false);
-        if (string.IsNullOrEmpty(_selectedRomFileName) || string.IsNullOrEmpty(imagePath) || string.IsNullOrEmpty(imageFolderPath)) return;
+        if (string.IsNullOrEmpty(_selectedRomFileName) || string.IsNullOrEmpty(imagePath) ||
+            string.IsNullOrEmpty(imageFolderPath)) return;
 
         var safeFileName = SearchQueryHelper.SanitizeFileName(_selectedRomFileName);
         var newFileName = Path.Combine(imageFolderPath, safeFileName + ".png");
@@ -261,7 +280,8 @@ public partial class MainWindow
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Unexpected error saving image: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show($"Unexpected error saving image: {ex.Message}", "Error", MessageBoxButton.OK,
+                MessageBoxImage.Error);
             LogService.Error(ex, $"Unexpected error in UseImage: {imagePath}");
         }
     }
@@ -273,10 +293,12 @@ public partial class MainWindow
             if (sender is not FrameworkElement { DataContext: ImageData imageData } element) return;
 
             if (imageData.ImagePath != null)
-            {
-                element.ContextMenu = ButtonFactory.CreateContextMenu(imageData.ImagePath, path => { _ = UseImageAsync(path); }, element.ContextMenu);
-            }
+                element.ContextMenu = ButtonFactory.CreateContextMenu(imageData.ImagePath,
+                    path => { _ = UseImageAsync(path); }, element.ContextMenu);
         }
-        catch (Exception ex) { LogService.Error(ex, "Error in Image_ContextMenuOpening"); }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "Error in Image_ContextMenuOpening");
+        }
     }
 }

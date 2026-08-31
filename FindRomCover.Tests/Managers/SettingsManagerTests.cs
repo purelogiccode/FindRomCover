@@ -1,5 +1,5 @@
-using FluentAssertions;
 using FindRomCover.Managers;
+using FluentAssertions;
 using Xunit;
 
 namespace FindRomCover.Tests.Managers;
@@ -18,13 +18,11 @@ public class SettingsManagerTests : IDisposable
 
         // Backup existing settings.dat if present (with retry for file locking)
         if (File.Exists(_originalSettingsPath))
-        {
             RetryFileOperation(() =>
             {
                 File.Copy(_originalSettingsPath, _tempSettingsPath, true);
                 File.Delete(_originalSettingsPath);
             });
-        }
     }
 
     public void Dispose()
@@ -32,10 +30,7 @@ public class SettingsManagerTests : IDisposable
         // Restore original settings.dat (with retry for file locking)
         RetryFileOperation(() =>
         {
-            if (File.Exists(_originalSettingsPath))
-            {
-                File.Delete(_originalSettingsPath);
-            }
+            if (File.Exists(_originalSettingsPath)) File.Delete(_originalSettingsPath);
 
             if (File.Exists(_tempSettingsPath))
             {
@@ -50,7 +45,6 @@ public class SettingsManagerTests : IDisposable
     private static void RetryFileOperation(Action action, int maxRetries = 5, int delayMs = 50)
     {
         for (var i = 0; i < maxRetries; i++)
-        {
             try
             {
                 action();
@@ -60,7 +54,6 @@ public class SettingsManagerTests : IDisposable
             {
                 Thread.Sleep(delayMs);
             }
-        }
     }
 
     [Fact]
@@ -98,15 +91,9 @@ public class SettingsManagerTests : IDisposable
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "FindRomCover", "settings.dat");
 
-        if (File.Exists(_originalSettingsPath))
-        {
-            File.Delete(_originalSettingsPath);
-        }
+        if (File.Exists(_originalSettingsPath)) File.Delete(_originalSettingsPath);
 
-        if (File.Exists(userDataPath))
-        {
-            File.Delete(userDataPath);
-        }
+        if (File.Exists(userDataPath)) File.Delete(userDataPath);
 
         var settings = new SettingsManager();
 
@@ -147,10 +134,7 @@ public class SettingsManagerTests : IDisposable
     [Fact]
     public void LoadSettingsWhenFileDoesNotExistShouldCreateDefaults()
     {
-        if (File.Exists(_originalSettingsPath))
-        {
-            File.Delete(_originalSettingsPath);
-        }
+        if (File.Exists(_originalSettingsPath)) File.Delete(_originalSettingsPath);
 
         var settings = new SettingsManager();
         settings.LoadSettings();

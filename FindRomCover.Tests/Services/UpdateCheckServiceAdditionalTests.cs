@@ -1,5 +1,5 @@
-using FluentAssertions;
 using FindRomCover.Services;
+using FluentAssertions;
 using Xunit;
 
 namespace FindRomCover.Tests.Services;
@@ -86,13 +86,13 @@ public class UpdateCheckServiceAdditionalTests
     {
         var currentVersion = new Version(1, 0, 0);
         const string json = """
-            {
-                "tag_name": "v2.0.0",
-                "html_url": "https://github.com/releases/2.0.0",
-                "body": "New version!",
-                "published_at": "2025-01-01T00:00:00Z"
-            }
-            """;
+                            {
+                                "tag_name": "v2.0.0",
+                                "html_url": "https://github.com/releases/2.0.0",
+                                "body": "New version!",
+                                "published_at": "2025-01-01T00:00:00Z"
+                            }
+                            """;
 
         var result = UpdateCheckService.ParseReleaseResponse(json, currentVersion);
 
@@ -105,13 +105,13 @@ public class UpdateCheckServiceAdditionalTests
     {
         var currentVersion = new Version(1, 0, 0);
         const string json = """
-            {
-                "tag_name": "v1.0.0",
-                "html_url": "https://github.com/releases/1.0.0",
-                "body": "Same version",
-                "published_at": "2025-01-01T00:00:00Z"
-            }
-            """;
+                            {
+                                "tag_name": "v1.0.0",
+                                "html_url": "https://github.com/releases/1.0.0",
+                                "body": "Same version",
+                                "published_at": "2025-01-01T00:00:00Z"
+                            }
+                            """;
 
         var result = UpdateCheckService.ParseReleaseResponse(json, currentVersion);
 
@@ -123,13 +123,13 @@ public class UpdateCheckServiceAdditionalTests
     {
         var currentVersion = new Version(2, 0, 0);
         const string json = """
-            {
-                "tag_name": "v1.0.0",
-                "html_url": "https://github.com/releases/1.0.0",
-                "body": "Older version",
-                "published_at": "2025-01-01T00:00:00Z"
-            }
-            """;
+                            {
+                                "tag_name": "v1.0.0",
+                                "html_url": "https://github.com/releases/1.0.0",
+                                "body": "Older version",
+                                "published_at": "2025-01-01T00:00:00Z"
+                            }
+                            """;
 
         var result = UpdateCheckService.ParseReleaseResponse(json, currentVersion);
 
@@ -141,13 +141,13 @@ public class UpdateCheckServiceAdditionalTests
     {
         var currentVersion = new Version(1, 0, 0);
         const string json = """
-            {
-                "tag_name": "v2.0.0",
-                "html_url": "https://github.com/custom/url",
-                "body": "",
-                "published_at": ""
-            }
-            """;
+                            {
+                                "tag_name": "v2.0.0",
+                                "html_url": "https://github.com/custom/url",
+                                "body": "",
+                                "published_at": ""
+                            }
+                            """;
 
         var result = UpdateCheckService.ParseReleaseResponse(json, currentVersion);
 
@@ -159,13 +159,13 @@ public class UpdateCheckServiceAdditionalTests
     {
         var currentVersion = new Version(1, 0, 0);
         const string json = """
-            {
-                "tag_name": "v2.0.0",
-                "html_url": "https://github.com/releases/2.0.0",
-                "body": "## Changes\n- Fix bug\n- Add feature",
-                "published_at": "2025-01-01T00:00:00Z"
-            }
-            """;
+                            {
+                                "tag_name": "v2.0.0",
+                                "html_url": "https://github.com/releases/2.0.0",
+                                "body": "## Changes\n- Fix bug\n- Add feature",
+                                "published_at": "2025-01-01T00:00:00Z"
+                            }
+                            """;
 
         var result = UpdateCheckService.ParseReleaseResponse(json, currentVersion);
 
@@ -178,13 +178,13 @@ public class UpdateCheckServiceAdditionalTests
     {
         var currentVersion = new Version(1, 0, 0);
         const string json = """
-            {
-                "tag_name": "v2.0.0",
-                "html_url": "https://github.com/releases/2.0.0",
-                "body": "",
-                "published_at": "2025-06-15T12:00:00Z"
-            }
-            """;
+                            {
+                                "tag_name": "v2.0.0",
+                                "html_url": "https://github.com/releases/2.0.0",
+                                "body": "",
+                                "published_at": "2025-06-15T12:00:00Z"
+                            }
+                            """;
 
         var result = UpdateCheckService.ParseReleaseResponse(json, currentVersion);
 
@@ -196,12 +196,12 @@ public class UpdateCheckServiceAdditionalTests
     {
         var currentVersion = new Version(1, 0, 0);
         const string json = """
-            {
-                "tag_name": "v2.0.0",
-                "body": "",
-                "published_at": ""
-            }
-            """;
+                            {
+                                "tag_name": "v2.0.0",
+                                "body": "",
+                                "published_at": ""
+                            }
+                            """;
 
         var result = UpdateCheckService.ParseReleaseResponse(json, currentVersion);
 
@@ -213,12 +213,12 @@ public class UpdateCheckServiceAdditionalTests
     {
         var currentVersion = new Version(1, 0, 0);
         const string json = """
-            {
-                "tag_name": "v2.0.0",
-                "html_url": "https://github.com/releases/2.0.0",
-                "published_at": ""
-            }
-            """;
+                            {
+                                "tag_name": "v2.0.0",
+                                "html_url": "https://github.com/releases/2.0.0",
+                                "published_at": ""
+                            }
+                            """;
 
         var result = UpdateCheckService.ParseReleaseResponse(json, currentVersion);
 
@@ -230,12 +230,12 @@ public class UpdateCheckServiceAdditionalTests
     {
         var currentVersion = new Version(1, 0, 0);
         const string json = """
-            {
-                "tag_name": "v2.0.0",
-                "html_url": "https://github.com/releases/2.0.0",
-                "body": ""
-            }
-            """;
+                            {
+                                "tag_name": "v2.0.0",
+                                "html_url": "https://github.com/releases/2.0.0",
+                                "body": ""
+                            }
+                            """;
 
         var result = UpdateCheckService.ParseReleaseResponse(json, currentVersion);
 

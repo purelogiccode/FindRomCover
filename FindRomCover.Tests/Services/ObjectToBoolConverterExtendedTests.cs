@@ -1,6 +1,6 @@
 using System.Globalization;
-using FluentAssertions;
 using FindRomCover.Services;
+using FluentAssertions;
 using Xunit;
 
 namespace FindRomCover.Tests.Services;

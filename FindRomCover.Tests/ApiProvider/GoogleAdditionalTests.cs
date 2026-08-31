@@ -1,7 +1,7 @@
 using System.Text.Json;
-using FluentAssertions;
 using FindRomCover.ApiProvider;
 using FindRomCover.Models;
+using FluentAssertions;
 using Xunit;
 
 namespace FindRomCover.Tests.ApiProvider;
@@ -146,29 +146,29 @@ public class GoogleAdditionalTests
     public void DeserializeResponseWithMultipleItemsShouldReturnAll()
     {
         const string json = """
-            {
-                "items": [
-                    {
-                        "link": "https://example.com/1.png",
-                        "title": "Image 1",
-                        "mime": "image/png",
-                        "image": { "width": 100, "height": 100, "byteSize": 1024 }
-                    },
-                    {
-                        "link": "https://example.com/2.jpg",
-                        "title": "Image 2",
-                        "mime": "image/jpeg",
-                        "image": { "width": 200, "height": 200, "byteSize": 2048 }
-                    },
-                    {
-                        "link": "https://example.com/3.gif",
-                        "title": "Image 3",
-                        "mime": "image/gif",
-                        "image": { "width": 300, "height": 300, "byteSize": 4096 }
-                    }
-                ]
-            }
-            """;
+                            {
+                                "items": [
+                                    {
+                                        "link": "https://example.com/1.png",
+                                        "title": "Image 1",
+                                        "mime": "image/png",
+                                        "image": { "width": 100, "height": 100, "byteSize": 1024 }
+                                    },
+                                    {
+                                        "link": "https://example.com/2.jpg",
+                                        "title": "Image 2",
+                                        "mime": "image/jpeg",
+                                        "image": { "width": 200, "height": 200, "byteSize": 2048 }
+                                    },
+                                    {
+                                        "link": "https://example.com/3.gif",
+                                        "title": "Image 3",
+                                        "mime": "image/gif",
+                                        "image": { "width": 300, "height": 300, "byteSize": 4096 }
+                                    }
+                                ]
+                            }
+                            """;
         var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
 
         var result = Google.DeserializeResponse(json, options);
@@ -184,16 +184,16 @@ public class GoogleAdditionalTests
     public void DeserializeResponseWithNullImageShouldHandleGracefully()
     {
         const string json = """
-            {
-                "items": [
-                    {
-                        "link": "https://example.com/img.png",
-                        "title": "Test",
-                        "mime": "image/png"
-                    }
-                ]
-            }
-            """;
+                            {
+                                "items": [
+                                    {
+                                        "link": "https://example.com/img.png",
+                                        "title": "Test",
+                                        "mime": "image/png"
+                                    }
+                                ]
+                            }
+                            """;
         var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
 
         var result = Google.DeserializeResponse(json, options);
@@ -207,17 +207,17 @@ public class GoogleAdditionalTests
     public void DeserializeResponseWithPartialImageInfoShouldHandleGracefully()
     {
         const string json = """
-            {
-                "items": [
-                    {
-                        "link": "https://example.com/img.png",
-                        "title": "Test",
-                        "mime": "image/png",
-                        "image": { "width": 100 }
-                    }
-                ]
-            }
-            """;
+                            {
+                                "items": [
+                                    {
+                                        "link": "https://example.com/img.png",
+                                        "title": "Test",
+                                        "mime": "image/png",
+                                        "image": { "width": 100 }
+                                    }
+                                ]
+                            }
+                            """;
         var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
 
         var result = Google.DeserializeResponse(json, options);
@@ -254,10 +254,10 @@ public class GoogleAdditionalTests
     public void DeserializeResponseWithEmptyItemsArrayShouldReturnEmptyList()
     {
         const string json = """
-            {
-                "items": []
-            }
-            """;
+                            {
+                                "items": []
+                            }
+                            """;
         var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
 
         var result = Google.DeserializeResponse(json, options);

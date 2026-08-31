@@ -1,7 +1,7 @@
 using System.Net;
 using System.Text.Json;
-using FluentAssertions;
 using FindRomCover.Services;
+using FluentAssertions;
 using Moq;
 using Moq.Protected;
 using Xunit;
@@ -30,7 +30,8 @@ public class UpdateCheckServiceTests
     [InlineData("v1.0", 1, 0)]
     [InlineData("v2.3", 2, 3)]
     [InlineData("2.1", 2, 1)]
-    public void ParseVersionWithMajorMinorTagShouldReturnCorrectComponents(string tagName, int expectedMajor, int expectedMinor)
+    public void ParseVersionWithMajorMinorTagShouldReturnCorrectComponents(string tagName, int expectedMajor,
+        int expectedMinor)
     {
         var result = UpdateCheckService.ParseVersion(tagName);
 
@@ -42,7 +43,8 @@ public class UpdateCheckServiceTests
     [Theory]
     [InlineData("v2.1.3.4", 2, 1, 3, 4)]
     [InlineData("V1.2.3.4", 1, 2, 3, 4)]
-    public void ParseVersionWithRevisionShouldPreserveAllComponents(string tagName, int major, int minor, int build, int revision)
+    public void ParseVersionWithRevisionShouldPreserveAllComponents(string tagName, int major, int minor, int build,
+        int revision)
     {
         var result = UpdateCheckService.ParseVersion(tagName);
 
@@ -53,27 +55,19 @@ public class UpdateCheckServiceTests
         result.Revision.Should().Be(revision);
     }
 
-    private static string BuildReleaseJson(string tagName, string? htmlUrl = null, string? body = null, string? publishedAt = null)
+    private static string BuildReleaseJson(string tagName, string? htmlUrl = null, string? body = null,
+        string? publishedAt = null)
     {
-        var obj = new Dictionary<string, object>
+        var obj = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
         {
             ["tag_name"] = tagName
         };
 
-        if (htmlUrl != null)
-        {
-            obj["html_url"] = htmlUrl;
-        }
+        if (htmlUrl != null) obj["html_url"] = htmlUrl;
 
-        if (body != null)
-        {
-            obj["body"] = body;
-        }
+        if (body != null) obj["body"] = body;
 
-        if (publishedAt != null)
-        {
-            obj["published_at"] = publishedAt;
-        }
+        if (publishedAt != null) obj["published_at"] = publishedAt;
 
         return JsonSerializer.Serialize(obj);
     }

@@ -1,5 +1,5 @@
-using FluentAssertions;
 using FindRomCover.Managers;
+using FluentAssertions;
 using Xunit;
 
 namespace FindRomCover.Tests.Managers;

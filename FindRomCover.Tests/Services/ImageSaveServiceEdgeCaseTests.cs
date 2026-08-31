@@ -1,5 +1,5 @@
-using FluentAssertions;
 using FindRomCover.Services;
+using FluentAssertions;
 using ImageMagick;
 using Xunit;
 
@@ -12,16 +12,12 @@ public class ImageSaveServiceEdgeCaseTests : IDisposable
     public ImageSaveServiceEdgeCaseTests()
     {
         _testOutputDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ImageSaveEdgeTests");
-        if (!Directory.Exists(_testOutputDir))
-        {
-            Directory.CreateDirectory(_testOutputDir);
-        }
+        if (!Directory.Exists(_testOutputDir)) Directory.CreateDirectory(_testOutputDir);
     }
 
     public void Dispose()
     {
         if (Directory.Exists(_testOutputDir))
-        {
             try
             {
                 Directory.Delete(_testOutputDir, true);
@@ -30,7 +26,6 @@ public class ImageSaveServiceEdgeCaseTests : IDisposable
             {
                 // Best effort cleanup
             }
-        }
 
         GC.SuppressFinalize(this);
     }

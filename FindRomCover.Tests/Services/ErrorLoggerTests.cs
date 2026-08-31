@@ -1,5 +1,5 @@
-using FluentAssertions;
 using FindRomCover.Services;
+using FluentAssertions;
 using Xunit;
 
 namespace FindRomCover.Tests.Services;
@@ -11,10 +11,7 @@ public class ErrorLoggerTests : IDisposable
     public ErrorLoggerTests()
     {
         _testLogDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ErrorLoggerTests");
-        if (!Directory.Exists(_testLogDir))
-        {
-            Directory.CreateDirectory(_testLogDir);
-        }
+        if (!Directory.Exists(_testLogDir)) Directory.CreateDirectory(_testLogDir);
 
         // Reset disposed state before each test
         lock (ErrorLogger.DisposeLock)
@@ -32,10 +29,15 @@ public class ErrorLoggerTests : IDisposable
         }
 
         if (Directory.Exists(_testLogDir))
-        {
-            try { Directory.Delete(_testLogDir, true); }
-            catch { /* best effort */ }
-        }
+            try
+            {
+                Directory.Delete(_testLogDir, true);
+            }
+            catch
+            {
+                /* best effort */
+            }
+
         GC.SuppressFinalize(this);
     }
 
@@ -98,7 +100,7 @@ public class ErrorLoggerTests : IDisposable
     [Fact]
     public async Task LogAsyncWithNullContextShouldNotThrow()
     {
-        var act = () => ErrorLogger.LogAsync(new InvalidOperationException("test"), null);
+        var act = () => ErrorLogger.LogAsync(new InvalidOperationException("test"));
 
         await act.Should().NotThrowAsync();
     }
@@ -108,10 +110,7 @@ public class ErrorLoggerTests : IDisposable
     {
         // Access the internal fields via reflection or just verify they are set
         // Since they are internal, we can test indirectly by checking the class doesn't throw
-        var act = () =>
-        {
-            _ = ErrorLogger.DefaultApiTimeoutSeconds;
-        };
+        var act = () => { _ = ErrorLogger.DefaultApiTimeoutSeconds; };
 
         act.Should().NotThrow();
     }

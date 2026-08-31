@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media.Imaging;
@@ -13,6 +15,57 @@ namespace FindRomCover.Services;
 
 public static class ButtonFactory
 {
+    private static ICommand CopyImageFilenameCommand { get; } = new DelegateCommand(static param =>
+    {
+        if (param is not string imagePath) return;
+
+        var filenameWithoutExtension = Path.GetFileNameWithoutExtension(imagePath);
+
+        try
+        {
+            Clipboard.SetText(filenameWithoutExtension);
+            MessageBox.Show($"Filename '{filenameWithoutExtension}' copied to clipboard!",
+                "Copied", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (COMException)
+        {
+            MessageBox.Show("Could not copy to clipboard. It might be in use by another application.",
+                "Clipboard Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    });
+
+    private static ICommand OpenFileLocationCommand { get; } = new DelegateCommand(static param =>
+    {
+        if (param is not string imagePath || string.IsNullOrEmpty(imagePath)) return;
+
+        if (File.Exists(imagePath))
+        {
+            var sanitizedPath = imagePath.Replace("\"", "", StringComparison.Ordinal);
+            var processStartInfo = new ProcessStartInfo
+            {
+                FileName = "explorer.exe",
+                Arguments = $"/select,\"{sanitizedPath}\"",
+                UseShellExecute = true
+            };
+            Process.Start(processStartInfo)?.Dispose();
+        }
+    });
+
+    private static ICommand OpenFileCommand { get; } = new DelegateCommand(static param =>
+    {
+        if (param is not string imagePath || string.IsNullOrEmpty(imagePath)) return;
+
+        if (File.Exists(imagePath))
+        {
+            var processStartInfo = new ProcessStartInfo
+            {
+                FileName = imagePath,
+                UseShellExecute = true
+            };
+            Process.Start(processStartInfo)?.Dispose();
+        }
+    });
+
     public static Task<SimilarityCalculationResult> CreateSimilarImagesCollectionAsync(
         string selectedRomFileName,
         string imageFolderPath,
@@ -30,22 +83,16 @@ public static class ButtonFactory
             onImageLoaded: onImageLoaded);
     }
 
-    public static ContextMenu CreateContextMenu(string imagePath, Action<string?> useImageAction, ContextMenu? existingMenu = null)
+    public static ContextMenu CreateContextMenu(string imagePath, Action<string?> useImageAction,
+        ContextMenu? existingMenu = null)
     {
-        if (string.IsNullOrEmpty(imagePath))
-        {
-            return new ContextMenu();
-        }
+        if (string.IsNullOrEmpty(imagePath)) return new ContextMenu();
 
         if (existingMenu is { Items.Count: > 0 })
         {
             foreach (var item in existingMenu.Items)
-            {
                 if (item is MenuItem menuItem)
-                {
                     menuItem.CommandParameter = imagePath;
-                }
-            }
 
             return existingMenu;
         }
@@ -121,63 +168,6 @@ public static class ButtonFactory
 
         return contextMenu;
     }
-
-    private static ICommand CopyImageFilenameCommand { get; } = new DelegateCommand(static param =>
-    {
-        if (param is not string imagePath) return;
-
-        var filenameWithoutExtension = Path.GetFileNameWithoutExtension(imagePath);
-
-        try
-        {
-            Clipboard.SetText(filenameWithoutExtension);
-            MessageBox.Show($"Filename '{filenameWithoutExtension}' copied to clipboard!",
-                "Copied", MessageBoxButton.OK, MessageBoxImage.Information);
-        }
-        catch (System.Runtime.InteropServices.COMException)
-        {
-            MessageBox.Show("Could not copy to clipboard. It might be in use by another application.",
-                "Clipboard Error", MessageBoxButton.OK, MessageBoxImage.Warning);
-        }
-    });
-
-    private static ICommand OpenFileLocationCommand { get; } = new DelegateCommand(static param =>
-    {
-        if (param is not string imagePath || string.IsNullOrEmpty(imagePath))
-        {
-            return;
-        }
-
-        if (File.Exists(imagePath))
-        {
-            var sanitizedPath = imagePath.Replace("\"", "", StringComparison.Ordinal);
-            var processStartInfo = new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = "explorer.exe",
-                Arguments = $"/select,\"{sanitizedPath}\"",
-                UseShellExecute = true
-            };
-            System.Diagnostics.Process.Start(processStartInfo)?.Dispose();
-        }
-    });
-
-    private static ICommand OpenFileCommand { get; } = new DelegateCommand(static param =>
-    {
-        if (param is not string imagePath || string.IsNullOrEmpty(imagePath))
-        {
-            return;
-        }
-
-        if (File.Exists(imagePath))
-        {
-            var processStartInfo = new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = imagePath,
-                UseShellExecute = true
-            };
-            System.Diagnostics.Process.Start(processStartInfo)?.Dispose();
-        }
-    });
 
     private static BitmapImage CreateFrozenBitmapImage(string uri)
     {

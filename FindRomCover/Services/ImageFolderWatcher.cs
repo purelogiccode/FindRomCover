@@ -6,44 +6,62 @@ namespace FindRomCover.Services;
 
 public sealed class ImageFolderWatcher : IDisposable
 {
-    private FileSystemWatcher? _watcher;
-    private readonly SemaphoreSlim _processingLock = new(1, 1);
-    private readonly ConcurrentDictionary<string, byte> _recentlyProcessed = new();
-    private readonly CancellationTokenSource _disposeCts = new();
-    private bool _disposed;
-
     private static readonly HashSet<string> SupportedExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         ".png", ".jpg", ".jpeg", ".bmp", ".gif", ".webp", ".tiff", ".tif",
         ".avif", ".heic", ".heif", ".ico", ".svg", ".jxl", ".jp2"
     };
 
-    public event Action<string>? ImageFound;
-    public event Action<string, string>? ConversionFailed;
+    private readonly CancellationTokenSource _disposeCts = new();
+    private readonly SemaphoreSlim _processingLock = new(1, 1);
+    private readonly ConcurrentDictionary<string, byte> _recentlyProcessed = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Lock _renameLock = new();
+    private bool _disposed;
 
     private string? _pendingRenameTarget;
-    private readonly object _renameLock = new();
+    private FileSystemWatcher? _watcher;
 
     public string? PendingRenameTarget
     {
-        get { lock (_renameLock) { return _pendingRenameTarget; } }
+        get
+        {
+            lock (_renameLock)
+            {
+                return _pendingRenameTarget;
+            }
+        }
         set
         {
             lock (_renameLock)
             {
                 var old = _pendingRenameTarget;
                 _pendingRenameTarget = value;
-                if (old != value)
+                if (!string.Equals(old, value, StringComparison.OrdinalIgnoreCase))
                     LogService.Debug($"ImageFolderWatcher: PendingRenameTarget changed from '{old}' to '{value}'");
             }
         }
     }
 
+    public void Dispose()
+    {
+        if (_disposed) return;
+
+        _disposed = true;
+        _disposeCts.Cancel();
+        _disposeCts.Dispose();
+
+        Stop();
+        _processingLock.Dispose();
+    }
+
+    public event Action<string>? ImageFound;
+    public event Action<string, string>? ConversionFailed;
+
     private void TryClearPendingRenameTarget(string? expectedValue)
     {
         lock (_renameLock)
         {
-            if (_pendingRenameTarget != expectedValue) return;
+            if (!string.Equals(_pendingRenameTarget, expectedValue, StringComparison.OrdinalIgnoreCase)) return;
 
             var old = _pendingRenameTarget;
             _pendingRenameTarget = null;
@@ -56,7 +74,14 @@ public sealed class ImageFolderWatcher : IDisposable
         _recentlyProcessed.TryAdd(filePath, 1);
         _ = Task.Run(async () =>
         {
-            try { await Task.Delay(60000, _disposeCts.Token); } catch (OperationCanceledException) { }
+            try
+            {
+                await Task.Delay(60000, _disposeCts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+
             _recentlyProcessed.TryRemove(filePath, out _);
         });
         LogService.Debug($"ImageFolderWatcher: pre-registered '{Path.GetFileName(filePath)}' so watcher will skip it");
@@ -101,20 +126,17 @@ public sealed class ImageFolderWatcher : IDisposable
 
         // Wait for any in-flight ProcessFileAsync to complete
         if (!_processingLock.Wait(TimeSpan.FromSeconds(15)))
-        {
             LogService.Warning("ImageFolderWatcher: timed out waiting for in-flight processing to complete");
-        }
         else
-        {
             _processingLock.Release();
-        }
 
         LogService.Information("ImageFolderWatcher: stopped");
     }
 
     private static void OnWatcherError(object sender, ErrorEventArgs e)
     {
-        LogService.Error(e.GetException(), "ImageFolderWatcher: FileSystemWatcher error (buffer overflow or system error)");
+        LogService.Error(e.GetException(),
+            "ImageFolderWatcher: FileSystemWatcher error (buffer overflow or system error)");
     }
 
     private async void OnFileCreatedAsync(object sender, FileSystemEventArgs e)
@@ -173,7 +195,8 @@ public sealed class ImageFolderWatcher : IDisposable
 
             if (!SupportedExtensions.Contains(extension))
             {
-                LogService.Debug($"ImageFolderWatcher: skipping '{Path.GetFileName(filePath)}' — extension '{extension}' not supported");
+                LogService.Debug(
+                    $"ImageFolderWatcher: skipping '{Path.GetFileName(filePath)}' — extension '{extension}' not supported");
                 return;
             }
 
@@ -197,7 +220,14 @@ public sealed class ImageFolderWatcher : IDisposable
                 var dedupeKey = filePath;
                 _ = Task.Run(async () =>
                 {
-                    try { await Task.Delay(60000, _disposeCts.Token); } catch (OperationCanceledException) { }
+                    try
+                    {
+                        await Task.Delay(60000, _disposeCts.Token);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                    }
+
                     _recentlyProcessed.TryRemove(dedupeKey, out _);
                 });
 
@@ -212,19 +242,17 @@ public sealed class ImageFolderWatcher : IDisposable
                         Path.GetFileNameWithoutExtension(filePath) + ".png");
 
                     if (File.Exists(pngEquivalent))
-                    {
-                        LogService.Debug($"ImageFolderWatcher: source file gone after PNG conversion: '{Path.GetFileName(filePath)}'");
-                    }
+                        LogService.Debug(
+                            $"ImageFolderWatcher: source file gone after PNG conversion: '{Path.GetFileName(filePath)}'");
                     else
-                    {
                         LogService.Debug($"ImageFolderWatcher: file disappeared after wait: '{filePath}'");
-                    }
 
                     return;
                 }
 
                 var renameTarget = PendingRenameTarget;
-                LogService.Debug($"ImageFolderWatcher: processing '{Path.GetFileName(filePath)}' — PendingRenameTarget = '{renameTarget}'");
+                LogService.Debug(
+                    $"ImageFolderWatcher: processing '{Path.GetFileName(filePath)}' — PendingRenameTarget = '{renameTarget}'");
 
                 var wasRenamed = false;
                 if (!string.IsNullOrEmpty(renameTarget))
@@ -234,7 +262,8 @@ public sealed class ImageFolderWatcher : IDisposable
 
                     if (string.Equals(filePath, renamedPath, StringComparison.OrdinalIgnoreCase))
                     {
-                        LogService.Debug($"ImageFolderWatcher: source and target are the same ('{Path.GetFileName(filePath)}'), skipping rename");
+                        LogService.Debug(
+                            $"ImageFolderWatcher: source and target are the same ('{Path.GetFileName(filePath)}'), skipping rename");
                         wasRenamed = true;
                         TryClearPendingRenameTarget(renameTarget);
                     }
@@ -242,11 +271,16 @@ public sealed class ImageFolderWatcher : IDisposable
                     {
                         if (File.Exists(renamedPath))
                         {
-                            LogService.Debug($"ImageFolderWatcher: target '{Path.GetFileName(renamedPath)}' already exists, deleting it first");
-                            try { File.Delete(renamedPath); }
+                            LogService.Debug(
+                                $"ImageFolderWatcher: target '{Path.GetFileName(renamedPath)}' already exists, deleting it first");
+                            try
+                            {
+                                File.Delete(renamedPath);
+                            }
                             catch (Exception ex)
                             {
-                                LogService.Error(ex, $"ImageFolderWatcher: failed to delete existing target '{renamedPath}'");
+                                LogService.Error(ex,
+                                    $"ImageFolderWatcher: failed to delete existing target '{renamedPath}'");
                             }
                         }
 
@@ -259,27 +293,38 @@ public sealed class ImageFolderWatcher : IDisposable
                             _recentlyProcessed.TryAdd(renamedPath, 1);
                             _ = Task.Run(async () =>
                             {
-                                try { await Task.Delay(60000, _disposeCts.Token); } catch (OperationCanceledException) { }
+                                try
+                                {
+                                    await Task.Delay(60000, _disposeCts.Token);
+                                }
+                                catch (OperationCanceledException)
+                                {
+                                }
+
                                 _recentlyProcessed.TryRemove(renamedPath, out _);
                             });
-                            LogService.Debug($"ImageFolderWatcher: renamed '{Path.GetFileName(filePath)}' to '{Path.GetFileName(renamedPath)}'");
+                            LogService.Debug(
+                                $"ImageFolderWatcher: renamed '{Path.GetFileName(filePath)}' to '{Path.GetFileName(renamedPath)}'");
                             filePath = renamedPath;
                         }
                         else
                         {
-                            LogService.Warning($"ImageFolderWatcher: failed to rename '{filePath}' to '{renamedPath}' after retries — PendingRenameTarget kept for next file");
+                            LogService.Warning(
+                                $"ImageFolderWatcher: failed to rename '{filePath}' to '{renamedPath}' after retries — PendingRenameTarget kept for next file");
                         }
                     }
                 }
                 else
                 {
-                    LogService.Debug($"ImageFolderWatcher: no PendingRenameTarget set for '{Path.GetFileName(filePath)}' — skipping rename");
+                    LogService.Debug(
+                        $"ImageFolderWatcher: no PendingRenameTarget set for '{Path.GetFileName(filePath)}' — skipping rename");
                 }
 
                 if (!wasRenamed)
                 {
                     _recentlyProcessed.TryRemove(filePath, out _);
-                    LogService.Debug($"ImageFolderWatcher: skipping conversion for '{Path.GetFileName(filePath)}' — file was not renamed to a game name");
+                    LogService.Debug(
+                        $"ImageFolderWatcher: skipping conversion for '{Path.GetFileName(filePath)}' — file was not renamed to a game name");
                     return;
                 }
 
@@ -288,7 +333,8 @@ public sealed class ImageFolderWatcher : IDisposable
                     var (convertedPath, convertError) = await ConvertToPngWithRetryAsync(filePath);
                     if (convertedPath == null)
                     {
-                        LogService.Debug($"ImageFolderWatcher: conversion to PNG failed for '{filePath}' — ImageFound NOT fired");
+                        LogService.Debug(
+                            $"ImageFolderWatcher: conversion to PNG failed for '{filePath}' — ImageFound NOT fired");
                         ConversionFailed?.Invoke(filePath, convertError ?? "Unknown error");
                         return;
                     }
@@ -296,7 +342,14 @@ public sealed class ImageFolderWatcher : IDisposable
                     _recentlyProcessed.TryAdd(convertedPath, 1);
                     _ = Task.Run(async () =>
                     {
-                        try { await Task.Delay(60000, _disposeCts.Token); } catch (OperationCanceledException) { }
+                        try
+                        {
+                            await Task.Delay(60000, _disposeCts.Token);
+                        }
+                        catch (OperationCanceledException)
+                        {
+                        }
+
                         _recentlyProcessed.TryRemove(convertedPath, out _);
                     });
 
@@ -335,7 +388,8 @@ public sealed class ImageFolderWatcher : IDisposable
         {
             try
             {
-                await using var stream = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+                await using var stream = File.Open(filePath, FileMode.Open, FileAccess.Read,
+                    FileShare.ReadWrite | FileShare.Delete);
                 if (stream.Length > 0)
                 {
                     if (stream.Length == lastSize)
@@ -377,7 +431,6 @@ public sealed class ImageFolderWatcher : IDisposable
         const int baseDelayMs = 200;
 
         for (var attempt = 1; attempt <= maxRetries; attempt++)
-        {
             try
             {
                 File.Move(sourcePath, targetPath);
@@ -385,7 +438,8 @@ public sealed class ImageFolderWatcher : IDisposable
             }
             catch (FileNotFoundException)
             {
-                LogService.Debug($"MoveFileWithRetryAsync: source file not found (may have been deleted): '{sourcePath}'");
+                LogService.Debug(
+                    $"MoveFileWithRetryAsync: source file not found (may have been deleted): '{sourcePath}'");
                 return false;
             }
             catch (IOException) when (attempt < maxRetries)
@@ -400,13 +454,13 @@ public sealed class ImageFolderWatcher : IDisposable
             }
             catch (Exception ex)
             {
-                LogService.Error(ex, $"MoveFileWithRetryAsync: attempt {attempt} failed for '{sourcePath}' -> '{targetPath}'");
+                LogService.Error(ex,
+                    $"MoveFileWithRetryAsync: attempt {attempt} failed for '{sourcePath}' -> '{targetPath}'");
                 if (attempt >= maxRetries) return false;
 
                 var delay = baseDelayMs * Math.Pow(2, attempt - 1);
                 await Task.Delay((int)delay);
             }
-        }
 
         return false;
     }
@@ -418,14 +472,14 @@ public sealed class ImageFolderWatcher : IDisposable
         string? lastError = null;
 
         for (var attempt = 1; attempt <= maxRetries; attempt++)
-        {
             try
             {
                 return await ConvertToPngAsync(sourcePath);
             }
             catch (MagickException ex)
             {
-                LogService.Warning(ex, $"ImageFolderWatcher: image conversion skipped for corrupt/misformatted file: {sourcePath}");
+                LogService.Warning(ex,
+                    $"ImageFolderWatcher: image conversion skipped for corrupt/misformatted file: {sourcePath}");
                 return (null, ex.Message);
             }
             catch (Exception ex)
@@ -439,7 +493,6 @@ public sealed class ImageFolderWatcher : IDisposable
                     await Task.Delay((int)delay);
                 }
             }
-        }
 
         return (null, lastError);
     }
@@ -459,26 +512,16 @@ public sealed class ImageFolderWatcher : IDisposable
         await magickImage.WriteAsync(targetPath);
 
         if (File.Exists(sourcePath) && !string.Equals(sourcePath, targetPath, StringComparison.OrdinalIgnoreCase))
-        {
-            try { File.Delete(sourcePath); }
+            try
+            {
+                File.Delete(sourcePath);
+            }
             catch (Exception ex)
             {
-                LogService.Warning(ex, $"ImageFolderWatcher: failed to delete source file after PNG conversion: '{sourcePath}'");
+                LogService.Warning(ex,
+                    $"ImageFolderWatcher: failed to delete source file after PNG conversion: '{sourcePath}'");
             }
-        }
 
         return (targetPath, null);
-    }
-
-    public void Dispose()
-    {
-        if (_disposed) return;
-
-        _disposed = true;
-        _disposeCts.Cancel();
-        _disposeCts.Dispose();
-
-        Stop();
-        _processingLock.Dispose();
     }
 }

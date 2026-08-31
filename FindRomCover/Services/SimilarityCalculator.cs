@@ -27,12 +27,13 @@ public static class SimilarityCalculator
 
         if (string.IsNullOrEmpty(imageFolderPath) || !Directory.Exists(imageFolderPath)) return result;
 
-        if (maxImagesToLoad <= 0)
-        {
-            maxImagesToLoad = GetConfiguredMaxImagesToLoad();
-        }
+        if (maxImagesToLoad <= 0) maxImagesToLoad = GetConfiguredMaxImagesToLoad();
 
-        string[] imageExtensions = ["*.png", "*.jpg", "*.jpeg", "*.avif", "*.bmp", "*.gif", "*.webp", "*.tiff", "*.tif", "*.ico", "*.svg", "*.jxl", "*.jp2"];
+        string[] imageExtensions =
+        [
+            "*.png", "*.jpg", "*.jpeg", "*.avif", "*.bmp", "*.gif", "*.webp", "*.tiff", "*.tif", "*.ico", "*.svg",
+            "*.jxl", "*.jp2"
+        ];
 
         var allImageFiles = imageExtensions
             .SelectMany(ext => Directory.EnumerateFiles(imageFolderPath, ext))
@@ -51,17 +52,12 @@ public static class SimilarityCalculator
             var candidates = index.GetCandidates(selectedFileName);
 
             if (candidates.Count > 0 && candidates.Count >= allImageFiles.Count * NgramIndexFallbackRatio)
-            {
                 filesToProcess = candidates;
-            }
         }
 
         var maxParallelism = Math.Max(1, Environment.ProcessorCount - 1);
 
-        if (filesToProcess.Count > 5000)
-        {
-            maxParallelism = Math.Min(maxParallelism, 4);
-        }
+        if (filesToProcess.Count > 5000) maxParallelism = Math.Min(maxParallelism, 4);
 
         var candidateFiles = new ConcurrentBag<(string FilePath, string ImageName, double SimilarityScore)>();
         var processingErrors = new ConcurrentBag<string>();
@@ -86,13 +82,14 @@ public static class SimilarityCalculator
                     switch (algorithm)
                     {
                         case AppConstants.Algorithms.Levenshtein:
-                            similarityScore = CalculateLevenshteinSimilarity(selectedFileName, imageName, similarityThreshold);
+                            similarityScore =
+                                CalculateLevenshteinSimilarity(selectedFileName, imageName, similarityThreshold);
                             break;
                         case AppConstants.Algorithms.Jaccard:
                             var ngramSize = Math.Min(selectedFileName.Length, imageName.Length) < 2 ? 1 : 2;
                             var queryNgrams = ngramSize == 1
-                                ? (jaccardQueryUnigrams ??= GetNgrams(selectedFileName.ToLowerInvariant(), 1))
-                                : (jaccardQueryBigrams ??= GetNgrams(selectedFileName.ToLowerInvariant(), 2));
+                                ? jaccardQueryUnigrams ??= GetNgrams(selectedFileName.ToLowerInvariant(), 1)
+                                : jaccardQueryBigrams ??= GetNgrams(selectedFileName.ToLowerInvariant(), 2);
                             similarityScore = CalculateJaccardIndex(queryNgrams, imageName, ngramSize);
                             break;
                         case AppConstants.Algorithms.JaroWinkler:
@@ -105,13 +102,12 @@ public static class SimilarityCalculator
                     }
 
                     if (similarityScore >= similarityThreshold)
-                    {
                         candidateFiles.Add((imageFile, imageName, similarityScore));
-                    }
                 }
                 catch (Exception ex)
                 {
-                    processingErrors.Add($"Could not process image '{Path.GetFileName(imageFile)}' for similarity: {ex.Message}");
+                    processingErrors.Add(
+                        $"Could not process image '{Path.GetFileName(imageFile)}' for similarity: {ex.Message}");
                 }
 
                 return ValueTask.CompletedTask;
@@ -158,7 +154,8 @@ public static class SimilarityCalculator
 
                     if (imageSource == null)
                     {
-                        processingErrors.Add($"Image '{Path.GetFileName(candidate.FilePath)}' could not be loaded (corrupted or empty).");
+                        processingErrors.Add(
+                            $"Image '{Path.GetFileName(candidate.FilePath)}' could not be loaded (corrupted or empty).");
                         return;
                     }
 
@@ -175,7 +172,8 @@ public static class SimilarityCalculator
                 }
                 catch (Exception ex)
                 {
-                    processingErrors.Add($"Could not load image '{Path.GetFileName(candidate.FilePath)}' for display: {ex.Message}");
+                    processingErrors.Add(
+                        $"Could not load image '{Path.GetFileName(candidate.FilePath)}' for display: {ex.Message}");
                 }
             });
         }
@@ -245,10 +243,7 @@ public static class SimilarityCalculator
         var previousRow = new int[lengthB + 1];
         var currentRow = new int[lengthB + 1];
 
-        for (var j = 0; j <= lengthB; j++)
-        {
-            previousRow[j] = j;
-        }
+        for (var j = 0; j <= lengthB; j++) previousRow[j] = j;
 
         for (var i = 1; i <= lengthA; i++)
         {
@@ -262,10 +257,7 @@ public static class SimilarityCalculator
                     Math.Min(previousRow[j] + 1, currentRow[j - 1] + 1),
                     previousRow[j - 1] + cost);
 
-                if (currentRow[j] < minInRow)
-                {
-                    minInRow = currentRow[j];
-                }
+                if (currentRow[j] < minInRow) minInRow = currentRow[j];
             }
 
             if (maxAllowedDistance != int.MaxValue && minInRow > maxAllowedDistance)
@@ -290,10 +282,10 @@ public static class SimilarityCalculator
         if (setA.Count == 0 && setB.Count == 0)
             return 100;
 
-        var intersection = new HashSet<string>(setA);
+        var intersection = new HashSet<string>(setA, StringComparer.OrdinalIgnoreCase);
         intersection.IntersectWith(setB);
 
-        var union = new HashSet<string>(setA);
+        var union = new HashSet<string>(setA, StringComparer.OrdinalIgnoreCase);
         union.UnionWith(setB);
 
         return union.Count == 0 ? 100 : intersection.Count / (double)union.Count * 100;
@@ -302,9 +294,9 @@ public static class SimilarityCalculator
     internal static HashSet<string> GetNgrams(string input, int n)
     {
         if (string.IsNullOrEmpty(input) || n <= 0)
-            return new HashSet<string>();
+            return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        var ngrams = new HashSet<string>();
+        var ngrams = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         var padded = new string(' ', n - 1) + input + new string(' ', n - 1);
 
@@ -327,15 +319,9 @@ public static class SimilarityCalculator
         var s1Len = s1.Length;
         var s2Len = s2.Length;
 
-        if (s1Len == 0 && s2Len == 0)
-        {
-            return 100.0;
-        }
+        if (s1Len == 0 && s2Len == 0) return 100.0;
 
-        if (s1Len == 0 || s2Len == 0)
-        {
-            return 0.0;
-        }
+        if (s1Len == 0 || s2Len == 0) return 0.0;
 
         var matchDistance = Math.Max(0, Math.Max(s1Len, s2Len) / 2 - 1);
 
@@ -374,25 +360,19 @@ public static class SimilarityCalculator
             {
                 if (!s1Matches[i]) continue;
 
-                while (!s2Matches[k])
-                {
-                    k++;
-                }
+                while (!s2Matches[k]) k++;
 
-                if (s1[i] != s2[k])
-                {
-                    transpositions++;
-                }
+                if (s1[i] != s2[k]) transpositions++;
 
                 k++;
             }
 
             var jaro =
-                ((double)matches / s1Len + (double)matches / s2Len + (matches - (double)transpositions / 2) / matches) / 3;
+                ((double)matches / s1Len + (double)matches / s2Len + (matches - (double)transpositions / 2) / matches) /
+                3;
 
             var prefixLength = 0;
             for (var i = 0; i < Math.Min(s1Len, s2Len); i++)
-            {
                 if (s1[i] == s2[i])
                 {
                     prefixLength++;
@@ -402,7 +382,6 @@ public static class SimilarityCalculator
                 {
                     break;
                 }
-            }
 
             var jaroWinkler = jaro + prefixLength * scalingFactor * (1 - jaro);
             jaroWinkler = Math.Min(jaroWinkler, 1.0);

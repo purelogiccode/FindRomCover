@@ -1,32 +1,28 @@
 using System.IO;
+using System.Windows;
 using System.Windows.Media;
 
 namespace FindRomCover.Services;
 
 public class LocalAudioService : IAudioService
 {
-    private MediaPlayer? _mediaPlayer;
     private bool _isSoundAvailable;
+    private MediaPlayer? _mediaPlayer;
 
     public LocalAudioService()
     {
         var soundPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "audio", "click.mp3");
 
         if (File.Exists(soundPath))
-        {
             try
             {
                 if (Thread.CurrentThread.GetApartmentState() != ApartmentState.STA)
                 {
-                    var dispatcher = System.Windows.Application.Current?.Dispatcher;
+                    var dispatcher = Application.Current?.Dispatcher;
                     if (dispatcher != null)
-                    {
                         dispatcher.BeginInvoke(() => InitializeMediaPlayer(soundPath));
-                    }
                     else
-                    {
                         _isSoundAvailable = false;
-                    }
                 }
                 else
                 {
@@ -45,25 +41,8 @@ public class LocalAudioService : IAudioService
                     // ignored
                 }
             }
-        }
         else
-        {
             _isSoundAvailable = false;
-        }
-    }
-
-    private void InitializeMediaPlayer(string soundPath)
-    {
-        _mediaPlayer = new MediaPlayer();
-        var soundUri = new Uri(soundPath, UriKind.Absolute);
-        _mediaPlayer.Open(soundUri);
-        _mediaPlayer.MediaFailed += OnMediaFailed;
-        _isSoundAvailable = true;
-    }
-
-    private void OnMediaFailed(object? sender, ExceptionEventArgs e)
-    {
-        _isSoundAvailable = false;
     }
 
     public void PlayClickSound()
@@ -97,5 +76,19 @@ public class LocalAudioService : IAudioService
         }
 
         GC.SuppressFinalize(this);
+    }
+
+    private void InitializeMediaPlayer(string soundPath)
+    {
+        _mediaPlayer = new MediaPlayer();
+        var soundUri = new Uri(soundPath, UriKind.Absolute);
+        _mediaPlayer.Open(soundUri);
+        _mediaPlayer.MediaFailed += OnMediaFailed;
+        _isSoundAvailable = true;
+    }
+
+    private void OnMediaFailed(object? sender, ExceptionEventArgs e)
+    {
+        _isSoundAvailable = false;
     }
 }

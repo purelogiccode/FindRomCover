@@ -1,5 +1,5 @@
-using FluentAssertions;
 using FindRomCover.Services;
+using FluentAssertions;
 using Xunit;
 
 namespace FindRomCover.Tests.Services;
@@ -15,7 +15,8 @@ public class SimilarityCalculatorAdditionalTests
     [InlineData("a", "", 0)]
     [InlineData("", "a", 0)]
     [InlineData("ab", "ac", 50)]
-    public void CalculateLevenshteinSimilarityWithVariousInputsShouldReturnCorrectScores(string a, string b, double expected)
+    public void CalculateLevenshteinSimilarityWithVariousInputsShouldReturnCorrectScores(string a, string b,
+        double expected)
     {
         var result = SimilarityCalculator.CalculateLevenshteinSimilarity(a, b);
 

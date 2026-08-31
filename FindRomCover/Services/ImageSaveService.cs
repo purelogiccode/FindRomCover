@@ -6,13 +6,14 @@ namespace FindRomCover.Services;
 public class ImageSaveService
 {
     /// <summary>
-    /// Downloads an image from the given URL and saves it as a PNG file at the specified path.
+    ///     Downloads an image from the given URL and saves it as a PNG file at the specified path.
     /// </summary>
     /// <param name="imageUrl">The URL of the image to download.</param>
     /// <param name="outputPath">The path where the PNG image will be saved.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     /// <returns>True if the download and save was successful, false otherwise.</returns>
-    public async Task<bool> DownloadAndSaveImageAsync(string imageUrl, string outputPath, CancellationToken cancellationToken = default)
+    public async Task<bool> DownloadAndSaveImageAsync(string imageUrl, string outputPath,
+        CancellationToken cancellationToken = default)
     {
         try
         {
@@ -38,25 +39,24 @@ public class ImageSaveService
     }
 
     /// <summary>
-    /// Converts an image from a source stream to a PNG format at a destination path.
-    /// Preserves the aspect ratio, dimensions, and transparency using Magick.NET.
+    ///     Converts an image from a source stream to a PNG format at a destination path.
+    ///     Preserves the aspect ratio, dimensions, and transparency using Magick.NET.
     /// </summary>
     /// <param name="inputStream">The stream containing the source image data.</param>
     /// <param name="outputPath">The path where the PNG image will be saved.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     /// <returns>True if conversion was successful, false otherwise.</returns>
-    public async Task<bool> ConvertStreamToPngAndSaveAsync(Stream inputStream, string outputPath, CancellationToken cancellationToken = default)
+    public async Task<bool> ConvertStreamToPngAndSaveAsync(Stream inputStream, string outputPath,
+        CancellationToken cancellationToken = default)
     {
         var tempOutputPath = outputPath + ".tmp" + Guid.NewGuid().ToString("N")[..8];
         try
         {
-            LogService.Debug($"Converting stream to PNG and saving to '{outputPath}' via temp file '{tempOutputPath}'.");
+            LogService.Debug(
+                $"Converting stream to PNG and saving to '{outputPath}' via temp file '{tempOutputPath}'.");
 
             var destDir = Path.GetDirectoryName(outputPath);
-            if (!string.IsNullOrEmpty(destDir) && !Directory.Exists(destDir))
-            {
-                Directory.CreateDirectory(destDir);
-            }
+            if (!string.IsNullOrEmpty(destDir) && !Directory.Exists(destDir)) Directory.CreateDirectory(destDir);
 
             using (var image = new MagickImage(inputStream))
             {
@@ -79,7 +79,6 @@ public class ImageSaveService
         finally
         {
             if (File.Exists(tempOutputPath))
-            {
                 try
                 {
                     File.Delete(tempOutputPath);
@@ -88,7 +87,6 @@ public class ImageSaveService
                 {
                     LogService.Warning(cleanupEx, $"Failed to clean up temporary file '{tempOutputPath}'.");
                 }
-            }
         }
     }
 }

@@ -11,6 +11,19 @@ namespace FindRomCover;
 
 public partial class App
 {
+    private static readonly Lazy<IAudioService> AudioServiceLazy = new(static () =>
+    {
+        try
+        {
+            return new LocalAudioService();
+        }
+        catch (Exception ex)
+        {
+            LogService.Warning(ex, "Failed to initialize audio service, falling back to NullAudioService");
+            return new NullAudioService();
+        }
+    });
+
     public static IServiceProvider? ServiceProvider { get; private set; }
 
     public static SettingsManager SettingsManager
@@ -28,19 +41,6 @@ public partial class App
 
     public static string? StartupImageFolderPath { get; private set; }
     public static string? StartupRomFolderPath { get; private set; }
-
-    private static readonly Lazy<IAudioService> AudioServiceLazy = new(static () =>
-    {
-        try
-        {
-            return new LocalAudioService();
-        }
-        catch (Exception ex)
-        {
-            LogService.Warning(ex, "Failed to initialize audio service, falling back to NullAudioService");
-            return new NullAudioService();
-        }
-    });
 
     public static IAudioService AudioService => AudioServiceLazy.Value;
 
@@ -68,7 +68,8 @@ public partial class App
     {
         AppDomain.CurrentDomain.UnhandledException += (_, args) =>
         {
-            var ex = args.ExceptionObject as Exception ?? new InvalidOperationException(args.ExceptionObject.ToString() ?? "Unknown AppDomain exception");
+            var ex = args.ExceptionObject as Exception ??
+                     new InvalidOperationException(args.ExceptionObject.ToString() ?? "Unknown AppDomain exception");
             LogService.Fatal(ex, "Unhandled AppDomain exception - Application will terminate");
             Current?.Dispatcher.BeginInvoke(static () =>
             {
@@ -122,27 +123,24 @@ public partial class App
             switch (e.Args.Length)
             {
                 case >= 2:
+                {
+                    var imageFolderPath = e.Args[0];
+                    var romFolderPath = e.Args[1];
+
+                    if (Directory.Exists(imageFolderPath) && Directory.Exists(romFolderPath))
                     {
-                        var imageFolderPath = e.Args[0];
-                        var romFolderPath = e.Args[1];
-
-                        if (Directory.Exists(imageFolderPath) && Directory.Exists(romFolderPath))
-                        {
-                            StartupImageFolderPath = imageFolderPath;
-                            StartupRomFolderPath = romFolderPath;
-                        }
-
-                        break;
+                        StartupImageFolderPath = imageFolderPath;
+                        StartupRomFolderPath = romFolderPath;
                     }
+
+                    break;
+                }
                 case 1:
-                    {
-                        if (Directory.Exists(e.Args[0]))
-                        {
-                            StartupImageFolderPath = e.Args[0];
-                        }
+                {
+                    if (Directory.Exists(e.Args[0])) StartupImageFolderPath = e.Args[0];
 
-                        break;
-                    }
+                    break;
+                }
             }
 
             LogWindow = new DebugWindow();
@@ -154,9 +152,7 @@ public partial class App
                 : settings.LastImageFolder;
 
             if (!string.IsNullOrEmpty(folderToClean) && Directory.Exists(folderToClean))
-            {
                 await Task.Run(() => ImageProcessor.CleanupOrphanedTempFiles(folderToClean));
-            }
 
             ApplyTheme(settings.BaseTheme, settings.AccentColor);
 
@@ -184,7 +180,6 @@ public partial class App
         {
             var updateInfo = await UpdateCheckService.CheckForUpdateAsync();
             if (updateInfo is { IsUpdateAvailable: true })
-            {
                 Current.Dispatcher.Invoke(() =>
                 {
                     var choice = MessageBox.Show(
@@ -195,15 +190,12 @@ public partial class App
                         "Update Available", MessageBoxButton.YesNo, MessageBoxImage.Information);
 
                     if (choice == MessageBoxResult.Yes)
-                    {
                         Process.Start(new ProcessStartInfo
                         {
                             FileName = updateInfo.ReleaseUrl,
                             UseShellExecute = true
                         });
-                    }
                 });
-            }
         }
         catch (Exception ex)
         {
@@ -213,19 +205,28 @@ public partial class App
 
     protected override void OnExit(ExitEventArgs e)
     {
-        try { if (AudioService is IDisposable disposableAudioService) disposableAudioService.Dispose(); }
+        try
+        {
+            if (AudioService is IDisposable disposableAudioService) disposableAudioService.Dispose();
+        }
         catch (Exception ex)
         {
             LogService.Warning(ex, "Error disposing AudioService during shutdown.");
         }
 
-        try { HttpClientHelper.Dispose(); }
+        try
+        {
+            HttpClientHelper.Dispose();
+        }
         catch (Exception ex)
         {
             LogService.Warning(ex, "Error disposing HttpClientHelper during shutdown.");
         }
 
-        try { ErrorLogger.Dispose(); }
+        try
+        {
+            ErrorLogger.Dispose();
+        }
         catch (Exception ex)
         {
             LogService.Warning(ex, "Error disposing ErrorLogger during shutdown.");
@@ -233,10 +234,7 @@ public partial class App
 
         try
         {
-            if (ServiceProvider is IDisposable disposableProvider)
-            {
-                disposableProvider.Dispose();
-            }
+            if (ServiceProvider is IDisposable disposableProvider) disposableProvider.Dispose();
         }
         catch (Exception ex)
         {
@@ -257,13 +255,19 @@ public partial class App
             Debug.Print($"Error closing LogWindow during shutdown: {ex.Message}");
         }
 
-        try { base.OnExit(e); }
+        try
+        {
+            base.OnExit(e);
+        }
         catch (Exception ex)
         {
             Debug.Print($"Error in base.OnExit during shutdown: {ex.Message}");
         }
 
-        try { LogService.Dispose(); }
+        try
+        {
+            LogService.Dispose();
+        }
         catch (Exception ex)
         {
             Debug.Print($"Error disposing LogService during shutdown: {ex.Message}");
@@ -281,7 +285,10 @@ public partial class App
             SettingsManager.AccentColor = accentColor;
             SettingsManager.SaveSettings();
         }
-        catch (Exception ex) { LogService.Error(ex, "Error in ChangeTheme"); }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "Error in ChangeTheme");
+        }
     }
 
     private static void ApplyTheme(string baseTheme, string accentColor)
@@ -311,7 +318,10 @@ public partial class App
         catch (Exception ex)
         {
             LogService.Error(ex, "Error in ApplyThemeToWindow, falling back to Light.Blue");
-            try { ThemeManager.Current.ChangeTheme(window, "Light.Blue"); }
+            try
+            {
+                ThemeManager.Current.ChangeTheme(window, "Light.Blue");
+            }
             catch
             {
                 // ignored

@@ -19,13 +19,16 @@
                     ContextMenuOpening="Image_ContextMenuOpening"
                     ToolTip="{Binding ImageName, StringFormat='Click to assign: {0}'}">
                 <StackPanel>
-                    <Image Width="{Binding Path=Settings.ImageWidth, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue=200}"
-                           Height="{Binding Path=Settings.ImageHeight, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue=200}"
-                           Source="{Binding DisplayImage, FallbackValue={x:Null}}" />
-                    <TextBlock HorizontalAlignment="Center" Text="{Binding ImageName, FallbackValue=''}" FontWeight="Bold"
+                    <Image
+                        Width="{Binding Path=Settings.ImageWidth, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue=200}"
+                        Height="{Binding Path=Settings.ImageHeight, RelativeSource={RelativeSource AncestorType=Window}, FallbackValue=200}"
+                        Source="{Binding DisplayImage, FallbackValue={x:Null}}" />
+                    <TextBlock HorizontalAlignment="Center" Text="{Binding ImageName, FallbackValue=''}"
+                               FontWeight="Bold"
                                Margin="0,5,0,0" TextTrimming="CharacterEllipsis" />
                     <TextBlock HorizontalAlignment="Center"
-                               Text="{Binding SimilarityScore, StringFormat={}{0:F2}%, FallbackValue='0.00%'}" FontWeight="Bold" />
+                               Text="{Binding SimilarityScore, StringFormat={}{0:F2}%, FallbackValue='0.00%'}"
+                               FontWeight="Bold" />
                 </StackPanel>
             </Button>
         </DataTemplate>
@@ -75,81 +78,136 @@
                 <MenuItem ToolTip="Switch between light and dark themes">
                     <MenuItem.Header>
                         <StackPanel Orientation="Horizontal">
-                            <Image Source="pack://application:,,,/images/theme.png" Width="16" Height="16" Margin="0,0,5,0" />
+                            <Image Source="pack://application:,,,/images/theme.png" Width="16" Height="16"
+                                   Margin="0,0,5,0" />
                             <TextBlock Text="Base Theme" />
                         </StackPanel>
                     </MenuItem.Header>
-                    <MenuItem x:Name="LightTheme" Header="Light" Click="ChangeBaseTheme_Click" IsCheckable="True" ToolTip="Switch to light theme" />
-                    <MenuItem x:Name="DarkTheme" Header="Dark" Click="ChangeBaseTheme_Click" IsCheckable="True" ToolTip="Switch to dark theme" />
+                    <MenuItem x:Name="LightTheme" Header="Light" Click="ChangeBaseTheme_Click" IsCheckable="True"
+                              ToolTip="Switch to light theme" />
+                    <MenuItem x:Name="DarkTheme" Header="Dark" Click="ChangeBaseTheme_Click" IsCheckable="True"
+                              ToolTip="Switch to dark theme" />
                 </MenuItem>
                 <MenuItem x:Name="MenuAccentColors" ToolTip="Choose an accent color for the application">
                     <MenuItem.Header>
                         <StackPanel Orientation="Horizontal">
-                            <Image Source="pack://application:,,,/images/theme.png" Width="16" Height="16" Margin="0,0,5,0" />
+                            <Image Source="pack://application:,,,/images/theme.png" Width="16" Height="16"
+                                   Margin="0,0,5,0" />
                             <TextBlock Text="Accent Colors" />
                         </StackPanel>
                     </MenuItem.Header>
-                    <MenuItem x:Name="RedAccent" Header="Red" Click="ChangeAccentColor_Click" IsCheckable="True" ToolTip="Set accent color to Red" />
-                    <MenuItem x:Name="GreenAccent" Header="Green" Click="ChangeAccentColor_Click" IsCheckable="True" ToolTip="Set accent color to Green" />
-                    <MenuItem x:Name="BlueAccent" Header="Blue" Click="ChangeAccentColor_Click" IsCheckable="True" ToolTip="Set accent color to Blue" />
-                    <MenuItem x:Name="PurpleAccent" Header="Purple" Click="ChangeAccentColor_Click" IsCheckable="True" ToolTip="Set accent color to Purple" />
-                    <MenuItem x:Name="OrangeAccent" Header="Orange" Click="ChangeAccentColor_Click" IsCheckable="True" ToolTip="Set accent color to Orange" />
-                    <MenuItem x:Name="LimeAccent" Header="Lime" Click="ChangeAccentColor_Click" IsCheckable="True" ToolTip="Set accent color to Lime" />
-                    <MenuItem x:Name="EmeraldAccent" Header="Emerald" Click="ChangeAccentColor_Click" IsCheckable="True" ToolTip="Set accent color to Emerald" />
-                    <MenuItem x:Name="TealAccent" Header="Teal" Click="ChangeAccentColor_Click" IsCheckable="True" ToolTip="Set accent color to Teal" />
-                    <MenuItem x:Name="CyanAccent" Header="Cyan" Click="ChangeAccentColor_Click" IsCheckable="True" ToolTip="Set accent color to Cyan" />
-                    <MenuItem x:Name="CobaltAccent" Header="Cobalt" Click="ChangeAccentColor_Click" IsCheckable="True" ToolTip="Set accent color to Cobalt" />
-                    <MenuItem x:Name="IndigoAccent" Header="Indigo" Click="ChangeAccentColor_Click" IsCheckable="True" ToolTip="Set accent color to Indigo" />
-                    <MenuItem x:Name="VioletAccent" Header="Violet" Click="ChangeAccentColor_Click" IsCheckable="True" ToolTip="Set accent color to Violet" />
-                    <MenuItem x:Name="PinkAccent" Header="Pink" Click="ChangeAccentColor_Click" IsCheckable="True" ToolTip="Set accent color to Pink" />
-                    <MenuItem x:Name="MagentaAccent" Header="Magenta" Click="ChangeAccentColor_Click" IsCheckable="True" ToolTip="Set accent color to Magenta" />
-                    <MenuItem x:Name="CrimsonAccent" Header="Crimson" Click="ChangeAccentColor_Click" IsCheckable="True" ToolTip="Set accent color to Crimson" />
-                    <MenuItem x:Name="AmberAccent" Header="Amber" Click="ChangeAccentColor_Click" IsCheckable="True" ToolTip="Set accent color to Amber" />
-                    <MenuItem x:Name="YellowAccent" Header="Yellow" Click="ChangeAccentColor_Click" IsCheckable="True" ToolTip="Set accent color to Yellow" />
-                    <MenuItem x:Name="BrownAccent" Header="Brown" Click="ChangeAccentColor_Click" IsCheckable="True" ToolTip="Set accent color to Brown" />
-                    <MenuItem x:Name="OliveAccent" Header="Olive" Click="ChangeAccentColor_Click" IsCheckable="True" ToolTip="Set accent color to Olive" />
-                    <MenuItem x:Name="SteelAccent" Header="Steel" Click="ChangeAccentColor_Click" IsCheckable="True" ToolTip="Set accent color to Steel" />
-                    <MenuItem x:Name="MauveAccent" Header="Mauve" Click="ChangeAccentColor_Click" IsCheckable="True" ToolTip="Set accent color to Mauve" />
-                    <MenuItem x:Name="TaupeAccent" Header="Taupe" Click="ChangeAccentColor_Click" IsCheckable="True" ToolTip="Set accent color to Taupe" />
-                    <MenuItem x:Name="SiennaAccent" Header="Sienna" Click="ChangeAccentColor_Click" IsCheckable="True" ToolTip="Set accent color to Sienna" />
+                    <MenuItem x:Name="RedAccent" Header="Red" Click="ChangeAccentColor_Click" IsCheckable="True"
+                              ToolTip="Set accent color to Red" />
+                    <MenuItem x:Name="GreenAccent" Header="Green" Click="ChangeAccentColor_Click" IsCheckable="True"
+                              ToolTip="Set accent color to Green" />
+                    <MenuItem x:Name="BlueAccent" Header="Blue" Click="ChangeAccentColor_Click" IsCheckable="True"
+                              ToolTip="Set accent color to Blue" />
+                    <MenuItem x:Name="PurpleAccent" Header="Purple" Click="ChangeAccentColor_Click" IsCheckable="True"
+                              ToolTip="Set accent color to Purple" />
+                    <MenuItem x:Name="OrangeAccent" Header="Orange" Click="ChangeAccentColor_Click" IsCheckable="True"
+                              ToolTip="Set accent color to Orange" />
+                    <MenuItem x:Name="LimeAccent" Header="Lime" Click="ChangeAccentColor_Click" IsCheckable="True"
+                              ToolTip="Set accent color to Lime" />
+                    <MenuItem x:Name="EmeraldAccent" Header="Emerald" Click="ChangeAccentColor_Click"
+                              IsCheckable="True" ToolTip="Set accent color to Emerald" />
+                    <MenuItem x:Name="TealAccent" Header="Teal" Click="ChangeAccentColor_Click" IsCheckable="True"
+                              ToolTip="Set accent color to Teal" />
+                    <MenuItem x:Name="CyanAccent" Header="Cyan" Click="ChangeAccentColor_Click" IsCheckable="True"
+                              ToolTip="Set accent color to Cyan" />
+                    <MenuItem x:Name="CobaltAccent" Header="Cobalt" Click="ChangeAccentColor_Click" IsCheckable="True"
+                              ToolTip="Set accent color to Cobalt" />
+                    <MenuItem x:Name="IndigoAccent" Header="Indigo" Click="ChangeAccentColor_Click" IsCheckable="True"
+                              ToolTip="Set accent color to Indigo" />
+                    <MenuItem x:Name="VioletAccent" Header="Violet" Click="ChangeAccentColor_Click" IsCheckable="True"
+                              ToolTip="Set accent color to Violet" />
+                    <MenuItem x:Name="PinkAccent" Header="Pink" Click="ChangeAccentColor_Click" IsCheckable="True"
+                              ToolTip="Set accent color to Pink" />
+                    <MenuItem x:Name="MagentaAccent" Header="Magenta" Click="ChangeAccentColor_Click"
+                              IsCheckable="True" ToolTip="Set accent color to Magenta" />
+                    <MenuItem x:Name="CrimsonAccent" Header="Crimson" Click="ChangeAccentColor_Click"
+                              IsCheckable="True" ToolTip="Set accent color to Crimson" />
+                    <MenuItem x:Name="AmberAccent" Header="Amber" Click="ChangeAccentColor_Click" IsCheckable="True"
+                              ToolTip="Set accent color to Amber" />
+                    <MenuItem x:Name="YellowAccent" Header="Yellow" Click="ChangeAccentColor_Click" IsCheckable="True"
+                              ToolTip="Set accent color to Yellow" />
+                    <MenuItem x:Name="BrownAccent" Header="Brown" Click="ChangeAccentColor_Click" IsCheckable="True"
+                              ToolTip="Set accent color to Brown" />
+                    <MenuItem x:Name="OliveAccent" Header="Olive" Click="ChangeAccentColor_Click" IsCheckable="True"
+                              ToolTip="Set accent color to Olive" />
+                    <MenuItem x:Name="SteelAccent" Header="Steel" Click="ChangeAccentColor_Click" IsCheckable="True"
+                              ToolTip="Set accent color to Steel" />
+                    <MenuItem x:Name="MauveAccent" Header="Mauve" Click="ChangeAccentColor_Click" IsCheckable="True"
+                              ToolTip="Set accent color to Mauve" />
+                    <MenuItem x:Name="TaupeAccent" Header="Taupe" Click="ChangeAccentColor_Click" IsCheckable="True"
+                              ToolTip="Set accent color to Taupe" />
+                    <MenuItem x:Name="SiennaAccent" Header="Sienna" Click="ChangeAccentColor_Click" IsCheckable="True"
+                              ToolTip="Set accent color to Sienna" />
                 </MenuItem>
             </MenuItem>
 
-            <MenuItem x:Name="MenuSimilarityAlgorithms" Header="Set Similarity Algorithm" ToolTip="Choose the algorithm used to calculate image name similarity">
-                <MenuItem x:Name="MenuAlgorithmJaccard" Click="SetSimilarityAlgorithm_Click" Header="Jaccard Similarity" IsCheckable="True" ToolTip="Use Jaccard similarity index for matching" />
-                <MenuItem x:Name="MenuAlgorithmJaroWinkler" Click="SetSimilarityAlgorithm_Click" Header="Jaro-Winkler Distance" IsCheckable="True" ToolTip="Use Jaro-Winkler distance for matching" />
-                <MenuItem x:Name="MenuAlgorithmLevenshtein" Click="SetSimilarityAlgorithm_Click" Header="Levenshtein Distance" IsCheckable="True" ToolTip="Use Levenshtein edit distance for matching" />
+            <MenuItem x:Name="MenuSimilarityAlgorithms" Header="Set Similarity Algorithm"
+                      ToolTip="Choose the algorithm used to calculate image name similarity">
+                <MenuItem x:Name="MenuAlgorithmJaccard" Click="SetSimilarityAlgorithm_Click"
+                          Header="Jaccard Similarity" IsCheckable="True"
+                          ToolTip="Use Jaccard similarity index for matching" />
+                <MenuItem x:Name="MenuAlgorithmJaroWinkler" Click="SetSimilarityAlgorithm_Click"
+                          Header="Jaro-Winkler Distance" IsCheckable="True"
+                          ToolTip="Use Jaro-Winkler distance for matching" />
+                <MenuItem x:Name="MenuAlgorithmLevenshtein" Click="SetSimilarityAlgorithm_Click"
+                          Header="Levenshtein Distance" IsCheckable="True"
+                          ToolTip="Use Levenshtein edit distance for matching" />
             </MenuItem>
 
-            <MenuItem x:Name="MySimilarityMenu" Header="Set Similarity Threshold" ToolTip="Set the minimum similarity percentage to consider a match">
-                <MenuItem x:Name="Menu10" Click="SetSimilarityThreshold_Click" Header="10%" IsCheckable="True" ToolTip="Match images with at least 10% similarity" />
-                <MenuItem x:Name="Menu20" Click="SetSimilarityThreshold_Click" Header="20%" IsCheckable="True" ToolTip="Match images with at least 20% similarity" />
-                <MenuItem x:Name="Menu30" Click="SetSimilarityThreshold_Click" Header="30%" IsCheckable="True" ToolTip="Match images with at least 30% similarity" />
-                <MenuItem x:Name="Menu40" Click="SetSimilarityThreshold_Click" Header="40%" IsCheckable="True" ToolTip="Match images with at least 40% similarity" />
-                <MenuItem x:Name="Menu50" Click="SetSimilarityThreshold_Click" Header="50%" IsCheckable="True" ToolTip="Match images with at least 50% similarity" />
-                <MenuItem x:Name="Menu60" Click="SetSimilarityThreshold_Click" Header="60%" IsCheckable="True" ToolTip="Match images with at least 60% similarity" />
-                <MenuItem x:Name="Menu70" Click="SetSimilarityThreshold_Click" Header="70%" IsCheckable="True" ToolTip="Match images with at least 70% similarity" />
-                <MenuItem x:Name="Menu80" Click="SetSimilarityThreshold_Click" Header="80%" IsCheckable="True" ToolTip="Match images with at least 80% similarity" />
-                <MenuItem x:Name="Menu90" Click="SetSimilarityThreshold_Click" Header="90%" IsCheckable="True" ToolTip="Match images with at least 90% similarity" />
+            <MenuItem x:Name="MySimilarityMenu" Header="Set Similarity Threshold"
+                      ToolTip="Set the minimum similarity percentage to consider a match">
+                <MenuItem x:Name="Menu10" Click="SetSimilarityThreshold_Click" Header="10%" IsCheckable="True"
+                          ToolTip="Match images with at least 10% similarity" />
+                <MenuItem x:Name="Menu20" Click="SetSimilarityThreshold_Click" Header="20%" IsCheckable="True"
+                          ToolTip="Match images with at least 20% similarity" />
+                <MenuItem x:Name="Menu30" Click="SetSimilarityThreshold_Click" Header="30%" IsCheckable="True"
+                          ToolTip="Match images with at least 30% similarity" />
+                <MenuItem x:Name="Menu40" Click="SetSimilarityThreshold_Click" Header="40%" IsCheckable="True"
+                          ToolTip="Match images with at least 40% similarity" />
+                <MenuItem x:Name="Menu50" Click="SetSimilarityThreshold_Click" Header="50%" IsCheckable="True"
+                          ToolTip="Match images with at least 50% similarity" />
+                <MenuItem x:Name="Menu60" Click="SetSimilarityThreshold_Click" Header="60%" IsCheckable="True"
+                          ToolTip="Match images with at least 60% similarity" />
+                <MenuItem x:Name="Menu70" Click="SetSimilarityThreshold_Click" Header="70%" IsCheckable="True"
+                          ToolTip="Match images with at least 70% similarity" />
+                <MenuItem x:Name="Menu80" Click="SetSimilarityThreshold_Click" Header="80%" IsCheckable="True"
+                          ToolTip="Match images with at least 80% similarity" />
+                <MenuItem x:Name="Menu90" Click="SetSimilarityThreshold_Click" Header="90%" IsCheckable="True"
+                          ToolTip="Match images with at least 90% similarity" />
             </MenuItem>
 
-            <MenuItem x:Name="ImageSizeMenu" Header="Set Thumbnail Size" ToolTip="Set the size of image thumbnails in the results">
-                <MenuItem Click="SetThumbnailSize_Click" Header="100 pixels" IsCheckable="True" Tag="100" ToolTip="Set thumbnails to 100x100 pixels" />
-                <MenuItem Click="SetThumbnailSize_Click" Header="150 pixels" IsCheckable="True" Tag="150" ToolTip="Set thumbnails to 150x150 pixels" />
-                <MenuItem Click="SetThumbnailSize_Click" Header="200 pixels" IsCheckable="True" Tag="200" ToolTip="Set thumbnails to 200x200 pixels" />
-                <MenuItem Click="SetThumbnailSize_Click" Header="250 pixels" IsCheckable="True" Tag="250" ToolTip="Set thumbnails to 250x250 pixels" />
-                <MenuItem Click="SetThumbnailSize_Click" Header="300 pixels" IsCheckable="True" Tag="300" ToolTip="Set thumbnails to 300x300 pixels" />
-                <MenuItem Click="SetThumbnailSize_Click" Header="350 pixels" IsCheckable="True" Tag="350" ToolTip="Set thumbnails to 350x350 pixels" />
-                <MenuItem Click="SetThumbnailSize_Click" Header="400 pixels" IsCheckable="True" Tag="400" ToolTip="Set thumbnails to 400x400 pixels" />
-                <MenuItem Click="SetThumbnailSize_Click" Header="450 pixels" IsCheckable="True" Tag="450" ToolTip="Set thumbnails to 450x450 pixels" />
-                <MenuItem Click="SetThumbnailSize_Click" Header="500 pixels" IsCheckable="True" Tag="500" ToolTip="Set thumbnails to 500x500 pixels" />
+            <MenuItem x:Name="ImageSizeMenu" Header="Set Thumbnail Size"
+                      ToolTip="Set the size of image thumbnails in the results">
+                <MenuItem Click="SetThumbnailSize_Click" Header="100 pixels" IsCheckable="True" Tag="100"
+                          ToolTip="Set thumbnails to 100x100 pixels" />
+                <MenuItem Click="SetThumbnailSize_Click" Header="150 pixels" IsCheckable="True" Tag="150"
+                          ToolTip="Set thumbnails to 150x150 pixels" />
+                <MenuItem Click="SetThumbnailSize_Click" Header="200 pixels" IsCheckable="True" Tag="200"
+                          ToolTip="Set thumbnails to 200x200 pixels" />
+                <MenuItem Click="SetThumbnailSize_Click" Header="250 pixels" IsCheckable="True" Tag="250"
+                          ToolTip="Set thumbnails to 250x250 pixels" />
+                <MenuItem Click="SetThumbnailSize_Click" Header="300 pixels" IsCheckable="True" Tag="300"
+                          ToolTip="Set thumbnails to 300x300 pixels" />
+                <MenuItem Click="SetThumbnailSize_Click" Header="350 pixels" IsCheckable="True" Tag="350"
+                          ToolTip="Set thumbnails to 350x350 pixels" />
+                <MenuItem Click="SetThumbnailSize_Click" Header="400 pixels" IsCheckable="True" Tag="400"
+                          ToolTip="Set thumbnails to 400x400 pixels" />
+                <MenuItem Click="SetThumbnailSize_Click" Header="450 pixels" IsCheckable="True" Tag="450"
+                          ToolTip="Set thumbnails to 450x450 pixels" />
+                <MenuItem Click="SetThumbnailSize_Click" Header="500 pixels" IsCheckable="True" Tag="500"
+                          ToolTip="Set thumbnails to 500x500 pixels" />
             </MenuItem>
 
             <MenuItem Header="Settings" ToolTip="Application settings and configuration">
                 <MenuItem Click="ApiSettings_Click" ToolTip="Configure API keys for image search services">
                     <MenuItem.Header>
                         <StackPanel Orientation="Horizontal">
-                            <Image Source="pack://application:,,,/images/keys.png" Width="16" Height="16" Margin="0,0,5,0" />
+                            <Image Source="pack://application:,,,/images/keys.png" Width="16" Height="16"
+                                   Margin="0,0,5,0" />
                             <TextBlock Text="API Settings" />
                         </StackPanel>
                     </MenuItem.Header>
@@ -157,20 +215,25 @@
                 <MenuItem Click="EditExtensions_Click" ToolTip="Manage which ROM file extensions to scan for">
                     <MenuItem.Header>
                         <StackPanel Orientation="Horizontal">
-                            <Image Source="pack://application:,,,/images/settings.png" Width="16" Height="16" Margin="0,0,5,0" />
+                            <Image Source="pack://application:,,,/images/settings.png" Width="16" Height="16"
+                                   Margin="0,0,5,0" />
                             <TextBlock Text="Edit Supported Extensions..." />
                         </StackPanel>
                     </MenuItem.Header>
                 </MenuItem>
-                <MenuItem Click="ToggleDebugWindow_Click" x:Name="ToggleDebugWindow" Header="Show/Hide Log Window" IsCheckable="True" ToolTip="Toggle the application log window visibility" />
-                <MenuItem x:Name="ToggleMameDescriptions" Header="Use MAME Descriptions" IsCheckable="True" Click="ToggleMameDescriptions_Click" ToolTip="Show MAME descriptions instead of ROM filenames" />
+                <MenuItem Click="ToggleDebugWindow_Click" x:Name="ToggleDebugWindow" Header="Show/Hide Log Window"
+                          IsCheckable="True" ToolTip="Toggle the application log window visibility" />
+                <MenuItem x:Name="ToggleMameDescriptions" Header="Use MAME Descriptions" IsCheckable="True"
+                          Click="ToggleMameDescriptions_Click"
+                          ToolTip="Show MAME descriptions instead of ROM filenames" />
             </MenuItem>
 
             <MenuItem Header="About" ToolTip="Information about the application">
                 <MenuItem Click="DonateButton_Click" ToolTip="Support the developer with a donation">
                     <MenuItem.Header>
                         <StackPanel Orientation="Horizontal">
-                            <Image Source="pack://application:,,,/images/donate.png" Width="16" Height="16" Margin="0,0,5,0" />
+                            <Image Source="pack://application:,,,/images/donate.png" Width="16" Height="16"
+                                   Margin="0,0,5,0" />
                             <TextBlock Text="Donate" />
                         </StackPanel>
                     </MenuItem.Header>
@@ -178,7 +241,8 @@
                 <MenuItem Click="CheckForUpdates_Click" ToolTip="Check for new versions of the application">
                     <MenuItem.Header>
                         <StackPanel Orientation="Horizontal">
-                            <Image Source="pack://application:,,,/images/about.png" Width="16" Height="16" Margin="0,0,5,0" />
+                            <Image Source="pack://application:,,,/images/about.png" Width="16" Height="16"
+                                   Margin="0,0,5,0" />
                             <TextBlock Text="Check for Updates" />
                         </StackPanel>
                     </MenuItem.Header>
@@ -186,7 +250,8 @@
                 <MenuItem Click="ShowAboutWindow_Click" ToolTip="View application version and credits">
                     <MenuItem.Header>
                         <StackPanel Orientation="Horizontal">
-                            <Image Source="pack://application:,,,/images/about.png" Width="16" Height="16" Margin="0,0,5,0" />
+                            <Image Source="pack://application:,,,/images/about.png" Width="16" Height="16"
+                                   Margin="0,0,5,0" />
                             <TextBlock Text="About" />
                         </StackPanel>
                     </MenuItem.Header>
@@ -197,7 +262,8 @@
                 <MenuItem Click="Exit_Click" ToolTip="Close the application">
                     <MenuItem.Header>
                         <StackPanel Orientation="Horizontal">
-                            <Image Source="pack://application:,,,/images/exit.png" Width="16" Height="16" Margin="0,0,5,0" />
+                            <Image Source="pack://application:,,,/images/exit.png" Width="16" Height="16"
+                                   Margin="0,0,5,0" />
                             <TextBlock Text="Exit" />
                         </StackPanel>
                     </MenuItem.Header>
@@ -218,7 +284,8 @@
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
-                <GroupBox Grid.Row="0" Header="Select Folders &amp; Query" Margin="0,0,0,10" ToolTip="Configure ROM and image folders and search options">
+                <GroupBox Grid.Row="0" Header="Select Folders &amp; Query" Margin="0,0,0,10"
+                          ToolTip="Configure ROM and image folders and search options">
                     <StackPanel Margin="5">
                         <Grid Margin="0,5,0,5">
                             <Grid.ColumnDefinitions>
@@ -230,7 +297,8 @@
                                      LostFocus="TxtRomFolder_LostFocus"
                                      PreviewKeyDown="TxtRomFolder_PreviewKeyDown"
                                      ToolTip="Enter the full path to your ROM files folder" />
-                            <Button Grid.Column="1" Content="Browse..." Margin="5,0,0,0" Click="BtnBrowseRomFolder_Click"
+                            <Button Grid.Column="1" Content="Browse..." Margin="5,0,0,0"
+                                    Click="BtnBrowseRomFolder_Click"
                                     ToolTip="Browse for the ROM folder location" />
                         </Grid>
                         <Grid Margin="0,5,0,5">
@@ -243,7 +311,8 @@
                                      LostFocus="TxtImageFolder_LostFocus"
                                      PreviewKeyDown="TxtImageFolder_PreviewKeyDown"
                                      ToolTip="Enter the full path to your cover images folder" />
-                            <Button Grid.Column="1" Content="Browse..." Margin="5,0,0,0" Click="BtnBrowseImageFolder_Click"
+                            <Button Grid.Column="1" Content="Browse..." Margin="5,0,0,0"
+                                    Click="BtnBrowseImageFolder_Click"
                                     ToolTip="Browse for the cover images folder location" />
                         </Grid>
                         <Grid Margin="0,5,0,5">
@@ -262,7 +331,8 @@
                 <GroupBox Grid.Row="1" Margin="0,0,0,0" ToolTip="List of ROMs missing cover images">
                     <GroupBox.Header>
                         <StackPanel Orientation="Horizontal">
-                            <Label x:Name="LabelMissingRoms" Content="LIST OF MISSING COVERS" Style="{StaticResource MissingCoversLabelStyle}" />
+                            <Label x:Name="LabelMissingRoms" Content="LIST OF MISSING COVERS"
+                                   Style="{StaticResource MissingCoversLabelStyle}" />
                         </StackPanel>
                     </GroupBox.Header>
                     <Grid>
@@ -283,16 +353,20 @@
                                      ToolTip="Select a ROM to search for its cover image">
                                 <ListBox.ContextMenu>
                                     <ContextMenu>
-                                        <MenuItem Header="Remove Item from the list" Click="RemoveItemFromList_Click" ToolTip="Remove the selected ROM from the missing list" />
-                                        <MenuItem Header="Copy FileName" Click="CopyFileName_Click" ToolTip="Copy the ROM filename to clipboard" />
+                                        <MenuItem Header="Remove Item from the list" Click="RemoveItemFromList_Click"
+                                                  ToolTip="Remove the selected ROM from the missing list" />
+                                        <MenuItem Header="Copy FileName" Click="CopyFileName_Click"
+                                                  ToolTip="Copy the ROM filename to clipboard" />
                                         <Separator />
-                                        <MenuItem Header="Delete corresponding ROM or ISO" Click="DeleteCorrespondingRom_Click"
+                                        <MenuItem Header="Delete corresponding ROM or ISO"
+                                                  Click="DeleteCorrespondingRom_Click"
                                                   ToolTip="Permanently delete the ROM/ISO file from disk" />
                                     </ContextMenu>
                                 </ListBox.ContextMenu>
                             </ListBox>
-                            <controls:ProgressRing IsActive="{Binding IsCheckingMissing}" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                       ToolTip="Checking for missing cover images..." />
+                            <controls:ProgressRing IsActive="{Binding IsCheckingMissing}" HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center"
+                                                   ToolTip="Checking for missing cover images..." />
                         </Grid>
                         <Button Grid.Row="2" x:Name="BtnRemoveSelectedItem" Content="Remove Selected Item from List"
                                 Click="BtnRemoveSelectedItem_Click" Margin="5"
@@ -334,8 +408,9 @@
 
                             <Grid Style="{StaticResource LoadingOverlayGridStyle}">
                                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                                    <controls:ProgressRing IsActive="{Binding IsFindingSimilar}" Width="60" Height="60" Margin="0,0,0,15"
-                                                               ToolTip="Searching for similar images..." />
+                                    <controls:ProgressRing IsActive="{Binding IsFindingSimilar}" Width="60" Height="60"
+                                                           Margin="0,0,0,15"
+                                                           ToolTip="Searching for similar images..." />
                                     <TextBlock Text="Please wait ... Loading" Style="{StaticResource LoadingTextStyle}" />
                                 </StackPanel>
                             </Grid>
@@ -344,10 +419,14 @@
                                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="20">
                                     <TextBlock Text="Select a missing cover from the list to see suggestions."
                                                Style="{StaticResource EmptyStateHintTextStyle}" />
-                                    <StackPanel HorizontalAlignment="Center" Style="{StaticResource NoResultsStackPanelStyle}">
-                                        <TextBlock Text="No similar images found" Style="{StaticResource NoResultsTitleTextStyle}" />
-                                        <TextBlock Text="No images matched the current similarity threshold." Style="{StaticResource NoResultsMessageTextStyle}" />
-                                        <TextBlock Text="Try lowering the threshold in the menu to see more results." Style="{StaticResource NoResultsHintTextStyle}" />
+                                    <StackPanel HorizontalAlignment="Center"
+                                                Style="{StaticResource NoResultsStackPanelStyle}">
+                                        <TextBlock Text="No similar images found"
+                                                   Style="{StaticResource NoResultsTitleTextStyle}" />
+                                        <TextBlock Text="No images matched the current similarity threshold."
+                                                   Style="{StaticResource NoResultsMessageTextStyle}" />
+                                        <TextBlock Text="Try lowering the threshold in the menu to see more results."
+                                                   Style="{StaticResource NoResultsHintTextStyle}" />
                                     </StackPanel>
                                 </StackPanel>
                             </Grid>
@@ -399,8 +478,9 @@
                                 </ItemsControl>
                             </ScrollViewer>
 
-                            <controls:ProgressRing IsActive="{Binding IsSearching}" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                       ToolTip="Searching the Google API for images..." />
+                            <controls:ProgressRing IsActive="{Binding IsSearching}" HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center"
+                                                   ToolTip="Searching the Google API for images..." />
 
                             <TextBlock Style="{StaticResource EmptyImageListMessageStyle}" />
                         </Grid>
@@ -425,7 +505,8 @@
             <StatusBarItem Grid.Column="0">
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="Tab: " Style="{StaticResource StatusBarTextStyle}" />
-                    <TextBlock x:Name="StatusSearchEngine" Text="Local Files" Style="{StaticResource StatusBarBoldTextStyle}" />
+                    <TextBlock x:Name="StatusSearchEngine" Text="Local Files"
+                               Style="{StaticResource StatusBarBoldTextStyle}" />
                 </StackPanel>
             </StatusBarItem>
             <StatusBarItem Grid.Column="1" HorizontalAlignment="Center">

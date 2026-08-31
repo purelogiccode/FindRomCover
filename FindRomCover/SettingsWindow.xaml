@@ -11,10 +11,10 @@
                       ToolTip="Manage which ROM file extensions the application will scan for">
     <Grid Margin="15">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <TextBlock Grid.Row="0" TextWrapping="Wrap" Margin="0,0,0,10"
@@ -38,7 +38,8 @@
         </StackPanel>
 
         <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
-            <Button x:Name="BtnSave" Content="Save" Width="100" Margin="0,0,10,0" Click="BtnSave_Click" IsDefault="True"
+            <Button x:Name="BtnSave" Content="Save" Width="100" Margin="0,0,10,0" Click="BtnSave_Click"
+                    IsDefault="True"
                     ToolTip="Save changes to the supported extensions list" />
             <Button x:Name="BtnCancel" Content="Cancel" Width="100" IsCancel="True" Click="BtnCancel_Click"
                     ToolTip="Discard changes and close this window" />

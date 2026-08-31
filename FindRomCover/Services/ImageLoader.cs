@@ -19,15 +19,10 @@ public static class ImageLoader
         if (string.IsNullOrEmpty(imagePath)) return null;
 
         if (maxRetries <= 0 || retryDelayMilliseconds <= 0)
-        {
             (maxRetries, retryDelayMilliseconds) = ResolveSettings(maxRetries, retryDelayMilliseconds);
-        }
 
         var fileInfo = new FileInfo(imagePath);
-        if (!fileInfo.Exists || fileInfo.Length == 0)
-        {
-            return null;
-        }
+        if (!fileInfo.Exists || fileInfo.Length == 0) return null;
 
         for (var i = 0; i < maxRetries; i++)
         {
@@ -45,25 +40,17 @@ public static class ImageLoader
                 catch
                 {
                     if (i < maxRetries - 1)
-                    {
                         await Task.Delay(retryDelayMilliseconds, cancellationToken);
-                    }
                     else
-                    {
                         return null;
-                    }
                 }
             }
             catch (IOException ex) when ((uint)ex.HResult is 0x80070020 or 0x80070021)
             {
                 if (i < maxRetries - 1)
-                {
                     await Task.Delay(retryDelayMilliseconds, cancellationToken);
-                }
                 else
-                {
                     return null;
-                }
             }
             catch
             {
@@ -74,13 +61,16 @@ public static class ImageLoader
         return null;
     }
 
-    private static (int MaxRetries, int RetryDelayMilliseconds) ResolveSettings(int maxRetries, int retryDelayMilliseconds)
+    private static (int MaxRetries, int RetryDelayMilliseconds) ResolveSettings(int maxRetries,
+        int retryDelayMilliseconds)
     {
         try
         {
             var settings = SettingsManager.CurrentInstance;
             var resolvedMaxRetries = maxRetries > 0 ? maxRetries : settings?.ImageLoaderMaxRetries ?? DefaultMaxRetries;
-            var resolvedRetryDelay = retryDelayMilliseconds > 0 ? retryDelayMilliseconds : settings?.ImageLoaderRetryDelayMilliseconds ?? DefaultRetryDelayMilliseconds;
+            var resolvedRetryDelay = retryDelayMilliseconds > 0
+                ? retryDelayMilliseconds
+                : settings?.ImageLoaderRetryDelayMilliseconds ?? DefaultRetryDelayMilliseconds;
 
             return (
                 Math.Max(0, resolvedMaxRetries),
@@ -98,10 +88,7 @@ public static class ImageLoader
     {
         var settings = new MagickReadSettings { FrameIndex = 0, FrameCount = 1 };
 
-        if (ignoreErrors)
-        {
-            settings.SetDefine(MagickFormat.Png, "ignore-crc", true);
-        }
+        if (ignoreErrors) settings.SetDefine(MagickFormat.Png, "ignore-crc", true);
 
         using var magickImage = new MagickImage(imagePath, settings);
 

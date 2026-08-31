@@ -1,5 +1,5 @@
-using FluentAssertions;
 using FindRomCover.Services;
+using FluentAssertions;
 using Xunit;
 
 namespace FindRomCover.Tests.Services;
@@ -8,7 +8,7 @@ public class ErrorLoggerAdditionalTests : IDisposable
 {
     public ErrorLoggerAdditionalTests()
     {
-        lock (ErrorLogger.DisposeLock)
+        using (var scope = ErrorLogger.DisposeLock.EnterScope())
         {
             ErrorLogger.IsDisposed = false;
         }
@@ -16,10 +16,11 @@ public class ErrorLoggerAdditionalTests : IDisposable
 
     public void Dispose()
     {
-        lock (ErrorLogger.DisposeLock)
+        using (var scope = ErrorLogger.DisposeLock.EnterScope())
         {
             ErrorLogger.IsDisposed = false;
         }
+
         GC.SuppressFinalize(this);
     }
 
@@ -32,7 +33,7 @@ public class ErrorLoggerAdditionalTests : IDisposable
     [Fact]
     public void IsDisposedShouldBeFalseByDefault()
     {
-        lock (ErrorLogger.DisposeLock)
+        using (var scope = ErrorLogger.DisposeLock.EnterScope())
         {
             ErrorLogger.IsDisposed.Should().BeFalse();
         }
@@ -43,7 +44,7 @@ public class ErrorLoggerAdditionalTests : IDisposable
     {
         ErrorLogger.Dispose();
 
-        lock (ErrorLogger.DisposeLock)
+        using (var scope = ErrorLogger.DisposeLock.EnterScope())
         {
             ErrorLogger.IsDisposed.Should().BeTrue();
         }
@@ -82,7 +83,7 @@ public class ErrorLoggerAdditionalTests : IDisposable
     [Fact]
     public async Task LogAsyncWithNullContextShouldNotThrow()
     {
-        var act = () => ErrorLogger.LogAsync(new Exception("test"), null);
+        var act = () => ErrorLogger.LogAsync(new Exception("test"));
 
         await act.Should().NotThrowAsync();
     }
@@ -90,7 +91,7 @@ public class ErrorLoggerAdditionalTests : IDisposable
     [Fact]
     public async Task LogAsyncWithBothNullShouldNotThrow()
     {
-        var act = () => ErrorLogger.LogAsync(null, null);
+        var act = () => ErrorLogger.LogAsync(null);
 
         await act.Should().NotThrowAsync();
     }
@@ -106,7 +107,7 @@ public class ErrorLoggerAdditionalTests : IDisposable
     [Fact]
     public void DisposeLockShouldBeAccessible()
     {
-        var lockObj = ErrorLogger.DisposeLock;
+        object lockObj = ErrorLogger.DisposeLock;
 
         lockObj.Should().NotBeNull();
     }

@@ -17,7 +17,9 @@ public partial class SettingsWindow
 
         _settingsManager = settingsManager ?? throw new ArgumentNullException(nameof(settingsManager));
 
-        _supportedExtensions = new ObservableCollection<string>(_settingsManager.SupportedExtensions.OrderBy(static e => e, StringComparer.OrdinalIgnoreCase));
+        _supportedExtensions =
+            new ObservableCollection<string>(
+                _settingsManager.SupportedExtensions.OrderBy(static e => e, StringComparer.OrdinalIgnoreCase));
         DataContext = new { SupportedExtensions = _supportedExtensions };
     }
 
@@ -28,10 +30,7 @@ public partial class SettingsWindow
             var newExtension =
                 await this.ShowInputAsync("Add Extension", "Enter the new file extension (without the dot):");
 
-            if (string.IsNullOrWhiteSpace(newExtension))
-            {
-                return;
-            }
+            if (string.IsNullOrWhiteSpace(newExtension)) return;
 
             // Clean up the input
             newExtension = newExtension.Trim().Replace(".", "");
@@ -87,11 +86,12 @@ public partial class SettingsWindow
         try
         {
             if (LstSupportedExtensions.SelectedItem is string selectedExtension)
-            {
                 _supportedExtensions.Remove(selectedExtension);
-            }
         }
-        catch (Exception ex) { LogService.Error(ex, "Error in BtnRemove_Click"); }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "Error in BtnRemove_Click");
+        }
     }
 
     private void BtnSave_Click(object sender, RoutedEventArgs e)
@@ -115,19 +115,14 @@ public partial class SettingsWindow
                 if (result == MessageBoxResult.Yes)
                 {
                     // Remove invalid extensions
-                    foreach (var invalid in invalidExtensions)
-                    {
-                        _supportedExtensions.Remove(invalid);
-                    }
+                    foreach (var invalid in invalidExtensions) _supportedExtensions.Remove(invalid);
 
                     // Re-sort the ObservableCollection to maintain UI consistency
-                    var sortedExtensions = _supportedExtensions.OrderBy(static ext => ext, StringComparer.OrdinalIgnoreCase)
+                    var sortedExtensions = _supportedExtensions
+                        .OrderBy(static ext => ext, StringComparer.OrdinalIgnoreCase)
                         .ToList();
                     _supportedExtensions.Clear();
-                    foreach (var ext in sortedExtensions)
-                    {
-                        _supportedExtensions.Add(ext);
-                    }
+                    foreach (var ext in sortedExtensions) _supportedExtensions.Add(ext);
                 }
                 else
                 {

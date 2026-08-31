@@ -106,11 +106,12 @@ public partial class MainWindow
             {
                 coverImageUrls = await FetchImagesWithRetryAsync(apiSearchQuery, token);
             }
-            catch (InvalidOperationException ex) when (ex.Message.Contains("API Key is not set"))
+            catch (InvalidOperationException ex) when (ex.Message.Contains("API Key is not set", StringComparison.OrdinalIgnoreCase))
             {
                 await Dispatcher.InvokeAsync(static () =>
                 {
-                    MessageBox.Show("Please configure your API keys in Settings > API Settings.", "Missing API Key", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    MessageBox.Show("Please configure your API keys in Settings > API Settings.", "Missing API Key",
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
                 });
                 coverImageUrls = [];
             }
@@ -129,14 +130,12 @@ public partial class MainWindow
                 PanelImages.Clear();
 
                 if (coverImageUrls.Count > 0)
-                {
                     foreach (var result in coverImageUrls)
                     {
                         result.ThumbnailWidth = thumbnailSize;
                         result.ThumbnailHeight = thumbnailSize;
                         PanelImages.Add(result);
                     }
-                }
 
                 IsSearching = false;
                 HasSearchedApi = true;
@@ -202,7 +201,8 @@ public partial class MainWindow
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error saving image: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Error saving image: {ex.Message}", "Error", MessageBoxButton.OK,
+                    MessageBoxImage.Error);
                 LogService.Error(ex, "Error saving API image");
             }
         }

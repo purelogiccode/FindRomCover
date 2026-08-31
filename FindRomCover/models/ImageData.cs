@@ -26,8 +26,20 @@ public class ImageData : INotifyPropertyChanged
         }
     });
 
-    private int _imageWidth;
     private int _imageHeight;
+
+    private int _imageWidth;
+
+    public ImageData()
+    {
+    }
+
+    public ImageData(string? imagePath, string? imageName, double similarityScore)
+    {
+        ImagePath = imagePath;
+        ImageName = imageName;
+        SimilarityScore = similarityScore;
+    }
 
     public string? ImagePath { get; init; }
     public string? ImageName { get; set; } = "Unknown Filename";
@@ -86,17 +98,6 @@ public class ImageData : INotifyPropertyChanged
             field = value;
             OnPropertyChanged();
         }
-    }
-
-    public ImageData()
-    {
-    }
-
-    public ImageData(string? imagePath, string? imageName, double similarityScore)
-    {
-        ImagePath = imagePath;
-        ImageName = imageName;
-        SimilarityScore = similarityScore;
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;

@@ -28,12 +28,11 @@ public class Google
         var encodedSearchQuery = HttpUtility.UrlEncode(searchQuery.Trim());
 
         if (string.IsNullOrEmpty(settingsManager.GoogleKey))
-        {
             throw new InvalidOperationException("Google API Key is not configured");
-        }
 
         LogService.Debug($"Google Search Query: {searchQuery}");
-        return $"https://www.googleapis.com/customsearch/v1?q={encodedSearchQuery}&cx={HttpUtility.UrlEncode(SearchEngineId)}&num={MaxResults}&searchType=image&key={HttpUtility.UrlEncode(settingsManager.GoogleKey)}";
+        return
+            $"https://www.googleapis.com/customsearch/v1?q={encodedSearchQuery}&cx={HttpUtility.UrlEncode(SearchEngineId)}&num={MaxResults}&searchType=image&key={HttpUtility.UrlEncode(settingsManager.GoogleKey)}";
     }
 
     internal static GoogleSearchResult? DeserializeResponse(string json, JsonSerializerOptions jsonOptions)
@@ -44,7 +43,6 @@ public class Google
     internal static List<ImageData> MapToImageData(GoogleSearchResult? searchResults)
     {
         if (searchResults?.Items != null)
-        {
             return searchResults.Items.Select(static item => new ImageData
             {
                 ImagePath = item.Link,
@@ -58,12 +56,12 @@ public class Google
                 ThumbnailWidth = 0,
                 ThumbnailHeight = 0
             }).ToList();
-        }
 
         return new List<ImageData>();
     }
 
-    public static async Task<List<ImageData>> FetchImagesFromGoogleAsync(string searchQuery, SettingsManager settingsManager, CancellationToken cancellationToken = default)
+    public static async Task<List<ImageData>> FetchImagesFromGoogleAsync(string searchQuery,
+        SettingsManager settingsManager, CancellationToken cancellationToken = default)
     {
         var requestUrl = BuildRequestUrl(searchQuery, settingsManager);
 
@@ -83,30 +81,38 @@ public class Google
             switch (response.StatusCode)
             {
                 case HttpStatusCode.TooManyRequests:
-                    {
-                        LogService.Warning($"{logMessagePrefix} API rate limit exceeded (429).");
-                        var rateLimitException = new HttpRequestException("Response status code does not indicate success: 429 (Too Many Requests).", null, HttpStatusCode.TooManyRequests);
-                        throw new InvalidOperationException($"{ProviderName} API rate limit has been exceeded. Please wait a moment before trying again.", rateLimitException);
-                    }
+                {
+                    LogService.Warning($"{logMessagePrefix} API rate limit exceeded (429).");
+                    var rateLimitException = new HttpRequestException(
+                        "Response status code does not indicate success: 429 (Too Many Requests).", null,
+                        HttpStatusCode.TooManyRequests);
+                    throw new InvalidOperationException(
+                        $"{ProviderName} API rate limit has been exceeded. Please wait a moment before trying again.",
+                        rateLimitException);
+                }
                 case HttpStatusCode.Forbidden:
-                    {
-                        LogService.Warning($"{logMessagePrefix} Access Forbidden (403). Check API Key and API Permissions.");
-                        var forbiddenEx = new HttpRequestException("403 (Forbidden)", null, HttpStatusCode.Forbidden);
+                {
+                    LogService.Warning(
+                        $"{logMessagePrefix} Access Forbidden (403). Check API Key and API Permissions.");
+                    var forbiddenEx = new HttpRequestException("403 (Forbidden)", null, HttpStatusCode.Forbidden);
 
-                        throw new InvalidOperationException(
-                            $"{ProviderName} API Access Forbidden (403).\n\n" +
-                            "This usually means:\n" +
-                            "1. Your API Key is incorrect.\n" +
-                            "2. Your daily free limit has been reached.", forbiddenEx);
-                    }
+                    throw new InvalidOperationException(
+                        $"{ProviderName} API Access Forbidden (403).\n\n" +
+                        "This usually means:\n" +
+                        "1. Your API Key is incorrect.\n" +
+                        "2. Your daily free limit has been reached.", forbiddenEx);
+                }
                 case HttpStatusCode.BadRequest:
-                    {
-                        var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
-                        LogService.Warning($"{logMessagePrefix} Bad Request (400): {errorBody}");
-                        var badRequestEx = new HttpRequestException("Response status code does not indicate success: 400 (Bad Request).", null, HttpStatusCode.BadRequest);
-                        throw new InvalidOperationException(
-                            $"{ProviderName} API error: Invalid request. Please check your API key and Search Engine ID configuration.\n\nDetails: {errorBody}", badRequestEx);
-                    }
+                {
+                    var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
+                    LogService.Warning($"{logMessagePrefix} Bad Request (400): {errorBody}");
+                    var badRequestEx = new HttpRequestException(
+                        "Response status code does not indicate success: 400 (Bad Request).", null,
+                        HttpStatusCode.BadRequest);
+                    throw new InvalidOperationException(
+                        $"{ProviderName} API error: Invalid request. Please check your API key and Search Engine ID configuration.\n\nDetails: {errorBody}",
+                        badRequestEx);
+                }
             }
 
             var json = await response.Content.ReadAsStringAsync(cancellationToken);
@@ -123,12 +129,14 @@ public class Google
         catch (HttpRequestException ex)
         {
             LogService.Error(ex, $"{logMessagePrefix} HTTP Error: {ex.StatusCode} - {ex.Message}");
-            throw new InvalidOperationException($"{ProviderName} API error: {ex.Message}. Please check your API key or internet connection.", ex);
+            throw new InvalidOperationException(
+                $"{ProviderName} API error: {ex.Message}. Please check your API key or internet connection.", ex);
         }
         catch (JsonException ex)
         {
             LogService.Error(ex, $"Failed to deserialize {ProviderName} search results");
-            throw new InvalidOperationException($"Failed to parse {ProviderName} API response. The service might be experiencing issues.", ex);
+            throw new InvalidOperationException(
+                $"Failed to parse {ProviderName} API response. The service might be experiencing issues.", ex);
         }
         catch (TaskCanceledException ex) when (ex.InnerException is TimeoutException)
         {
@@ -150,10 +158,7 @@ public class Google
 
         var keyStart = keyIndex + keyParam.Length;
         var keyEnd = url.IndexOf('&', keyStart);
-        if (keyEnd < 0)
-        {
-            keyEnd = url.Length;
-        }
+        if (keyEnd < 0) keyEnd = url.Length;
 
         var keyLength = keyEnd - keyStart;
         if (keyLength <= 4) return url[..keyStart] + "****" + url[keyEnd..];
@@ -164,7 +169,6 @@ public class Google
     internal static string FormatImageName(string input)
     {
         if (Uri.IsWellFormedUriString(input, UriKind.Absolute))
-        {
             try
             {
                 var uri = new Uri(input);
@@ -181,7 +185,6 @@ public class Google
             {
                 // Fall back to title formatting if URL parsing fails
             }
-        }
 
         var textInfoTitle = CultureInfo.CurrentCulture.TextInfo;
         return textInfoTitle.ToTitleCase(input.ToLower(CultureInfo.InvariantCulture)

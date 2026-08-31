@@ -1,5 +1,5 @@
-using FluentAssertions;
 using FindRomCover.Services;
+using FluentAssertions;
 using Xunit;
 
 namespace FindRomCover.Tests.Services;
@@ -10,10 +10,7 @@ public class DelegateCommandAdditionalTests : IDisposable
 
     public void Dispose()
     {
-        foreach (var cmd in _commandsToDispose)
-        {
-            cmd.Dispose();
-        }
+        foreach (var cmd in _commandsToDispose) cmd.Dispose();
         GC.SuppressFinalize(this);
     }
 

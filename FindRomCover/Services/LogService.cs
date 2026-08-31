@@ -13,8 +13,10 @@ public static class LogService
 {
     private static ILogger _logger = new SilentLogger();
     private static readonly ObservableCollection<LogEntry> LogMessages = new();
-    private static readonly object Lock = new();
+    private static readonly Lock Lock = new();
     private static bool _initialized;
+
+    private static readonly JsonSerializerOptions JsonFormatOptions = new() { WriteIndented = true };
 
     public static ObservableCollection<LogEntry> GetLogMessages()
     {
@@ -52,20 +54,14 @@ public static class LogService
         var timestamp = logEvent.Timestamp.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture);
         var logEntryText = $"{timestamp} [{level}] {message}";
 
-        if (logEvent.Exception != null)
-        {
-            logEntryText += $"\n{logEvent.Exception}";
-        }
+        if (logEvent.Exception != null) logEntryText += $"\n{logEvent.Exception}";
 
         var logEntry = new LogEntry { Message = logEntryText };
 
         Application.Current?.Dispatcher.BeginInvoke(() =>
         {
             LogMessages.Add(logEntry);
-            while (LogMessages.Count > 5000)
-            {
-                LogMessages.RemoveAt(0);
-            }
+            while (LogMessages.Count > 5000) LogMessages.RemoveAt(0);
         });
     }
 
@@ -109,8 +105,6 @@ public static class LogService
         _logger.Fatal(ex, message);
     }
 
-    private static readonly JsonSerializerOptions JsonFormatOptions = new() { WriteIndented = true };
-
     public static string FormatJson(string json)
     {
         if (string.IsNullOrWhiteSpace(json))
@@ -131,10 +125,7 @@ public static class LogService
     {
         lock (Lock)
         {
-            if (_logger is IDisposable disposable)
-            {
-                disposable.Dispose();
-            }
+            if (_logger is IDisposable disposable) disposable.Dispose();
 
             _initialized = false;
         }
@@ -142,11 +133,15 @@ public static class LogService
 
     private sealed class LogEventObserver : IObserver<LogEvent>
     {
-        public void OnCompleted() { }
+        public void OnCompleted()
+        {
+        }
+
         public void OnError(Exception error)
         {
             System.Diagnostics.Debug.Print($"Serilog LogEventObserver error: {error}");
         }
+
         public void OnNext(LogEvent value)
         {
             OnLogEvent(value);
@@ -155,6 +150,8 @@ public static class LogService
 
     private sealed class SilentLogger : ILogger
     {
-        public void Write(LogEvent logEvent) { }
+        public void Write(LogEvent logEvent)
+        {
+        }
     }
 }

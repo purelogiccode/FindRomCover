@@ -6,8 +6,28 @@ namespace FindRomCover.Services;
 
 public sealed class SystemTrayIcon : IDisposable
 {
-    private NotifyIcon? _notifyIcon;
     private bool _disposed;
+    private NotifyIcon? _notifyIcon;
+
+    public bool Visible
+    {
+        get => _notifyIcon?.Visible ?? false;
+        set => _notifyIcon?.Visible = value;
+    }
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+
+        _disposed = true;
+
+        if (_notifyIcon != null)
+        {
+            _notifyIcon.Visible = false;
+            _notifyIcon.Dispose();
+            _notifyIcon = null;
+        }
+    }
 
     public event Action? RestoreRequested;
     public event Action? ExitRequested;
@@ -45,25 +65,5 @@ public sealed class SystemTrayIcon : IDisposable
     public void ShowBalloonTip(string title, string text)
     {
         _notifyIcon?.ShowBalloonTip(1000, title, text, ToolTipIcon.Info);
-    }
-
-    public bool Visible
-    {
-        get => _notifyIcon?.Visible ?? false;
-        set => _notifyIcon?.Visible = value;
-    }
-
-    public void Dispose()
-    {
-        if (_disposed) return;
-
-        _disposed = true;
-
-        if (_notifyIcon != null)
-        {
-            _notifyIcon.Visible = false;
-            _notifyIcon.Dispose();
-            _notifyIcon = null;
-        }
     }
 }

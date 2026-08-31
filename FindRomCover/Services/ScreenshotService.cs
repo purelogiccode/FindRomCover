@@ -8,6 +8,7 @@ namespace FindRomCover.Services;
 
 public static class ScreenshotService
 {
+    private const int DwmwaExtendedFrameBounds = 9;
     private static readonly string ScreenshotFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Screenshot");
 
     [DllImport("user32.dll")]
@@ -17,18 +18,8 @@ public static class ScreenshotService
     private static extern bool GetWindowRect(IntPtr hWnd, out Rect lpRect);
 
     [DllImport("dwmapi.dll")]
-    private static extern int DwmGetWindowAttribute(IntPtr hwnd, int dwAttribute, out Rect pvAttribute, int cbAttribute);
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct Rect
-    {
-        public int Left;
-        public int Top;
-        public int Right;
-        public int Bottom;
-    }
-
-    private const int DwmwaExtendedFrameBounds = 9;
+    private static extern int
+        DwmGetWindowAttribute(IntPtr hwnd, int dwAttribute, out Rect pvAttribute, int cbAttribute);
 
     public static string? CaptureActiveWindow()
     {
@@ -56,10 +47,7 @@ public static class ScreenshotService
                 return null;
             }
 
-            if (!Directory.Exists(ScreenshotFolder))
-            {
-                Directory.CreateDirectory(ScreenshotFolder);
-            }
+            if (!Directory.Exists(ScreenshotFolder)) Directory.CreateDirectory(ScreenshotFolder);
 
             var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss", CultureInfo.InvariantCulture);
             var filePath = Path.Combine(ScreenshotFolder, $"Screenshot_{timestamp}.png");
@@ -82,11 +70,17 @@ public static class ScreenshotService
 
     private static bool TryGetWindowBounds(IntPtr hWnd, out Rect rect)
     {
-        if (DwmGetWindowAttribute(hWnd, DwmwaExtendedFrameBounds, out rect, Marshal.SizeOf<Rect>()) == 0)
-        {
-            return true;
-        }
+        if (DwmGetWindowAttribute(hWnd, DwmwaExtendedFrameBounds, out rect, Marshal.SizeOf<Rect>()) == 0) return true;
 
         return GetWindowRect(hWnd, out rect);
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct Rect
+    {
+        public int Left;
+        public int Top;
+        public int Right;
+        public int Bottom;
     }
 }

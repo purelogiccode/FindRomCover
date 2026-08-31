@@ -44,7 +44,6 @@ public static class HttpClientHelper
             return;
 
         if (HttpClient.IsValueCreated)
-        {
             try
             {
                 HttpClient.Value.Dispose();
@@ -53,6 +52,5 @@ public static class HttpClientHelper
             {
                 // Already disposed, ignore
             }
-        }
     }
 }

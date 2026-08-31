@@ -1,9 +1,9 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 using Serilog.Core;
 using Serilog.Events;
 using Serilog.Formatting;
-using System.IO;
 
 namespace FindRomCover.Services;
 
@@ -26,10 +26,7 @@ public class BugReportSink : ILogEventSink
             var contextMessage = FormatMessage(logEvent);
             var ex = logEvent.Exception;
 
-            if (ex == null && logEvent.Level >= LogEventLevel.Error)
-            {
-                ex = new InvalidOperationException(contextMessage);
-            }
+            if (ex == null && logEvent.Level >= LogEventLevel.Error) ex = new InvalidOperationException(contextMessage);
 
             _ = ErrorLogger.LogAsync(ex, contextMessage).ContinueWith(
                 static t =>

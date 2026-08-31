@@ -1,5 +1,5 @@
-using FluentAssertions;
 using FindRomCover.Models;
+using FluentAssertions;
 using Xunit;
 
 namespace FindRomCover.Tests.Models;
@@ -26,7 +26,7 @@ public class BugReportModelAdditionalTests
     [Fact]
     public void FromExceptionWithNullContextShouldSetEmptyErrorMessage()
     {
-        var model = BugReportModel.FromException(new Exception("test"), null);
+        var model = BugReportModel.FromException(new Exception("test"));
 
         model.ErrorMessage.Should().Be("");
     }

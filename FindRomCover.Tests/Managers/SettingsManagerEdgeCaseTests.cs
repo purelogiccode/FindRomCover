@@ -1,5 +1,5 @@
-using FluentAssertions;
 using FindRomCover.Managers;
+using FluentAssertions;
 using Xunit;
 
 namespace FindRomCover.Tests.Managers;
@@ -29,10 +29,7 @@ public class SettingsManagerEdgeCaseTests : IDisposable
     {
         RetryFileOperation(() =>
         {
-            if (File.Exists(_originalSettingsPath))
-            {
-                File.Delete(_originalSettingsPath);
-            }
+            if (File.Exists(_originalSettingsPath)) File.Delete(_originalSettingsPath);
 
             if (File.Exists(_tempSettingsPath))
             {
@@ -47,7 +44,6 @@ public class SettingsManagerEdgeCaseTests : IDisposable
     private static void RetryFileOperation(Action action, int maxRetries = 5, int delayMs = 50)
     {
         for (var i = 0; i < maxRetries; i++)
-        {
             try
             {
                 action();
@@ -57,7 +53,6 @@ public class SettingsManagerEdgeCaseTests : IDisposable
             {
                 Thread.Sleep(delayMs);
             }
-        }
     }
 
     [Fact]
