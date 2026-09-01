@@ -1,6 +1,5 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Runtime.CompilerServices;
@@ -49,17 +48,8 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         DataContext = this;
 
         CheckForMissingImagesCommand = new DelegateCommand(
-            async void (_) =>
-            {
-                try
-                {
-                    await RefreshMissingImagesListAsync();
-                }
-                catch (Exception ex)
-                {
-                    LogService.Error(ex, "Error in CheckForMissingImagesCommand");
-                }
-            },
+            // ReSharper disable once AllUnderscoreLocalParameterName
+            _ => _ = CheckForMissingImagesSafeAsync(),
             _ => BtnCheckForMissingImages?.IsEnabled ?? false);
         ExitCommand = new DelegateCommand(_ => Close());
 
@@ -419,17 +409,14 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
             MessageBoxImage.Warning);
 
         if (result == MessageBoxResult.Yes)
-            try
-            {
-                Process.Start(new ProcessStartInfo("https://developer.microsoft.com/en-us/microsoft-edge/webview2/")
-                {
-                    UseShellExecute = true
-                });
-            }
-            catch (Exception ex)
-            {
-                LogService.Error(ex, "Failed to open WebView2 download page.");
-            }
+        {
+            const string webView2DownloadUrl = "https://developer.microsoft.com/en-us/microsoft-edge/webview2/";
+            if (!UrlService.TryOpenUrl(webView2DownloadUrl))
+                MessageBox.Show(
+                    "Could not open the download page automatically.\n\nPlease copy this address into your browser:\n" +
+                    webView2DownloadUrl,
+                    "Open Browser Failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
     }
 
     private async Task LoadMameDataAsync()
@@ -497,7 +484,9 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         {
             if (sender is not MenuItem menuItem) return;
 
-            var theme = string.Equals(menuItem.Name, "LightTheme", StringComparison.OrdinalIgnoreCase) ? "Light" : "Dark";
+            var theme = string.Equals(menuItem.Name, "LightTheme", StringComparison.OrdinalIgnoreCase)
+                ? "Light"
+                : "Dark";
             App.ChangeTheme(theme, Settings.AccentColor);
         }
         catch (Exception ex)
@@ -533,11 +522,13 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
                 if (menuItem.Header is StackPanel sp)
                 {
                     var tb = sp.Children.OfType<TextBlock>().FirstOrDefault();
-                    if (tb != null) menuItem.IsChecked = string.Equals(tb.Text, currentAccent, StringComparison.OrdinalIgnoreCase);
+                    if (tb != null)
+                        menuItem.IsChecked = string.Equals(tb.Text, currentAccent, StringComparison.OrdinalIgnoreCase);
                 }
                 else
                 {
-                    menuItem.IsChecked = string.Equals(menuItem.Name.Replace("Accent", ""), currentAccent, StringComparison.OrdinalIgnoreCase);
+                    menuItem.IsChecked = string.Equals(menuItem.Name.Replace("Accent", ""), currentAccent,
+                        StringComparison.OrdinalIgnoreCase);
                 }
             }
         }
@@ -576,7 +567,10 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
     {
         try
         {
-            Process.Start(new ProcessStartInfo("https://www.purelogiccode.com/donate") { UseShellExecute = true });
+            if (!UrlService.TryOpenUrl("https://www.purelogiccode.com/donate"))
+                MessageBox.Show(
+                    "Could not open the donation link automatically.\n\nPlease copy this address into your browser:\nhttps://www.purelogiccode.com/donate",
+                    "Open Browser Failed", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
         catch (Exception ex)
         {
@@ -614,7 +608,7 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
                     "Update Available", MessageBoxButton.YesNo, MessageBoxImage.Information);
 
                 if (choice == MessageBoxResult.Yes)
-                    Process.Start(new ProcessStartInfo(updateInfo.ReleaseUrl) { UseShellExecute = true });
+                    UrlService.TryOpenUrl(updateInfo.ReleaseUrl);
             }
             else
             {
@@ -758,6 +752,18 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         catch (Exception ex)
         {
             LogService.Error(ex, "Error in BtnCheckForMissingImages_Click");
+        }
+    }
+
+    private async Task CheckForMissingImagesSafeAsync()
+    {
+        try
+        {
+            await RefreshMissingImagesListAsync();
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "Error in CheckForMissingImagesCommand");
         }
     }
 
@@ -1082,7 +1088,8 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         {
             foreach (var item in MenuSimilarityAlgorithms.Items)
                 if (item is MenuItem menuItem)
-                    menuItem.IsChecked = string.Equals(menuItem.Header.ToString(), Settings.SelectedSimilarityAlgorithm, StringComparison.OrdinalIgnoreCase);
+                    menuItem.IsChecked = string.Equals(menuItem.Header.ToString(), Settings.SelectedSimilarityAlgorithm,
+                        StringComparison.OrdinalIgnoreCase);
         }
         catch (Exception ex)
         {
@@ -1135,7 +1142,8 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         try
         {
             if (sender is not MenuItem menuItem) return;
-            if (menuItem.Tag is not int size && !int.TryParse(menuItem.Tag?.ToString(), CultureInfo.InvariantCulture, out size)) return;
+            if (menuItem.Tag is not int size &&
+                !int.TryParse(menuItem.Tag?.ToString(), CultureInfo.InvariantCulture, out size)) return;
 
             Settings.ImageWidth = size;
             Settings.ImageHeight = size;
@@ -1156,7 +1164,8 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
             {
                 if (item is not MenuItem menuItem) continue;
 
-                if (menuItem.Tag is int size || int.TryParse(menuItem.Tag?.ToString(), CultureInfo.InvariantCulture, out size))
+                if (menuItem.Tag is int size ||
+                    int.TryParse(menuItem.Tag?.ToString(), CultureInfo.InvariantCulture, out size))
                     menuItem.IsChecked = size == currentWidth;
             }
         }

@@ -106,12 +106,28 @@ public partial class MainWindow
             {
                 coverImageUrls = await FetchImagesWithRetryAsync(apiSearchQuery, token);
             }
-            catch (InvalidOperationException ex) when (ex.Message.Contains("API Key is not set", StringComparison.OrdinalIgnoreCase))
+            catch (InvalidOperationException ex) when (ex.Message.Contains("API Key is not set",
+                                                           StringComparison.OrdinalIgnoreCase))
             {
                 await Dispatcher.InvokeAsync(static () =>
                 {
                     MessageBox.Show("Please configure your API keys in Settings > API Settings.", "Missing API Key",
                         MessageBoxButton.OK, MessageBoxImage.Warning);
+                });
+                coverImageUrls = [];
+            }
+            catch (InvalidOperationException ex)
+            {
+                // Google API errors (invalid API key, rate limits, network failures) are
+                // configuration/environment issues, not application bugs. Inform the user
+                // directly instead of reporting an error to the bug API.
+                LogService.Warning(ex, "Google API search failed");
+                await Dispatcher.InvokeAsync(() =>
+                {
+                    MessageBox.Show(ex.Message, "Google API Error",
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                    IsSearching = false;
+                    StatusMessage.Text = "API search failed.";
                 });
                 coverImageUrls = [];
             }
@@ -181,7 +197,7 @@ public partial class MainWindow
                 var safeFileName = SearchQueryHelper.SanitizeFileName(_selectedRomFileName);
                 var newFileName = Path.Combine(imageFolderPath, safeFileName + ".png");
                 _imageFolderWatcher?.PreRegisterExpectedFile(newFileName);
-                var result = await App.ImageSaveService.DownloadAndSaveImageAsync(imageData.ImagePath, newFileName);
+                var result = await ImageSaveService.DownloadAndSaveImageAsync(imageData.ImagePath, newFileName);
 
                 if (result)
                 {

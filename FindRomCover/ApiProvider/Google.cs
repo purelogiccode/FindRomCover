@@ -10,7 +10,7 @@ using FindRomCover.Services;
 
 namespace FindRomCover.ApiProvider;
 
-public class Google
+public static class Google
 {
     private const int MaxResults = 10;
     private const string ProviderName = "Google";
@@ -102,6 +102,16 @@ public class Google
                         "1. Your API Key is incorrect.\n" +
                         "2. Your daily free limit has been reached.", forbiddenEx);
                 }
+                case HttpStatusCode.Unauthorized:
+                {
+                    LogService.Warning($"{logMessagePrefix} Unauthorized (401). The API key was rejected.");
+                    var unauthorizedEx = new HttpRequestException(
+                        "Response status code does not indicate success: 401 (Unauthorized).", null,
+                        HttpStatusCode.Unauthorized);
+                    throw new InvalidOperationException(
+                        $"{ProviderName} API rejected the API key (401 Unauthorized). " +
+                        "Please check your Google API Key in Settings > API Settings.", unauthorizedEx);
+                }
                 case HttpStatusCode.BadRequest:
                 {
                     var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
@@ -109,8 +119,10 @@ public class Google
                     var badRequestEx = new HttpRequestException(
                         "Response status code does not indicate success: 400 (Bad Request).", null,
                         HttpStatusCode.BadRequest);
+                    var friendlyReason = ExtractGoogleErrorMessage(errorBody);
                     throw new InvalidOperationException(
-                        $"{ProviderName} API error: Invalid request. Please check your API key and Search Engine ID configuration.\n\nDetails: {errorBody}",
+                        $"{ProviderName} API error: {friendlyReason}. " +
+                        "Please check your Google API Key and Search Engine ID in Settings > API Settings.",
                         badRequestEx);
                 }
             }
@@ -148,6 +160,29 @@ public class Google
             LogService.Information($"{logMessagePrefix} request was cancelled.");
             throw; // Re-throw cancellation
         }
+    }
+
+    internal static string ExtractGoogleErrorMessage(string errorBody)
+    {
+        if (string.IsNullOrWhiteSpace(errorBody)) return "Invalid request.";
+
+        try
+        {
+            using var doc = JsonDocument.Parse(errorBody);
+            if (doc.RootElement.TryGetProperty("error", out var error) &&
+                error.TryGetProperty("message", out var message) &&
+                message.ValueKind == JsonValueKind.String)
+            {
+                var text = message.GetString();
+                if (!string.IsNullOrWhiteSpace(text)) return text;
+            }
+        }
+        catch (JsonException)
+        {
+            // Response body was not JSON; fall through to the raw body.
+        }
+
+        return errorBody.Length > 300 ? errorBody[..300] + "..." : errorBody;
     }
 
     private static string MaskApiKey(string url)

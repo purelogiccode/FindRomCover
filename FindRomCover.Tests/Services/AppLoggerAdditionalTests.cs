@@ -84,7 +84,8 @@ public class AppLoggerAdditionalTests
         var result = AppLogger.FormatJson(json);
 
         // May be escaped or raw unicode
-        (result.Contains("\\u30DD", StringComparison.OrdinalIgnoreCase) || result.Contains("ポケモン", StringComparison.OrdinalIgnoreCase)).Should().BeTrue();
+        (result.Contains("\\u30DD", StringComparison.OrdinalIgnoreCase) ||
+         result.Contains("ポケモン", StringComparison.OrdinalIgnoreCase)).Should().BeTrue();
     }
 
     [Fact]

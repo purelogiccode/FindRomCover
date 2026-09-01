@@ -110,6 +110,7 @@ public class SettingsManager : INotifyPropertyChanged
                 return _currentInstance;
             }
         }
+        // ReSharper disable once UnusedMember.Local
         private set
         {
             lock (InstanceLock)
@@ -356,13 +357,74 @@ public class SettingsManager : INotifyPropertyChanged
         var machineName = Environment.MachineName;
         const string appName = "FindRomCover";
         var salt = Encoding.UTF8.GetBytes($"{machineName}_{appName}_settings");
+        const string password = "G4m3C0v3rScr4p3r_S3tt1ngs_K3y_2024";
 
-        return Rfc2898DeriveBytes.Pbkdf2(
-            "G4m3C0v3rScr4p3r_S3tt1ngs_K3y_2024"u8.ToArray(),
-            salt,
-            10000,
-            HashAlgorithmName.SHA256,
-            32);
+        try
+        {
+            return Rfc2898DeriveBytes.Pbkdf2(
+                password,
+                salt,
+                10000,
+                HashAlgorithmName.SHA256,
+                32);
+        }
+        catch (Exception ex)
+        {
+            // The OS BCrypt/CNG PBKDF2 implementation can fail on some systems
+            // (e.g. CryptographicException 0xc1000008), which previously crashed
+            // the type initializer and prevented the app from starting at all.
+            // Fall back to a fully managed PBKDF2-HMAC-SHA256 implementation,
+            // which produces the exact same key (RFC 2898).
+            try
+            {
+                LogService.Warning(ex, "OS PBKDF2 failed; falling back to managed PBKDF2-HMAC-SHA256.");
+            }
+            catch
+            {
+                // Logging must never break key derivation.
+            }
+
+            return ManagedPbkdf2HmacSha256(Encoding.UTF8.GetBytes(password), salt, 10000, 32);
+        }
+    }
+
+    private static byte[] ManagedPbkdf2HmacSha256(byte[] password, byte[] salt, int iterations, int outputLength)
+    {
+        using var hmac = new HMACSHA256(password);
+        var hashLength = hmac.HashSize / 8;
+        if (hashLength <= 0) throw new CryptographicException("Invalid HMAC hash size.");
+
+        var blockCount = (outputLength + hashLength - 1) / hashLength;
+        var derivedKey = new byte[blockCount * hashLength];
+
+        var saltAndBlockIndex = new byte[salt.Length + 4];
+        Buffer.BlockCopy(salt, 0, saltAndBlockIndex, 0, salt.Length);
+
+        for (var block = 1; block <= blockCount; block++)
+        {
+            saltAndBlockIndex[salt.Length] = (byte)(block >> 24);
+            saltAndBlockIndex[salt.Length + 1] = (byte)(block >> 16);
+            saltAndBlockIndex[salt.Length + 2] = (byte)(block >> 8);
+            saltAndBlockIndex[salt.Length + 3] = (byte)block;
+
+            var u = hmac.ComputeHash(saltAndBlockIndex);
+            var t = new byte[hashLength];
+            Buffer.BlockCopy(u, 0, t, 0, hashLength);
+
+            for (var iteration = 1; iteration < iterations; iteration++)
+            {
+                u = hmac.ComputeHash(u);
+                for (var i = 0; i < hashLength; i++) t[i] ^= u[i];
+            }
+
+            Buffer.BlockCopy(t, 0, derivedKey, (block - 1) * hashLength, hashLength);
+        }
+
+        if (outputLength == derivedKey.Length) return derivedKey;
+
+        var result = new byte[outputLength];
+        Buffer.BlockCopy(derivedKey, 0, result, 0, outputLength);
+        return result;
     }
 
     public void LoadSettings()
@@ -385,7 +447,7 @@ public class SettingsManager : INotifyPropertyChanged
                     }
                     catch (Exception saveEx)
                     {
-                        _ = ErrorLogger.LogAsync(saveEx, "Failed to save default settings to settings.dat");
+                        LogService.Warning(saveEx, "Failed to save default settings to settings.dat");
                     }
 
                     return;
@@ -425,7 +487,12 @@ public class SettingsManager : INotifyPropertyChanged
             }
             catch (Exception ex)
             {
-                _ = ErrorLogger.LogAsync(ex, "Error loading settings from settings.dat");
+                // Corrupt or unreadable settings are an environment issue, not a code bug:
+                // quarantine the file for diagnostics, warn (instead of reporting a bug) and
+                // recover by resetting to default settings.
+                LogService.Warning(ex, "Error loading settings from settings.dat; resetting to defaults.");
+                QuarantineSettingsFile();
+
                 SetDefaultSettings();
                 try
                 {
@@ -433,13 +500,13 @@ public class SettingsManager : INotifyPropertyChanged
                 }
                 catch (Exception saveEx)
                 {
-                    _ = ErrorLogger.LogAsync(saveEx, "Failed to save default settings after load error");
+                    LogService.Warning(saveEx, "Failed to save default settings after load error");
                 }
             }
         }
     }
 
-    private SettingsData? LoadAndDecryptSettings(string filePath)
+    private static SettingsData? LoadAndDecryptSettings(string filePath)
     {
         try
         {
@@ -451,7 +518,10 @@ public class SettingsManager : INotifyPropertyChanged
         }
         catch (Exception ex)
         {
-            _ = ErrorLogger.LogAsync(ex, $"Failed to decrypt settings from: {filePath}");
+            // A corrupt or unreadable settings file is an environment issue (e.g. truncated
+            // download, drive sync conflict or a machine rename invalidating the key),
+            // not an application bug. Warn locally and let LoadSettings reset to defaults.
+            LogService.Warning(ex, $"Failed to decrypt settings from: {filePath}");
             return null;
         }
     }
@@ -480,8 +550,13 @@ public class SettingsManager : INotifyPropertyChanged
                 SimilarityAlgorithm = AppConstants.Algorithms.JaroWinkler,
                 BaseTheme = root.Element("BaseTheme")?.Value ?? "Light",
                 AccentColor = root.Element("AccentColor")?.Value ?? "Blue",
-                ImageWidth = int.TryParse(root.Element("ThumbnailSize")?.Value, CultureInfo.InvariantCulture, out var w) ? w : 300,
-                ImageHeight = int.TryParse(root.Element("ThumbnailSize")?.Value, CultureInfo.InvariantCulture, out var h) ? h : 300,
+                ImageWidth = int.TryParse(root.Element("ThumbnailSize")?.Value, CultureInfo.InvariantCulture, out var w)
+                    ? w
+                    : 300,
+                ImageHeight =
+                    int.TryParse(root.Element("ThumbnailSize")?.Value, CultureInfo.InvariantCulture, out var h)
+                        ? h
+                        : 300,
                 MaxImagesToLoad = 30,
                 ImageLoaderMaxRetries = 3,
                 ImageLoaderRetryDelayMilliseconds = 200,
@@ -570,6 +645,27 @@ public class SettingsManager : INotifyPropertyChanged
                     // If we can't get the write time, prefer the app directory version
                     return SettingsFilePath;
                 }
+        }
+    }
+
+    private static void QuarantineSettingsFile()
+    {
+        foreach (var path in new[] { SettingsFilePath, UserDataSettingsFilePath })
+        {
+            if (!File.Exists(path)) continue;
+
+            try
+            {
+                var corruptPath = path + ".corrupt";
+                File.Move(path, corruptPath, true);
+                LogService.Warning($"Quarantined unreadable settings file to: {corruptPath}");
+            }
+            catch (Exception quarantineEx)
+            {
+                // Best effort - if we cannot move the file the defaults save below will
+                // still overwrite it where permissions allow.
+                LogService.Warning(quarantineEx, $"Failed to quarantine unreadable settings file: {path}");
+            }
         }
     }
 

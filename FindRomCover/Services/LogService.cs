@@ -58,7 +58,7 @@ public static class LogService
 
         var logEntry = new LogEntry { Message = logEntryText };
 
-        Application.Current?.Dispatcher.BeginInvoke(() =>
+        _ = Application.Current?.Dispatcher.BeginInvoke(() =>
         {
             LogMessages.Add(logEntry);
             while (LogMessages.Count > 5000) LogMessages.RemoveAt(0);

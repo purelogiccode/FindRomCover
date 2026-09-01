@@ -2,7 +2,7 @@ using System.Web;
 
 namespace FindRomCover.Services;
 
-public class WebSearchService
+public static class WebSearchService
 {
     /// <summary>
     ///     Builds a Bing Images search URL for the given query.

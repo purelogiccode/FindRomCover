@@ -20,7 +20,7 @@ public class LocalAudioService : IAudioService
                 {
                     var dispatcher = Application.Current?.Dispatcher;
                     if (dispatcher != null)
-                        dispatcher.BeginInvoke(() => InitializeMediaPlayer(soundPath));
+                        _ = dispatcher.BeginInvoke(() => InitializeMediaPlayer(soundPath));
                     else
                         _isSoundAvailable = false;
                 }

@@ -40,12 +40,10 @@ public static class ErrorLogger
 
     public static void Dispose()
     {
-        using (var scope = DisposeLock.EnterScope())
-        {
-            if (IsDisposed) return;
+        using var scope = DisposeLock.EnterScope();
+        if (IsDisposed) return;
 
-            IsDisposed = true;
-        }
+        IsDisposed = true;
     }
 
     public static async Task LogAsync(Exception? ex, string? contextMessage = null,

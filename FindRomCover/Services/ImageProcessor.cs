@@ -208,7 +208,8 @@ public static class ImageProcessor
                     var delay = baseDelayMs * Math.Pow(2, attempt - 1);
                     await Task.Delay((int)delay, cancellationToken);
                 }
-                catch (MagickException ex) when (attempt < maxRetries && ex.Message.Contains("WriteBlob", StringComparison.OrdinalIgnoreCase))
+                catch (MagickException ex) when (attempt < maxRetries &&
+                                                 ex.Message.Contains("WriteBlob", StringComparison.OrdinalIgnoreCase))
                 {
                     lastException = ex;
                     var delay = baseDelayMs * Math.Pow(2, attempt - 1);

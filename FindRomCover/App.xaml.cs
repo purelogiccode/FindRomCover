@@ -37,7 +37,6 @@ public partial class App
     }
 
     public static DebugWindow? LogWindow { get; private set; }
-    public static ImageSaveService ImageSaveService { get; } = new();
 
     public static string? StartupImageFolderPath { get; private set; }
     public static string? StartupRomFolderPath { get; private set; }
@@ -66,17 +65,22 @@ public partial class App
 
     private static void RegisterGlobalExceptionHandlers()
     {
+        // ReSharper disable once AllUnderscoreLocalParameterName
         AppDomain.CurrentDomain.UnhandledException += (_, args) =>
         {
             var ex = args.ExceptionObject as Exception ??
                      new InvalidOperationException(args.ExceptionObject.ToString() ?? "Unknown AppDomain exception");
             LogService.Fatal(ex, "Unhandled AppDomain exception - Application will terminate");
-            Current?.Dispatcher.BeginInvoke(static () =>
+            if (Current != null)
             {
-                MessageBox.Show(
-                    "An unexpected error occurred and the application needs to close.\n\nPlease report this issue to the development team.",
-                    "Fatal Error", MessageBoxButton.OK, MessageBoxImage.Error);
-            });
+                // ReSharper disable once AssignmentInsteadOfDiscard
+                _ = Current.Dispatcher.BeginInvoke(static () =>
+                {
+                    MessageBox.Show(
+                        "An unexpected error occurred and the application needs to close.\n\nPlease report this issue to the development team.",
+                        "Fatal Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                });
+            }
         };
 
         TaskScheduler.UnobservedTaskException += (_, args) =>
@@ -190,11 +194,7 @@ public partial class App
                         "Update Available", MessageBoxButton.YesNo, MessageBoxImage.Information);
 
                     if (choice == MessageBoxResult.Yes)
-                        Process.Start(new ProcessStartInfo
-                        {
-                            FileName = updateInfo.ReleaseUrl,
-                            UseShellExecute = true
-                        });
+                        UrlService.TryOpenUrl(updateInfo.ReleaseUrl);
                 });
         }
         catch (Exception ex)

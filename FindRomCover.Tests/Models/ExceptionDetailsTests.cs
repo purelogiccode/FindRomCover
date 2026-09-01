@@ -52,14 +52,17 @@ public class ExceptionDetailsTests
     [Fact]
     public void FromExceptionWithInnerExceptionShouldPopulateInnerExceptionDetails()
     {
-        var inner = new ArgumentException("inner error", paramName: "testParam");
+        var inner = new ArgumentException("inner error", "testParam");
         var outer = new InvalidOperationException("outer error", inner);
 
         var details = ExceptionDetails.FromException(outer);
 
         details.InnerException.Should().NotBeNull();
         details.InnerException!.Type.Should().Contain("ArgumentException");
-        details.InnerException.Message.Should().Be("inner error");
+        // Since .NET Core 3.0, ArgumentException.Message includes the parameter name,
+        // e.g. "inner error (Parameter 'testParam')". Assert the core message only so
+        // the test does not depend on the runtime's exact message formatting.
+        details.InnerException.Message.Should().StartWith("inner error");
     }
 
     [Fact]

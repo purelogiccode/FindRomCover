@@ -3,7 +3,7 @@ using ImageMagick;
 
 namespace FindRomCover.Services;
 
-public class ImageSaveService
+public static class ImageSaveService
 {
     /// <summary>
     ///     Downloads an image from the given URL and saves it as a PNG file at the specified path.
@@ -12,7 +12,7 @@ public class ImageSaveService
     /// <param name="outputPath">The path where the PNG image will be saved.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     /// <returns>True if the download and save was successful, false otherwise.</returns>
-    public async Task<bool> DownloadAndSaveImageAsync(string imageUrl, string outputPath,
+    public static async Task<bool> DownloadAndSaveImageAsync(string imageUrl, string outputPath,
         CancellationToken cancellationToken = default)
     {
         try
@@ -46,7 +46,7 @@ public class ImageSaveService
     /// <param name="outputPath">The path where the PNG image will be saved.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     /// <returns>True if conversion was successful, false otherwise.</returns>
-    public async Task<bool> ConvertStreamToPngAndSaveAsync(Stream inputStream, string outputPath,
+    public static async Task<bool> ConvertStreamToPngAndSaveAsync(Stream inputStream, string outputPath,
         CancellationToken cancellationToken = default)
     {
         var tempOutputPath = outputPath + ".tmp" + Guid.NewGuid().ToString("N")[..8];

@@ -33,7 +33,6 @@ public class ImageSaveServiceEdgeCaseTests : IDisposable
     [Fact]
     public async Task ConvertStreamToPngAndSaveAsyncWithJpgInputShouldSavePng()
     {
-        var service = new ImageSaveService();
         var outputPath = Path.Combine(_testOutputDir, "from_jpg.png");
 
         using var image = new MagickImage(MagickColors.Green, 20, 20);
@@ -41,7 +40,7 @@ public class ImageSaveServiceEdgeCaseTests : IDisposable
         var bytes = image.ToByteArray();
         using var stream = new MemoryStream(bytes);
 
-        var result = await service.ConvertStreamToPngAndSaveAsync(stream, outputPath);
+        var result = await ImageSaveService.ConvertStreamToPngAndSaveAsync(stream, outputPath);
 
         result.Should().BeTrue();
         File.Exists(outputPath).Should().BeTrue();
@@ -53,7 +52,6 @@ public class ImageSaveServiceEdgeCaseTests : IDisposable
     [Fact]
     public async Task ConvertStreamToPngAndSaveAsyncWithBmpInputShouldSavePng()
     {
-        var service = new ImageSaveService();
         var outputPath = Path.Combine(_testOutputDir, "from_bmp.png");
 
         using var image = new MagickImage(MagickColors.Blue, 15, 15);
@@ -61,7 +59,7 @@ public class ImageSaveServiceEdgeCaseTests : IDisposable
         var bytes = image.ToByteArray();
         using var stream = new MemoryStream(bytes);
 
-        var result = await service.ConvertStreamToPngAndSaveAsync(stream, outputPath);
+        var result = await ImageSaveService.ConvertStreamToPngAndSaveAsync(stream, outputPath);
 
         result.Should().BeTrue();
         File.Exists(outputPath).Should().BeTrue();
@@ -70,7 +68,6 @@ public class ImageSaveServiceEdgeCaseTests : IDisposable
     [Fact]
     public async Task ConvertStreamToPngAndSaveAsyncWithGifInputShouldSavePng()
     {
-        var service = new ImageSaveService();
         var outputPath = Path.Combine(_testOutputDir, "from_gif.png");
 
         using var image = new MagickImage(MagickColors.Yellow, 10, 10);
@@ -78,7 +75,7 @@ public class ImageSaveServiceEdgeCaseTests : IDisposable
         var bytes = image.ToByteArray();
         using var stream = new MemoryStream(bytes);
 
-        var result = await service.ConvertStreamToPngAndSaveAsync(stream, outputPath);
+        var result = await ImageSaveService.ConvertStreamToPngAndSaveAsync(stream, outputPath);
 
         result.Should().BeTrue();
         File.Exists(outputPath).Should().BeTrue();
@@ -87,7 +84,6 @@ public class ImageSaveServiceEdgeCaseTests : IDisposable
     [Fact]
     public async Task ConvertStreamToPngAndSaveAsyncWithTiffInputShouldSavePng()
     {
-        var service = new ImageSaveService();
         var outputPath = Path.Combine(_testOutputDir, "from_tiff.png");
 
         using var image = new MagickImage(MagickColors.Purple, 25, 25);
@@ -95,7 +91,7 @@ public class ImageSaveServiceEdgeCaseTests : IDisposable
         var bytes = image.ToByteArray();
         using var stream = new MemoryStream(bytes);
 
-        var result = await service.ConvertStreamToPngAndSaveAsync(stream, outputPath);
+        var result = await ImageSaveService.ConvertStreamToPngAndSaveAsync(stream, outputPath);
 
         result.Should().BeTrue();
         File.Exists(outputPath).Should().BeTrue();
@@ -104,7 +100,6 @@ public class ImageSaveServiceEdgeCaseTests : IDisposable
     [Fact]
     public async Task ConvertStreamToPngAndSaveAsyncWithWebPInputShouldSavePng()
     {
-        var service = new ImageSaveService();
         var outputPath = Path.Combine(_testOutputDir, "from_webp.png");
 
         using var image = new MagickImage(MagickColors.Orange, 30, 30);
@@ -112,7 +107,7 @@ public class ImageSaveServiceEdgeCaseTests : IDisposable
         var bytes = image.ToByteArray();
         using var stream = new MemoryStream(bytes);
 
-        var result = await service.ConvertStreamToPngAndSaveAsync(stream, outputPath);
+        var result = await ImageSaveService.ConvertStreamToPngAndSaveAsync(stream, outputPath);
 
         result.Should().BeTrue();
         File.Exists(outputPath).Should().BeTrue();
@@ -121,10 +116,9 @@ public class ImageSaveServiceEdgeCaseTests : IDisposable
     [Fact]
     public async Task ConvertStreamToPngAndSaveAsyncWithNullStreamShouldReturnFalse()
     {
-        var service = new ImageSaveService();
         var outputPath = Path.Combine(_testOutputDir, "null_stream.png");
 
-        var result = await service.ConvertStreamToPngAndSaveAsync(Stream.Null, outputPath);
+        var result = await ImageSaveService.ConvertStreamToPngAndSaveAsync(Stream.Null, outputPath);
 
         result.Should().BeFalse();
     }
@@ -132,7 +126,6 @@ public class ImageSaveServiceEdgeCaseTests : IDisposable
     [Fact]
     public async Task ConvertStreamToPngAndSaveAsyncShouldOverwriteExistingFile()
     {
-        var service = new ImageSaveService();
         var outputPath = Path.Combine(_testOutputDir, "overwrite.png");
 
         // Create an initial file
@@ -148,7 +141,7 @@ public class ImageSaveServiceEdgeCaseTests : IDisposable
         var bytes = image2.ToByteArray();
         using var stream = new MemoryStream(bytes);
 
-        var result = await service.ConvertStreamToPngAndSaveAsync(stream, outputPath);
+        var result = await ImageSaveService.ConvertStreamToPngAndSaveAsync(stream, outputPath);
 
         result.Should().BeTrue();
         File.Exists(outputPath).Should().BeTrue();
@@ -161,7 +154,6 @@ public class ImageSaveServiceEdgeCaseTests : IDisposable
     [Fact]
     public async Task ConvertStreamToPngAndSaveAsyncWithLargeImageShouldSucceed()
     {
-        var service = new ImageSaveService();
         var outputPath = Path.Combine(_testOutputDir, "large.png");
 
         using var image = new MagickImage(MagickColors.White, 500, 500);
@@ -169,7 +161,7 @@ public class ImageSaveServiceEdgeCaseTests : IDisposable
         var bytes = image.ToByteArray();
         using var stream = new MemoryStream(bytes);
 
-        var result = await service.ConvertStreamToPngAndSaveAsync(stream, outputPath);
+        var result = await ImageSaveService.ConvertStreamToPngAndSaveAsync(stream, outputPath);
 
         result.Should().BeTrue();
         File.Exists(outputPath).Should().BeTrue();
@@ -182,7 +174,6 @@ public class ImageSaveServiceEdgeCaseTests : IDisposable
     [Fact]
     public async Task ConvertStreamToPngAndSaveAsyncShouldCleanUpTempFileOnSuccess()
     {
-        var service = new ImageSaveService();
         var outputPath = Path.Combine(_testOutputDir, "temp_cleanup.png");
 
         using var image = new MagickImage(MagickColors.Red, 10, 10);
@@ -190,7 +181,7 @@ public class ImageSaveServiceEdgeCaseTests : IDisposable
         var bytes = image.ToByteArray();
         using var stream = new MemoryStream(bytes);
 
-        await service.ConvertStreamToPngAndSaveAsync(stream, outputPath);
+        await ImageSaveService.ConvertStreamToPngAndSaveAsync(stream, outputPath);
 
         // Check no temp files remain
         var tempFiles = Directory.GetFiles(_testOutputDir, "temp_cleanup.png.tmp*");
@@ -200,12 +191,11 @@ public class ImageSaveServiceEdgeCaseTests : IDisposable
     [Fact]
     public async Task ConvertStreamToPngAndSaveAsyncShouldCleanUpTempFileOnFailure()
     {
-        var service = new ImageSaveService();
         var outputPath = Path.Combine(_testOutputDir, "fail_cleanup.png");
 
         using var stream = new MemoryStream([0xFF, 0xD8, 0xFF, 0xE0]); // Looks like JPEG header but is truncated
 
-        await service.ConvertStreamToPngAndSaveAsync(stream, outputPath);
+        await ImageSaveService.ConvertStreamToPngAndSaveAsync(stream, outputPath);
 
         // Check no temp files remain
         var tempFiles = Directory.GetFiles(_testOutputDir, "fail_cleanup.png.tmp*");

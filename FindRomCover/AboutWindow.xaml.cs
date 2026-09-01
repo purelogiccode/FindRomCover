@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using System.Reflection;
+﻿using System.Reflection;
 using System.Windows;
 using System.Windows.Navigation;
 using FindRomCover.Services;
@@ -38,19 +37,9 @@ public partial class AboutWindow
 
     private void Hyperlink_RequestNavigate(object sender, RequestNavigateEventArgs e)
     {
-        try
-        {
-            Process.Start(new ProcessStartInfo
-            {
-                FileName = e.Uri.AbsoluteUri,
-                UseShellExecute = true
-            });
-            e.Handled = true;
-        }
-        catch (Exception ex)
-        {
+        if (!UrlService.TryOpenUrl(e.Uri.AbsoluteUri))
             MessageBox.Show("Unable to open the link.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-            LogService.Error(ex, "Error in Hyperlink_RequestNavigate");
-        }
+
+        e.Handled = true;
     }
 }

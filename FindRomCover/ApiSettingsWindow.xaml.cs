@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Windows;
 using System.Windows.Navigation;
 using FindRomCover.Managers;
@@ -54,22 +53,11 @@ public partial class ApiSettingsWindow
 
     private void Hyperlink_RequestNavigate(object sender, RequestNavigateEventArgs e)
     {
-        try
-        {
-            // Use ShellExecute to open the URL in the default browser
-            Process.Start(new ProcessStartInfo
-            {
-                FileName = e.Uri.AbsoluteUri,
-                UseShellExecute = true
-            });
-            e.Handled = true; // Mark the event as handled
-        }
-        catch (Exception ex)
-        {
-            // Log the error and show a user-friendly message
-            LogService.Error(ex, $"Failed to open hyperlink: {e.Uri.AbsoluteUri}");
+        // TryOpenUrl logs failures as warnings; the URL is shown so the user can copy it.
+        if (!UrlService.TryOpenUrl(e.Uri.AbsoluteUri))
             MessageBox.Show("Could not open the link. Please copy and paste the URL into your browser.", "Link Error",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
-        }
+
+        e.Handled = true;
     }
 }

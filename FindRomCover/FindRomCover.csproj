@@ -67,7 +67,7 @@
         <PackageReference Include="Magick.NET-Q16-AnyCPU" Version="14.16.0" />
         <PackageReference Include="MahApps.Metro" Version="3.0.0-rc0529" />
         <PackageReference Include="MessagePack" Version="3.1.8" />
-        <PackageReference Include="Meziantou.Analyzer" Version="3.0.195">
+        <PackageReference Include="Meziantou.Analyzer" Version="3.0.200">
           <PrivateAssets>all</PrivateAssets>
           <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
@@ -80,6 +80,14 @@
         <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.11" />
         <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4191.47" />
         <PackageReference Include="NAudio" Version="3.0.1" />
+        <PackageReference Include="Roslynator.Analyzers" Version="5.0.0">
+          <PrivateAssets>all</PrivateAssets>
+          <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="Roslynator.CodeAnalysis.Analyzers" Version="5.0.0">
+          <PrivateAssets>all</PrivateAssets>
+          <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
         <PackageReference Include="Serilog" Version="4.4.0" />
         <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
         <PackageReference Include="Serilog.Sinks.Observable" Version="3.0.0" />

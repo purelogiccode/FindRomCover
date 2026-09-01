@@ -8,15 +8,13 @@ public class ErrorLoggerAdditionalTests : IDisposable
 {
     public ErrorLoggerAdditionalTests()
     {
-        using (var scope = ErrorLogger.DisposeLock.EnterScope())
-        {
-            ErrorLogger.IsDisposed = false;
-        }
+        using var scope = ErrorLogger.DisposeLock.EnterScope();
+        ErrorLogger.IsDisposed = false;
     }
 
     public void Dispose()
     {
-        using (var scope = ErrorLogger.DisposeLock.EnterScope())
+        using (ErrorLogger.DisposeLock.EnterScope())
         {
             ErrorLogger.IsDisposed = false;
         }
@@ -33,10 +31,8 @@ public class ErrorLoggerAdditionalTests : IDisposable
     [Fact]
     public void IsDisposedShouldBeFalseByDefault()
     {
-        using (var scope = ErrorLogger.DisposeLock.EnterScope())
-        {
-            ErrorLogger.IsDisposed.Should().BeFalse();
-        }
+        using var scope = ErrorLogger.DisposeLock.EnterScope();
+        ErrorLogger.IsDisposed.Should().BeFalse();
     }
 
     [Fact]
@@ -44,10 +40,8 @@ public class ErrorLoggerAdditionalTests : IDisposable
     {
         ErrorLogger.Dispose();
 
-        using (var scope = ErrorLogger.DisposeLock.EnterScope())
-        {
-            ErrorLogger.IsDisposed.Should().BeTrue();
-        }
+        using var scope = ErrorLogger.DisposeLock.EnterScope();
+        ErrorLogger.IsDisposed.Should().BeTrue();
     }
 
     [Fact]
@@ -107,9 +101,9 @@ public class ErrorLoggerAdditionalTests : IDisposable
     [Fact]
     public void DisposeLockShouldBeAccessible()
     {
-        object lockObj = ErrorLogger.DisposeLock;
-
-        lockObj.Should().NotBeNull();
+        using (ErrorLogger.DisposeLock.EnterScope())
+        {
+        }
     }
 
     [Fact]
