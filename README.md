@@ -47,7 +47,7 @@ You can add or remove supported extensions through the `Settings > Edit Supporte
 ### Prerequisites
 
 - Windows 10 or later
-- **.NET 10.0 Runtime** (automatically installed if using the provided executable)
+- **.NET 10.0 Desktop Runtime**: The released executable is framework-dependent. If it is not already installed, download it from [dotnet.microsoft.com](https://dotnet.microsoft.com/download/dotnet/10.0) (choose ".NET Desktop Runtime").
 - **Microsoft Edge WebView2 Runtime**: Essential for Bing and Google Web Image Search. Most Windows 10/11 systems have this pre-installed. If missing, the application will prompt you with a direct download link.
 - (Optional) Valid API key for Google Custom Search API if you choose to use that search method.
 
@@ -79,11 +79,12 @@ To use the **Google Custom Search API**:
 1. **Setup Directories**
    - ROM Folder: Where your game files are stored.
    - Image Folder: Where you want cover images saved.
-   - Click "Browse..." to select folders.
+   - Click "Browse..." to select folders. As soon as both folders are set, the app scans automatically and lists the results — you can also press "Check for Missing Images" (or F5) to re-scan at any time.
+   - The status bar reports how many ROM files matched the supported extensions and how many are missing covers.
 
-2. **Scan for Missing Covers**
-   - Click "Check for Missing Images".
-   - The app will list all ROMs without a corresponding `.png`, `.jpg`, `.jpeg`, `.bmp`, `.gif`, `.tiff`, `.webp`, or `.avif` cover in your image folder.
+2. **Missing Covers List**
+   - The app lists all ROMs without a corresponding `.png`, `.jpg`, `.jpeg`, `.bmp`, `.gif`, `.tiff`, `.webp`, or `.avif` cover in your image folder.
+   - If no ROM files are found, the status bar tells you explicitly so you can verify the folder and supported extensions.
 
 3. **Find Covers**
    - Select a game from the missing covers list.
@@ -251,7 +252,8 @@ dotnet build
 
 ### Publishing
 ```bash
-dotnet publish -c Release -r win-x64 --self-contained
+dotnet publish -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true
+dotnet publish -c Release -r win-arm64 --self-contained false -p:PublishSingleFile=true
 ```
 
 ## Acknowledgments
