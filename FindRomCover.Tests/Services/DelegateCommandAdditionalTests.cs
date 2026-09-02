@@ -45,7 +45,7 @@ public class DelegateCommandAdditionalTests : IDisposable
     public void ExecuteShouldInvokeAction()
     {
         var executed = false;
-        var cmd = new DelegateCommand(_ => { executed = true; });
+        var cmd = new DelegateCommand(_ => executed = true);
         _commandsToDispose.Add(cmd);
 
         cmd.Execute(null);
@@ -57,7 +57,7 @@ public class DelegateCommandAdditionalTests : IDisposable
     public void ExecuteWithParameterShouldPassParameter()
     {
         object? receivedParam = null;
-        var cmd = new DelegateCommand(param => { receivedParam = param; });
+        var cmd = new DelegateCommand(param => receivedParam = param);
         _commandsToDispose.Add(cmd);
 
         cmd.Execute("test_value");
@@ -69,7 +69,7 @@ public class DelegateCommandAdditionalTests : IDisposable
     public void ExecuteWithNullParameterShouldPassNull()
     {
         object? receivedParam = "not null";
-        var cmd = new DelegateCommand(param => { receivedParam = param; });
+        var cmd = new DelegateCommand(param => receivedParam = param);
         _commandsToDispose.Add(cmd);
 
         cmd.Execute(null);
@@ -83,7 +83,7 @@ public class DelegateCommandAdditionalTests : IDisposable
         var cmd = new DelegateCommand(_ => { });
         _commandsToDispose.Add(cmd);
         var invoked = false;
-        cmd.CanExecuteChanged += (_, _) => { invoked = true; };
+        cmd.CanExecuteChanged += (_, _) => invoked = true;
 
         // Trigger via CommandManager (may not fire in test context)
         // We just verify the event handler is subscribable
@@ -138,7 +138,7 @@ public class DelegateCommandAdditionalTests : IDisposable
     public void ExecuteWithIntParameterShouldPassCorrectly()
     {
         var received = 0;
-        var cmd = new DelegateCommand(param => { received = (int)param!; });
+        var cmd = new DelegateCommand(param => received = (int)param!);
         _commandsToDispose.Add(cmd);
 
         cmd.Execute(42);
@@ -152,8 +152,8 @@ public class DelegateCommandAdditionalTests : IDisposable
         var cmd = new DelegateCommand(_ => { });
         _commandsToDispose.Add(cmd);
         var count = 0;
-        cmd.CanExecuteChanged += (_, _) => { count++; };
-        cmd.CanExecuteChanged += (_, _) => { count++; };
+        cmd.CanExecuteChanged += (_, _) => count++;
+        cmd.CanExecuteChanged += (_, _) => count++;
 
         // Just verify subscriptions work
         count.Should().Be(0);

@@ -72,7 +72,6 @@ public partial class App
                      new InvalidOperationException(args.ExceptionObject.ToString() ?? "Unknown AppDomain exception");
             LogService.Fatal(ex, "Unhandled AppDomain exception - Application will terminate");
             if (Current != null)
-            {
                 // ReSharper disable once AssignmentInsteadOfDiscard
                 _ = Current.Dispatcher.BeginInvoke(static () =>
                 {
@@ -80,7 +79,6 @@ public partial class App
                         "An unexpected error occurred and the application needs to close.\n\nPlease report this issue to the development team.",
                         "Fatal Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 });
-            }
         };
 
         TaskScheduler.UnobservedTaskException += (_, args) =>
@@ -187,7 +185,7 @@ public partial class App
                 Current.Dispatcher.Invoke(() =>
                 {
                     var choice = MessageBox.Show(
-                        $"A new version of FindRomCover is available!\n\n" +
+                        "A new version of FindRomCover is available!\n\n" +
                         $"Current: {updateInfo.CurrentVersion}\n" +
                         $"Latest: {updateInfo.LatestVersion}\n\n" +
                         "Would you like to download it?",

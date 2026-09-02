@@ -257,7 +257,8 @@ public partial class MainWindow
     {
         var imageFolderPath = GetValidatedImageFolderPath(false);
         if (string.IsNullOrEmpty(_selectedRomFileName) || string.IsNullOrEmpty(imagePath) ||
-            string.IsNullOrEmpty(imageFolderPath)) return;
+            string.IsNullOrEmpty(imageFolderPath))
+            return;
 
         var safeFileName = SearchQueryHelper.SanitizeFileName(_selectedRomFileName);
         var newFileName = Path.Combine(imageFolderPath, safeFileName + ".png");
@@ -294,7 +295,7 @@ public partial class MainWindow
 
             if (imageData.ImagePath != null)
                 element.ContextMenu = ButtonFactory.CreateContextMenu(imageData.ImagePath,
-                    path => { _ = UseImageAsync(path); }, element.ContextMenu);
+                    path => _ = UseImageAsync(path), element.ContextMenu);
         }
         catch (Exception ex)
         {

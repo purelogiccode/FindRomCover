@@ -38,7 +38,7 @@ public class ImageSaveServiceEdgeCaseTests : IDisposable
         using var image = new MagickImage(MagickColors.Green, 20, 20);
         image.Format = MagickFormat.Jpeg;
         var bytes = image.ToByteArray();
-        using var stream = new MemoryStream(bytes);
+        await using var stream = new MemoryStream(bytes);
 
         var result = await ImageSaveService.ConvertStreamToPngAndSaveAsync(stream, outputPath);
 
@@ -57,7 +57,7 @@ public class ImageSaveServiceEdgeCaseTests : IDisposable
         using var image = new MagickImage(MagickColors.Blue, 15, 15);
         image.Format = MagickFormat.Bmp;
         var bytes = image.ToByteArray();
-        using var stream = new MemoryStream(bytes);
+        await using var stream = new MemoryStream(bytes);
 
         var result = await ImageSaveService.ConvertStreamToPngAndSaveAsync(stream, outputPath);
 
@@ -73,7 +73,7 @@ public class ImageSaveServiceEdgeCaseTests : IDisposable
         using var image = new MagickImage(MagickColors.Yellow, 10, 10);
         image.Format = MagickFormat.Gif;
         var bytes = image.ToByteArray();
-        using var stream = new MemoryStream(bytes);
+        await using var stream = new MemoryStream(bytes);
 
         var result = await ImageSaveService.ConvertStreamToPngAndSaveAsync(stream, outputPath);
 
@@ -89,7 +89,7 @@ public class ImageSaveServiceEdgeCaseTests : IDisposable
         using var image = new MagickImage(MagickColors.Purple, 25, 25);
         image.Format = MagickFormat.Tiff;
         var bytes = image.ToByteArray();
-        using var stream = new MemoryStream(bytes);
+        await using var stream = new MemoryStream(bytes);
 
         var result = await ImageSaveService.ConvertStreamToPngAndSaveAsync(stream, outputPath);
 
@@ -105,7 +105,7 @@ public class ImageSaveServiceEdgeCaseTests : IDisposable
         using var image = new MagickImage(MagickColors.Orange, 30, 30);
         image.Format = MagickFormat.WebP;
         var bytes = image.ToByteArray();
-        using var stream = new MemoryStream(bytes);
+        await using var stream = new MemoryStream(bytes);
 
         var result = await ImageSaveService.ConvertStreamToPngAndSaveAsync(stream, outputPath);
 
@@ -139,7 +139,7 @@ public class ImageSaveServiceEdgeCaseTests : IDisposable
         using var image2 = new MagickImage(MagickColors.Blue, 20, 20);
         image2.Format = MagickFormat.Png;
         var bytes = image2.ToByteArray();
-        using var stream = new MemoryStream(bytes);
+        await using var stream = new MemoryStream(bytes);
 
         var result = await ImageSaveService.ConvertStreamToPngAndSaveAsync(stream, outputPath);
 
@@ -159,7 +159,7 @@ public class ImageSaveServiceEdgeCaseTests : IDisposable
         using var image = new MagickImage(MagickColors.White, 500, 500);
         image.Format = MagickFormat.Png;
         var bytes = image.ToByteArray();
-        using var stream = new MemoryStream(bytes);
+        await using var stream = new MemoryStream(bytes);
 
         var result = await ImageSaveService.ConvertStreamToPngAndSaveAsync(stream, outputPath);
 
@@ -179,7 +179,7 @@ public class ImageSaveServiceEdgeCaseTests : IDisposable
         using var image = new MagickImage(MagickColors.Red, 10, 10);
         image.Format = MagickFormat.Png;
         var bytes = image.ToByteArray();
-        using var stream = new MemoryStream(bytes);
+        await using var stream = new MemoryStream(bytes);
 
         await ImageSaveService.ConvertStreamToPngAndSaveAsync(stream, outputPath);
 
@@ -193,7 +193,7 @@ public class ImageSaveServiceEdgeCaseTests : IDisposable
     {
         var outputPath = Path.Combine(_testOutputDir, "fail_cleanup.png");
 
-        using var stream = new MemoryStream([0xFF, 0xD8, 0xFF, 0xE0]); // Looks like JPEG header but is truncated
+        await using var stream = new MemoryStream([0xFF, 0xD8, 0xFF, 0xE0]); // Looks like JPEG header but is truncated
 
         await ImageSaveService.ConvertStreamToPngAndSaveAsync(stream, outputPath);
 

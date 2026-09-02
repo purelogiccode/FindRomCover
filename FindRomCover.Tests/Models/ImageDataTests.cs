@@ -11,7 +11,7 @@ public class ImageDataTests
     {
         var imageData = new ImageData { ImagePath = "test.png" };
 
-        var act = () => { imageData.ImageWidth = -1; };
+        var act = () => imageData.ImageWidth = -1;
 
         act.Should().Throw<ArgumentOutOfRangeException>()
             .WithParameterName("value");
@@ -22,7 +22,7 @@ public class ImageDataTests
     {
         var imageData = new ImageData { ImagePath = "test.png" };
 
-        var act = () => { imageData.ImageHeight = -1; };
+        var act = () => imageData.ImageHeight = -1;
 
         act.Should().Throw<ArgumentOutOfRangeException>()
             .WithParameterName("value");
@@ -72,7 +72,7 @@ public class ImageDataTests
     {
         var imageData = new ImageData { ImagePath = "test.png" };
         var raised = false;
-        imageData.PropertyChanged += (_, _) => { raised = true; };
+        imageData.PropertyChanged += (_, _) => raised = true;
 
         imageData.ThumbnailWidth = 100;
 
@@ -85,7 +85,7 @@ public class ImageDataTests
     {
         var imageData = new ImageData { ImagePath = "test.png" };
         var raised = false;
-        imageData.PropertyChanged += (_, _) => { raised = true; };
+        imageData.PropertyChanged += (_, _) => raised = true;
 
         imageData.ThumbnailHeight = 100;
 

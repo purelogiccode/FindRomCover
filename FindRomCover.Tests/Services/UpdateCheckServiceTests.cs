@@ -121,7 +121,7 @@ public class UpdateCheckServiceTests
 
         var result = UpdateCheckService.ParseReleaseResponse(json, currentVersion);
 
-        result.ReleaseUrl.Should().Be("https://github.com/drpetersonfernandes/FindRomCover/releases");
+        result.ReleaseUrl.Should().Be("https://github.com/purelogiccode/FindRomCover/releases");
     }
 
     [Fact]

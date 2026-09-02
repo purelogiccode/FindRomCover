@@ -35,10 +35,10 @@ public static class LogService
                 .MinimumLevel.Debug()
                 .WriteTo.File(
                     logFilePath,
-                    rollingInterval: RollingInterval.Day,
-                    retainedFileCountLimit: 7,
                     outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {Message:lj}{NewLine}{Exception}",
-                    formatProvider: CultureInfo.InvariantCulture)
+                    formatProvider: CultureInfo.InvariantCulture,
+                    rollingInterval: RollingInterval.Day,
+                    retainedFileCountLimit: 7)
                 .WriteTo.Observers(events => events.Subscribe(new LogEventObserver()))
                 .WriteTo.Sink(new BugReportSink(new MessageTextTemplateFormatter()))
                 .CreateLogger();

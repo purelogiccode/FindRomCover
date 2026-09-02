@@ -601,7 +601,7 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
             if (updateInfo is { IsUpdateAvailable: true })
             {
                 var choice = MessageBox.Show(
-                    $"A new version of FindRomCover is available!\n\n" +
+                    "A new version of FindRomCover is available!\n\n" +
                     $"Current: {updateInfo.CurrentVersion}\n" +
                     $"Latest: {updateInfo.LatestVersion}\n\n" +
                     "Would you like to go to the download page?",
@@ -708,7 +708,7 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         }
     }
 
-    private void BtnBrowseRomFolder_Click(object sender, RoutedEventArgs e)
+    private async void BtnBrowseRomFolder_Click(object sender, RoutedEventArgs e)
     {
         try
         {
@@ -717,6 +717,7 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
             {
                 TxtRomFolder.Text = dialog.FolderName;
                 UpdateUiStateForFolderPaths();
+                if (FolderPathsAreValid()) await CheckForMissingImagesSafeAsync();
             }
         }
         catch (Exception ex)
@@ -725,7 +726,7 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         }
     }
 
-    private void BtnBrowseImageFolder_Click(object sender, RoutedEventArgs e)
+    private async void BtnBrowseImageFolder_Click(object sender, RoutedEventArgs e)
     {
         try
         {
@@ -736,6 +737,7 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
             UpdateUiStateForFolderPaths();
             Settings.LastImageFolder = dialog.FolderName;
             Settings.SaveSettings();
+            if (FolderPathsAreValid()) await CheckForMissingImagesSafeAsync();
         }
         catch (Exception ex)
         {
@@ -818,7 +820,7 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         IsCheckingMissing = true;
         try
         {
-            var missingFiles = await Task.Run(async () =>
+            var missingResult = await Task.Run(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
@@ -860,8 +862,11 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
                 }
 
                 cancellationToken.ThrowIfCancellationRequested();
-                return missing.OrderBy(static x => x.RomName, StringComparer.OrdinalIgnoreCase).ToList();
+                return (missing.OrderBy(static x => x.RomName, StringComparer.OrdinalIgnoreCase).ToList(),
+                    allRomNames.Count);
             }, cancellationToken);
+
+            var (missingFiles, romCount) = missingResult;
 
             cancellationToken.ThrowIfCancellationRequested();
             MissingImages.Clear();
@@ -871,6 +876,10 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
                 MissingImages.Add(item);
 
             UpdateMissingCount();
+            StatusMessage.Text = romCount == 0
+                ? $"No ROM files found in \"{romFolderPath}\" matching the supported extensions."
+                : $"Found {romCount} ROM file(s) matching the supported extensions; " +
+                  $"{missingFiles.Count} missing cover(s).";
         }
         catch (OperationCanceledException)
         {
@@ -1055,11 +1064,13 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         return null;
     }
 
-    private void EditExtensions_Click(object sender, RoutedEventArgs e)
+    private async void EditExtensions_Click(object sender, RoutedEventArgs e)
     {
         try
         {
-            new SettingsWindow(Settings) { Owner = this }.ShowDialog();
+            var dialog = new SettingsWindow(Settings) { Owner = this };
+            dialog.ShowDialog();
+            if (dialog.DialogResult == true && FolderPathsAreValid()) await CheckForMissingImagesSafeAsync();
         }
         catch (Exception ex)
         {
@@ -1143,7 +1154,8 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         {
             if (sender is not MenuItem menuItem) return;
             if (menuItem.Tag is not int size &&
-                !int.TryParse(menuItem.Tag?.ToString(), CultureInfo.InvariantCulture, out size)) return;
+                !int.TryParse(menuItem.Tag?.ToString(), CultureInfo.InvariantCulture, out size))
+                return;
 
             Settings.ImageWidth = size;
             Settings.ImageHeight = size;
@@ -1311,7 +1323,16 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         if (showWarning)
             MessageBox.Show($"The {folderType.ToLowerInvariant()} folder path '{path}' is invalid or does not exist.",
                 $"Invalid {folderType} Folder", MessageBoxButton.OK, MessageBoxImage.Warning);
+
         return null;
+    }
+
+    private bool FolderPathsAreValid()
+    {
+        return !string.IsNullOrEmpty(TxtRomFolder.Text.Trim()) &&
+               Directory.Exists(TxtRomFolder.Text.Trim()) &&
+               !string.IsNullOrEmpty(TxtImageFolder.Text.Trim()) &&
+               Directory.Exists(TxtImageFolder.Text.Trim());
     }
 
     private void UpdateUiStateForFolderPaths()

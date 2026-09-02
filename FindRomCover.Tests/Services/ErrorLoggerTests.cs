@@ -110,7 +110,7 @@ public class ErrorLoggerTests : IDisposable
     {
         // Access the internal fields via reflection or just verify they are set
         // Since they are internal, we can test indirectly by checking the class doesn't throw
-        var act = () => { _ = ErrorLogger.DefaultApiTimeoutSeconds; };
+        var act = () => _ = ErrorLogger.DefaultApiTimeoutSeconds;
 
         act.Should().NotThrow();
     }

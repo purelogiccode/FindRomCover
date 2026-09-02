@@ -49,7 +49,7 @@ public class DelegateCommandTests
     public void ExecuteShouldInvokeAction()
     {
         var executed = false;
-        var command = new DelegateCommand(_ => { executed = true; });
+        var command = new DelegateCommand(_ => executed = true);
 
         command.Execute(null);
 
@@ -60,7 +60,7 @@ public class DelegateCommandTests
     public void ExecuteShouldPassParameter()
     {
         object? receivedParam = null;
-        var command = new DelegateCommand(param => { receivedParam = param; });
+        var command = new DelegateCommand(param => receivedParam = param);
 
         command.Execute("test-param");
 
@@ -71,7 +71,7 @@ public class DelegateCommandTests
     public void ExecuteWithNullParameterShouldWork()
     {
         object? receivedParam = "not null";
-        var command = new DelegateCommand(param => { receivedParam = param; });
+        var command = new DelegateCommand(param => receivedParam = param);
 
         command.Execute(null);
 
@@ -98,7 +98,7 @@ public class DelegateCommandTests
     {
         var command = new DelegateCommand(static _ => { });
         var eventRaised = false;
-        EventHandler handler = (_, _) => { eventRaised = true; };
+        EventHandler handler = (_, _) => eventRaised = true;
         command.CanExecuteChanged += handler;
 
         command.CanExecuteChanged -= handler;

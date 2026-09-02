@@ -1,5 +1,5 @@
-[![GitHub release](https://img.shields.io/github/v/release/drpetersonfernandes/FindRomCover)](https://github.com/drpetersonfernandes/FindRomCover/releases)
-[![Platform](https://img.shields.io/badge/platform-Windows%20x64%20%7C%20ARM64-blue)](https://github.com/drpetersonfernandes/FindRomCover/releases)
+[![GitHub release](https://img.shields.io/github/v/release/purelogiccode/FindRomCover)](https://github.com/purelogiccode/FindRomCover/releases)
+[![Platform](https://img.shields.io/badge/platform-Windows%20x64%20%7C%20ARM64-blue)](https://github.com/purelogiccode/FindRomCover/releases)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE.txt)
 
 # FindRomCover
@@ -53,7 +53,7 @@ You can add or remove supported extensions through the `Settings > Edit Supporte
 
 ### Installation
 
-1. **Download the latest release** from the [Releases](https://github.com/drpetersonfernandes/FindRomCover/releases) page.
+1. **Download the latest release** from the [Releases](https://github.com/purelogiccode/FindRomCover/releases) page.
 2. **Extract** the archive to a folder of your choice.
 3. **Run** `FindRomCover.exe`.
 4. **Configure API keys** (if using Google API search, see Setup section below).
@@ -244,7 +244,7 @@ dotnet test
 
 ### Build Steps
 ```bash
-git clone https://github.com/drpetersonfernandes/FindRomCover.git
+git clone https://github.com/purelogiccode/FindRomCover.git
 cd FindRomCover
 dotnet build
 ```
@@ -271,8 +271,8 @@ This project is licensed under the **GNU General Public License v3.0** - see the
 
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/drpetersonfernandes/FindRomCover/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/drpetersonfernandes/FindRomCover/discussions)
+- **Issues**: [GitHub Issues](https://github.com/purelogiccode/FindRomCover/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/purelogiccode/FindRomCover/discussions)
 - **Donations**: [Support Development](https://www.purelogiccode.com/donate)
 
 ---

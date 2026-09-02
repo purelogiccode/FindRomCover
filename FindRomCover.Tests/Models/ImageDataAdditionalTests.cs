@@ -165,7 +165,7 @@ public class ImageDataAdditionalTests
     {
         var data = new ImageData { ThumbnailWidth = 100 };
         var fired = false;
-        data.PropertyChanged += (_, _) => { fired = true; };
+        data.PropertyChanged += (_, _) => fired = true;
 
         data.ThumbnailWidth = 100;
 
@@ -177,7 +177,7 @@ public class ImageDataAdditionalTests
     {
         var data = new ImageData { ThumbnailHeight = 100 };
         var fired = false;
-        data.PropertyChanged += (_, _) => { fired = true; };
+        data.PropertyChanged += (_, _) => fired = true;
 
         data.ThumbnailHeight = 100;
 

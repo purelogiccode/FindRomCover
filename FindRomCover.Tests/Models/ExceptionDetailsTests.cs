@@ -52,6 +52,7 @@ public class ExceptionDetailsTests
     [Fact]
     public void FromExceptionWithInnerExceptionShouldPopulateInnerExceptionDetails()
     {
+        // ReSharper disable once NotResolvedInText
         var inner = new ArgumentException("inner error", "testParam");
         var outer = new InvalidOperationException("outer error", inner);
 

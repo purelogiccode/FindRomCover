@@ -43,7 +43,7 @@ public static class Google
     internal static List<ImageData> MapToImageData(GoogleSearchResult? searchResults)
     {
         if (searchResults?.Items != null)
-            return searchResults.Items.Select(static item => new ImageData
+            return searchResults.Items.ConvertAll(static item => new ImageData
             {
                 ImagePath = item.Link,
                 ImageName = FormatImageName(item.Title),
@@ -55,7 +55,7 @@ public static class Google
                 ImageHeight = item.Image is { Height: > 0 } ? item.Image.Height : 1,
                 ThumbnailWidth = 0,
                 ThumbnailHeight = 0
-            }).ToList();
+            });
 
         return new List<ImageData>();
     }

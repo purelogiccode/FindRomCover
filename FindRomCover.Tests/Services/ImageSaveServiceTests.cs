@@ -40,7 +40,7 @@ public class ImageSaveServiceTests : IDisposable
         using var image = new MagickImage(MagickColors.Red, 10, 10);
         image.Format = MagickFormat.Png;
         var bytes = image.ToByteArray();
-        using var stream = new MemoryStream(bytes);
+        await using var stream = new MemoryStream(bytes);
 
         var result = await ImageSaveService.ConvertStreamToPngAndSaveAsync(stream, outputPath);
 
@@ -57,7 +57,7 @@ public class ImageSaveServiceTests : IDisposable
         using var image = new MagickImage(MagickColors.Blue, 5, 5);
         image.Format = MagickFormat.Png;
         var bytes = image.ToByteArray();
-        using var stream = new MemoryStream(bytes);
+        await using var stream = new MemoryStream(bytes);
 
         var result = await ImageSaveService.ConvertStreamToPngAndSaveAsync(stream, outputPath);
 
@@ -71,7 +71,7 @@ public class ImageSaveServiceTests : IDisposable
     {
         var outputPath = Path.Combine(_testOutputDir, "invalid.png");
 
-        using var stream = new MemoryStream([0x00, 0x01, 0x02]);
+        await using var stream = new MemoryStream([0x00, 0x01, 0x02]);
 
         var result = await ImageSaveService.ConvertStreamToPngAndSaveAsync(stream, outputPath);
 

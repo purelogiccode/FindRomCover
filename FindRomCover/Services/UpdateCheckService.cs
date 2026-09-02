@@ -9,9 +9,9 @@ namespace FindRomCover.Services;
 public static class UpdateCheckService
 {
     private const string GitHubReleasesUrl =
-        "https://api.github.com/repos/drpetersonfernandes/FindRomCover/releases/latest";
+        "https://api.github.com/repos/purelogiccode/FindRomCover/releases/latest";
 
-    private const string ReleasesPageUrl = "https://github.com/drpetersonfernandes/FindRomCover/releases";
+    private const string ReleasesPageUrl = "https://github.com/purelogiccode/FindRomCover/releases";
 
     /// <summary>
     ///     Checks for application updates via the GitHub API.
@@ -128,7 +128,8 @@ public static class UpdateCheckService
             .TrimStart('v', 'V');
 
         if (Version.TryParse(versionString, out var version) ||
-            Version.TryParse(versionString + ".0", out version)) return version;
+            Version.TryParse(versionString + ".0", out version))
+            return version;
 
         return null;
     }

@@ -133,7 +133,7 @@ public partial class MainWindow
             }
             catch (OperationCanceledException)
             {
-                await Dispatcher.InvokeAsync(() => { StatusMessage.Text = "Search canceled."; });
+                await Dispatcher.InvokeAsync(() => StatusMessage.Text = "Search canceled.");
                 return;
             }
 
