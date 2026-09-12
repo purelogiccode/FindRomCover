@@ -16,10 +16,18 @@ public sealed class ImageFolderWatcher : IDisposable
     private readonly SemaphoreSlim _processingLock = new(1, 1);
     private readonly ConcurrentDictionary<string, byte> _recentlyProcessed = new(StringComparer.OrdinalIgnoreCase);
     private readonly Lock _renameLock = new();
-    private bool _disposed;
+    private readonly Lock _restartLock = new();
+    private volatile bool _disposed;
 
     private string? _pendingRenameTarget;
     private FileSystemWatcher? _watcher;
+    private string? _watchedFolderPath;
+    private int _consecutiveErrorCount;
+    private DateTime _lastErrorUtc = DateTime.MinValue;
+
+    private const int MaxConsecutiveRestarts = 5;
+    private static readonly TimeSpan RestartCooldown = TimeSpan.FromMinutes(1);
+    private static readonly TimeSpan RestartDelay = TimeSpan.FromSeconds(2);
 
     public string? PendingRenameTarget
     {
@@ -42,16 +50,53 @@ public sealed class ImageFolderWatcher : IDisposable
         }
     }
 
+    public string? WatchedFolderPath
+    {
+        get
+        {
+            lock (_restartLock)
+            {
+                return _watchedFolderPath;
+            }
+        }
+    }
+
     public void Dispose()
     {
         if (_disposed) return;
 
         _disposed = true;
-        _disposeCts.Cancel();
-        _disposeCts.Dispose();
+        try
+        {
+            _disposeCts.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+        catch (Exception ex)
+        {
+            LogService.Debug($"ImageFolderWatcher: error cancelling dispose token: {ex.Message}");
+        }
 
-        Stop();
-        _processingLock.Dispose();
+        StopCore(clearWatchedPath: true);
+
+        try
+        {
+            _disposeCts.Dispose();
+        }
+        catch (Exception ex)
+        {
+            LogService.Debug($"ImageFolderWatcher: error disposing CTS: {ex.Message}");
+        }
+
+        try
+        {
+            _processingLock.Dispose();
+        }
+        catch (Exception ex)
+        {
+            LogService.Debug($"ImageFolderWatcher: error disposing processing lock: {ex.Message}");
+        }
     }
 
     public event Action<string>? ImageFound;
@@ -71,14 +116,29 @@ public sealed class ImageFolderWatcher : IDisposable
 
     public void PreRegisterExpectedFile(string filePath)
     {
+        if (_disposed) return;
+
         _recentlyProcessed.TryAdd(filePath, 1);
+        CancellationToken token;
+        try
+        {
+            token = _disposeCts.Token;
+        }
+        catch (ObjectDisposedException)
+        {
+            return;
+        }
+
         _ = Task.Run(async () =>
         {
             try
             {
-                await Task.Delay(60000, _disposeCts.Token);
+                await Task.Delay(60000, token);
             }
             catch (OperationCanceledException)
+            {
+            }
+            catch (ObjectDisposedException)
             {
             }
 
@@ -87,56 +147,232 @@ public sealed class ImageFolderWatcher : IDisposable
         LogService.Debug($"ImageFolderWatcher: pre-registered '{Path.GetFileName(filePath)}' so watcher will skip it");
     }
 
-    public void Start(string folderPath)
+    public bool Start(string folderPath)
     {
-        Stop();
+        if (_disposed) return false;
+
+        StopCore(clearWatchedPath: true);
 
         if (!Directory.Exists(folderPath))
         {
             LogService.Warning($"ImageFolderWatcher: folder does not exist: {folderPath}");
-            return;
+            return false;
         }
 
-        _watcher = new FileSystemWatcher(folderPath)
+        try
         {
-            NotifyFilter = NotifyFilters.FileName,
-            Filter = "*.*",
-            IncludeSubdirectories = false,
-            InternalBufferSize = 64 * 1024,
-            EnableRaisingEvents = true
-        };
+            var watcher = new FileSystemWatcher(folderPath)
+            {
+                NotifyFilter = NotifyFilters.FileName,
+                Filter = "*.*",
+                IncludeSubdirectories = false,
+                InternalBufferSize = 64 * 1024,
+                EnableRaisingEvents = true
+            };
 
-        _watcher.Created += OnFileCreatedAsync;
-        _watcher.Renamed += OnFileRenamedAsync;
-        _watcher.Error += OnWatcherError;
+            watcher.Created += OnFileCreatedAsync;
+            watcher.Renamed += OnFileRenamedAsync;
+            watcher.Error += OnWatcherError;
 
-        LogService.Information($"ImageFolderWatcher: started watching '{folderPath}'");
+            _watcher = watcher;
+            lock (_restartLock)
+            {
+                _watchedFolderPath = folderPath;
+                _consecutiveErrorCount = 0;
+            }
+
+            LogService.Information($"ImageFolderWatcher: started watching '{folderPath}'");
+            return true;
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException
+                                       or IOException
+                                       or ArgumentException
+                                       or System.ComponentModel.Win32Exception
+                                       or PlatformNotSupportedException)
+        {
+            // Environmental failure (ACLs, disconnected drive, invalid path, AV lock, ...).
+            // Log as Warning so it does NOT trigger an automatic bug report.
+            LogService.Warning(ex, $"ImageFolderWatcher: cannot watch folder '{folderPath}' — automatic detection disabled");
+            return false;
+        }
     }
 
     public void Stop()
     {
-        if (_watcher == null) return;
+        StopCore(clearWatchedPath: true);
+    }
 
-        _watcher.EnableRaisingEvents = false;
-        _watcher.Created -= OnFileCreatedAsync;
-        _watcher.Renamed -= OnFileRenamedAsync;
-        _watcher.Error -= OnWatcherError;
-        _watcher.Dispose();
-        _watcher = null;
+    private void StopCore(bool clearWatchedPath)
+    {
+        if (clearWatchedPath)
+            lock (_restartLock)
+            {
+                _watchedFolderPath = null;
+            }
 
-        // Wait for any in-flight ProcessFileAsync to complete
-        if (!_processingLock.Wait(TimeSpan.FromSeconds(15)))
-            LogService.Warning("ImageFolderWatcher: timed out waiting for in-flight processing to complete");
-        else
-            _processingLock.Release();
+        var watcher = Interlocked.Exchange(ref _watcher, null);
+
+        if (watcher == null) return;
+
+        try
+        {
+            watcher.EnableRaisingEvents = false;
+        }
+        catch (Exception ex)
+        {
+            LogService.Debug($"ImageFolderWatcher: error disabling events during stop: {ex.Message}");
+        }
+
+        try
+        {
+            watcher.Created -= OnFileCreatedAsync;
+            watcher.Renamed -= OnFileRenamedAsync;
+            watcher.Error -= OnWatcherError;
+        }
+        catch (Exception ex)
+        {
+            LogService.Debug($"ImageFolderWatcher: error unsubscribing events during stop: {ex.Message}");
+        }
+
+        try
+        {
+            watcher.Dispose();
+        }
+        catch (Exception ex)
+        {
+            LogService.Debug($"ImageFolderWatcher: error disposing watcher: {ex.Message}");
+        }
+
+        // Wait for any in-flight ProcessFileAsync to complete.
+        // Do not hold any lock while waiting to avoid deadlocks with OnWatcherError.
+        try
+        {
+            if (!_processingLock.Wait(TimeSpan.FromSeconds(15)))
+                LogService.Warning("ImageFolderWatcher: timed out waiting for in-flight processing to complete");
+            else
+                _processingLock.Release();
+        }
+        catch (ObjectDisposedException)
+        {
+            // Dispose raced with Stop — nothing to wait for.
+        }
+        catch (Exception ex)
+        {
+            LogService.Debug($"ImageFolderWatcher: error waiting for in-flight processing: {ex.Message}");
+        }
 
         LogService.Information("ImageFolderWatcher: stopped");
     }
 
-    private static void OnWatcherError(object sender, ErrorEventArgs e)
+    private void OnWatcherError(object sender, ErrorEventArgs e)
     {
-        LogService.Error(e.GetException(),
-            "ImageFolderWatcher: FileSystemWatcher error (buffer overflow or system error)");
+        // NOTE: This must NEVER call LogService.Error — FileSystemWatcher failures are
+        // environmental (access denied, drive disconnected, buffer overflow, AV lock, ...)
+        // and would otherwise spam the automatic bug-report pipeline (see issue #66867:
+        // Win32Exception (5) "Accesso negato").
+        var ex = e.GetException();
+
+        try
+        {
+            if (ex is InternalBufferOverflowException overflowEx)
+            {
+                LogService.Warning(overflowEx,
+                    "ImageFolderWatcher: event buffer overflowed — some file events may have been lost");
+                return;
+            }
+
+            LogService.Warning(ex,
+                $"ImageFolderWatcher: transient watcher error watching '{WatchedFolderPath}' — attempting recovery");
+
+            ScheduleRestart();
+        }
+        catch (Exception handlerEx)
+        {
+            LogService.Debug($"ImageFolderWatcher: error in OnWatcherError handler: {handlerEx.Message}");
+        }
+    }
+
+    private void ScheduleRestart()
+    {
+        string? folderPath;
+        CancellationToken token;
+        lock (_restartLock)
+        {
+            if (_disposed) return;
+
+            var now = DateTime.UtcNow;
+            if (now - _lastErrorUtc > RestartCooldown)
+                _consecutiveErrorCount = 0;
+
+            _lastErrorUtc = now;
+            _consecutiveErrorCount++;
+
+            if (_consecutiveErrorCount > MaxConsecutiveRestarts)
+            {
+                LogService.Warning(
+                    $"ImageFolderWatcher: giving up automatic restart after {_consecutiveErrorCount - 1} attempts for '{_watchedFolderPath}' — automatic detection disabled until the folder is re-selected");
+                return;
+            }
+
+            folderPath = _watchedFolderPath;
+        }
+
+        if (string.IsNullOrEmpty(folderPath)) return;
+
+        try
+        {
+            token = _disposeCts.Token;
+        }
+        catch (ObjectDisposedException)
+        {
+            return;
+        }
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(RestartDelay, token);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+            catch (ObjectDisposedException)
+            {
+                return;
+            }
+
+            if (_disposed) return;
+
+            // Abort if the watched folder changed (user re-selected) or was explicitly stopped.
+            lock (_restartLock)
+            {
+                if (_disposed) return;
+                if (!string.Equals(_watchedFolderPath, folderPath, StringComparison.OrdinalIgnoreCase)) return;
+            }
+
+            if (!Directory.Exists(folderPath))
+            {
+                LogService.Warning(
+                    $"ImageFolderWatcher: watched folder no longer exists, not restarting: '{folderPath}'");
+                return;
+            }
+
+            try
+            {
+                // Drop the broken watcher without clearing the path intent, then re-start.
+                StopCore(clearWatchedPath: false);
+                if (_disposed) return;
+
+                if (Start(folderPath))
+                    LogService.Information($"ImageFolderWatcher: recovered watching '{folderPath}'");
+            }
+            catch (Exception restartEx)
+            {
+                LogService.Debug($"ImageFolderWatcher: restart attempt failed: {restartEx.Message}");
+            }
+        });
     }
 
     private async void OnFileCreatedAsync(object sender, FileSystemEventArgs e)
@@ -151,10 +387,16 @@ public sealed class ImageFolderWatcher : IDisposable
             {
                 await ProcessFileAsync(e.FullPath);
             }
+            catch (ObjectDisposedException)
+            {
+            }
             catch (Exception ex)
             {
                 LogService.Error(ex, $"ImageFolderWatcher: unhandled error in OnFileCreated for '{e.FullPath}'");
             }
+        }
+        catch (ObjectDisposedException)
+        {
         }
         catch (Exception ex)
         {
@@ -174,15 +416,51 @@ public sealed class ImageFolderWatcher : IDisposable
             {
                 await ProcessFileAsync(e.FullPath);
             }
+            catch (ObjectDisposedException)
+            {
+            }
             catch (Exception ex)
             {
                 LogService.Error(ex, $"ImageFolderWatcher: unhandled error in OnFileRenamed for '{e.FullPath}'");
             }
         }
+        catch (ObjectDisposedException)
+        {
+        }
         catch (Exception ex)
         {
             LogService.Error(ex, "Error in method OnFileRenamedAsync");
         }
+    }
+
+    private void ScheduleDedupeCleanup(string key)
+    {
+        CancellationToken token;
+        try
+        {
+            if (_disposed) return;
+            token = _disposeCts.Token;
+        }
+        catch (ObjectDisposedException)
+        {
+            return;
+        }
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(60000, token);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+
+            _recentlyProcessed.TryRemove(key, out _);
+        });
     }
 
     private async Task ProcessFileAsync(string filePath)
@@ -205,7 +483,16 @@ public sealed class ImageFolderWatcher : IDisposable
             if (string.IsNullOrEmpty(fileNameWithoutExt))
                 return;
 
-            await _processingLock.WaitAsync();
+            try
+            {
+                await _processingLock.WaitAsync();
+            }
+            catch (ObjectDisposedException)
+            {
+                return;
+            }
+
+            var lockAcquired = true;
             try
             {
                 // Deduplicate INSIDE the lock to prevent races with file system events
@@ -217,19 +504,7 @@ public sealed class ImageFolderWatcher : IDisposable
                 }
 
                 // Clean up old dedupe entries after 60 seconds (must outlast any in-lock wait)
-                var dedupeKey = filePath;
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        await Task.Delay(60000, _disposeCts.Token);
-                    }
-                    catch (OperationCanceledException)
-                    {
-                    }
-
-                    _recentlyProcessed.TryRemove(dedupeKey, out _);
-                });
+                ScheduleDedupeCleanup(filePath);
 
                 await WaitForFileReadyAsync(filePath);
 
@@ -291,18 +566,7 @@ public sealed class ImageFolderWatcher : IDisposable
                             TryClearPendingRenameTarget(renameTarget);
                             _recentlyProcessed.TryRemove(filePath, out _);
                             _recentlyProcessed.TryAdd(renamedPath, 1);
-                            _ = Task.Run(async () =>
-                            {
-                                try
-                                {
-                                    await Task.Delay(60000, _disposeCts.Token);
-                                }
-                                catch (OperationCanceledException)
-                                {
-                                }
-
-                                _recentlyProcessed.TryRemove(renamedPath, out _);
-                            });
+                            ScheduleDedupeCleanup(renamedPath);
                             LogService.Debug(
                                 $"ImageFolderWatcher: renamed '{Path.GetFileName(filePath)}' to '{Path.GetFileName(renamedPath)}'");
                             filePath = renamedPath;
@@ -340,18 +604,7 @@ public sealed class ImageFolderWatcher : IDisposable
                     }
 
                     _recentlyProcessed.TryAdd(convertedPath, 1);
-                    _ = Task.Run(async () =>
-                    {
-                        try
-                        {
-                            await Task.Delay(60000, _disposeCts.Token);
-                        }
-                        catch (OperationCanceledException)
-                        {
-                        }
-
-                        _recentlyProcessed.TryRemove(convertedPath, out _);
-                    });
+                    ScheduleDedupeCleanup(convertedPath);
 
                     filePath = convertedPath;
                 }
@@ -366,8 +619,23 @@ public sealed class ImageFolderWatcher : IDisposable
             }
             finally
             {
-                _processingLock.Release();
+                if (lockAcquired)
+                    try
+                    {
+                        _processingLock.Release();
+                    }
+                    catch (ObjectDisposedException)
+                    {
+                    }
+                    catch (SemaphoreFullException)
+                    {
+                    }
             }
+        }
+        catch (ObjectDisposedException)
+        {
+            // Shutting down — not a bug.
+            LogService.Debug("ImageFolderWatcher: processing aborted during shutdown");
         }
         catch (Exception ex)
         {

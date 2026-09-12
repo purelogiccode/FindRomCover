@@ -26,6 +26,9 @@ public class BugReportSink : ILogEventSink
             var contextMessage = FormatMessage(logEvent);
             var ex = logEvent.Exception;
 
+            if (IsTransientWatcherError(ex, contextMessage))
+                return;
+
             if (ex == null && logEvent.Level >= LogEventLevel.Error) ex = new InvalidOperationException(contextMessage);
 
             _ = ErrorLogger.LogAsync(ex, contextMessage).ContinueWith(
@@ -52,5 +55,26 @@ public class BugReportSink : ILogEventSink
         }
 
         return logEvent.RenderMessage(CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>
+    /// FileSystemWatcher infrastructure failures (buffer overflow, access denied,
+    /// drive disconnected, AV lock, ...) are environmental — not application bugs.
+    /// Suppress them so they never create automatic bug reports (see issue #66867:
+    /// Win32Exception (5) "Accesso negato" from ImageFolderWatcher).
+    /// </summary>
+    private static bool IsTransientWatcherError(Exception? ex, string contextMessage)
+    {
+        if (string.IsNullOrEmpty(contextMessage))
+            return false;
+
+        if (!contextMessage.Contains("ImageFolderWatcher", StringComparison.OrdinalIgnoreCase) &&
+            !contextMessage.Contains("FileSystemWatcher", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        return ex is InternalBufferOverflowException
+            or System.ComponentModel.Win32Exception
+            or UnauthorizedAccessException
+            or IOException;
     }
 }

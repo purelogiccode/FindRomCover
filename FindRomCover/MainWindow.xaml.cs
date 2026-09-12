@@ -1383,8 +1383,15 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         _imageFolderWatcher.ImageFound += OnImageFolderImageFound;
         _imageFolderWatcher.ConversionFailed -= OnImageFolderConversionFailed;
         _imageFolderWatcher.ConversionFailed += OnImageFolderConversionFailed;
-        _imageFolderWatcher.Start(folderPath);
-        LogService.Information($"StartImageFolderWatcher: watcher started for '{folderPath}'");
+        try
+        {
+            if (_imageFolderWatcher.Start(folderPath))
+                LogService.Information($"StartImageFolderWatcher: watcher started for '{folderPath}'");
+        }
+        catch (Exception ex)
+        {
+            LogService.Warning(ex, $"StartImageFolderWatcher: cannot watch folder '{folderPath}' — automatic detection disabled");
+        }
     }
 
     private void OnImageFolderImageFound(string fileNameWithoutExtension)
