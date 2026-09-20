@@ -65,7 +65,7 @@
                             </Grid.ColumnDefinitions>
                             <Label Grid.Column="0" Content="Model:" VerticalAlignment="Center" />
                             <ComboBox Grid.Column="1" x:Name="CmbModel" IsEditable="True" IsTextSearchEnabled="False"
-                                      ToolTip="Vision-capable model name, e.g. google/gemini-2.5-flash (OpenRouter), claude-sonnet-4-5 (Anthropic), gemini-2.5-flash (Gemini) or qwen2.5vl:7b (Ollama)" />
+                                      ToolTip="Vision-capable model name, e.g. qwen/qwen3.7-flash (OpenRouter), claude-sonnet-4-5 (Anthropic), gemini-2.5-flash (Gemini) or qwen2.5vl:7b (Ollama)" />
                             <Button Grid.Column="2" x:Name="BtnTest" Content="Test / Load Models" Margin="5,0,0,0"
                                     Padding="8,2" Click="BtnTest_Click"
                                     ToolTip="Contact the provider, verify the key and load the available model list" />
