@@ -18,7 +18,7 @@ public partial class AiSettingsWindow
 
     private readonly SettingsManager _settingsManager;
     private List<VisionModelInfo> _allModels = [];
-    private bool _initialized;
+    private readonly bool _initialized;
     private bool _loading;
     private AiVerdictCache? _modelCache;
 
