@@ -17,14 +17,20 @@ public class SettingsManager : INotifyPropertyChanged
     private static SettingsManager? _currentInstance;
     private static readonly Lock InstanceLock = new();
 
-    private static readonly string SettingsFilePath =
+    private static readonly string DefaultSettingsDirectory = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FindRomCover");
+
+    private static readonly string LegacyAppDirSettingsFilePath =
         Path.Combine(AppDomain.CurrentDomain.BaseDirectory, AppConstants.SettingsFileName);
 
-    private static readonly string UserDataSettingsFilePath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "FindRomCover", AppConstants.SettingsFileName);
-
     private static readonly byte[] EncryptionKey = DeriveEncryptionKey();
+
+    private readonly string? _settingsDirectory;
+
+    private string SettingsDatabasePath =>
+        Path.Combine(_settingsDirectory ?? DefaultSettingsDirectory, AppConstants.SettingsDatabaseFileName);
+
+    private static readonly byte[] SqliteHeader = "SQLite format 3\0"u8.ToArray();
 
     // --- Theme settings ---
 
@@ -51,6 +57,8 @@ public class SettingsManager : INotifyPropertyChanged
 
     private string _aiBaseUrl = string.Empty;
 
+    private double _aiCandidateThreshold = 70;
+
     private int _aiImageMaxDimension = 512;
 
     private int _aiMaxCandidates = 6;
@@ -58,6 +66,8 @@ public class SettingsManager : INotifyPropertyChanged
     private string _aiModel = string.Empty;
 
     private string _aiProvider = AppConstants.AiProviders.OpenRouter;
+
+    private bool _aiSkipPreviouslyQueried = true;
 
     private int _aiTimeoutSeconds = 90;
 
@@ -110,7 +120,14 @@ public class SettingsManager : INotifyPropertyChanged
     // --- Constructor and Load/Save ---
 
     public SettingsManager()
+        : this(null)
     {
+    }
+
+    public SettingsManager(string? settingsDirectory)
+    {
+        _settingsDirectory = settingsDirectory;
+
         lock (InstanceLock)
         {
             if (_currentInstance != null)
@@ -475,6 +492,19 @@ public class SettingsManager : INotifyPropertyChanged
         }
     }
 
+    public double AiCandidateThreshold
+    {
+        get => _aiCandidateThreshold;
+        set
+        {
+            value = Math.Clamp(value, 0, 100);
+            if (Math.Abs(_aiCandidateThreshold - value) < 0.01) return;
+
+            _aiCandidateThreshold = value;
+            OnPropertyChanged(nameof(AiCandidateThreshold));
+        }
+    }
+
     public double AiAutoSaveThreshold
     {
         get => _aiAutoSaveThreshold;
@@ -521,6 +551,18 @@ public class SettingsManager : INotifyPropertyChanged
 
             _aiVerifyOnSave = value;
             OnPropertyChanged(nameof(AiVerifyOnSave));
+        }
+    }
+
+    public bool AiSkipPreviouslyQueried
+    {
+        get => _aiSkipPreviouslyQueried;
+        set
+        {
+            if (_aiSkipPreviouslyQueried == value) return;
+
+            _aiSkipPreviouslyQueried = value;
+            OnPropertyChanged(nameof(AiSkipPreviouslyQueried));
         }
     }
 
@@ -572,7 +614,8 @@ public class SettingsManager : INotifyPropertyChanged
             AiAutoSaveThreshold,
             AiAutoSave,
             AiAutoRun,
-            AiVerifyOnSave);
+            AiVerifyOnSave,
+            AiCandidateThreshold);
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -663,88 +706,216 @@ public class SettingsManager : INotifyPropertyChanged
         {
             try
             {
-                var bestPath = GetMostRecentSettingsFilePath();
+                if (TryLoadFromDatabase()) return;
 
-                if (bestPath == null || !File.Exists(bestPath))
-                {
-                    // Try to migrate from legacy settings.xml
-                    if (TryMigrateFromLegacyXml()) return;
+                if (TryMigrateLegacySettings()) return;
 
-                    SetDefaultSettings();
-                    try
-                    {
-                        SaveSettingsInternal();
-                    }
-                    catch (Exception saveEx)
-                    {
-                        LogService.Warning(saveEx, "Failed to save default settings to settings.dat");
-                    }
+                // Try to migrate from legacy settings.xml
+                if (TryMigrateFromLegacyXml()) return;
 
-                    return;
-                }
-
-                var data = LoadAndDecryptSettings(bestPath);
-
-                if (data == null)
-                {
-                    // Try to migrate from legacy settings.xml before giving up
-                    if (TryMigrateFromLegacyXml()) return;
-
-                    throw new InvalidDataException("Failed to deserialize settings data.");
-                }
-
-                SimilarityThreshold = data.SimilarityThreshold;
-                SelectedSimilarityAlgorithm = data.SimilarityAlgorithm;
-                BaseTheme = data.BaseTheme;
-                AccentColor = data.AccentColor;
-                ImageWidth = data.ImageWidth;
-                ImageHeight = data.ImageHeight;
-                MaxImagesToLoad = data.MaxImagesToLoad;
-                ImageLoaderMaxRetries = data.ImageLoaderMaxRetries;
-                ImageLoaderRetryDelayMilliseconds = data.ImageLoaderRetryDelayMilliseconds;
-                ApiTimeoutSeconds = data.ApiTimeoutSeconds;
-                SearchEngine = data.SearchEngine;
-                BugReportApiKey = data.BugReportApiKey;
-                BugReportApiUrl = data.BugReportApiUrl;
-                GoogleKey = data.GoogleKey;
-                UseMameDescriptions = data.UseMameDescriptions;
-                LastImageFolder = data.LastImageFolder;
-                AiAssistEnabled = data.AiAssistEnabled;
-                AiProvider = data.AiProvider;
-                AiBaseUrl = data.AiBaseUrl;
-                AiApiKey = data.AiApiKey;
-                AiModel = data.AiModel;
-                AiTimeoutSeconds = data.AiTimeoutSeconds;
-                AiMaxCandidates = data.AiMaxCandidates;
-                AiImageMaxDimension = data.AiImageMaxDimension;
-                AiAutoSaveThreshold = data.AiAutoSaveThreshold;
-                AiAutoSave = data.AiAutoSave;
-                AiAutoRun = data.AiAutoRun;
-                AiVerifyOnSave = data.AiVerifyOnSave;
-
-                if (data.SupportedExtensions.Count > 0)
-                    SupportedExtensions = data.SupportedExtensions;
-                else
-                    SupportedExtensions = GetDefaultExtensions();
+                SetDefaultSettings();
+                SaveSettingsInternal();
             }
             catch (Exception ex)
             {
                 // Corrupt or unreadable settings are an environment issue, not a code bug:
                 // quarantine the file for diagnostics, warn (instead of reporting a bug) and
                 // recover by resetting to default settings.
-                LogService.Warning(ex, "Error loading settings from settings.dat; resetting to defaults.");
+                LogService.Warning(ex, "Error loading settings; resetting to defaults.");
                 QuarantineSettingsFile();
 
                 SetDefaultSettings();
-                try
-                {
-                    SaveSettingsInternal();
-                }
-                catch (Exception saveEx)
-                {
-                    LogService.Warning(saveEx, "Failed to save default settings after load error");
-                }
+                SaveSettingsInternal();
             }
+        }
+    }
+
+    private bool TryLoadFromDatabase()
+    {
+        // A non-SQLite file at the database path is a legacy encrypted settings file; migrate it below.
+        if (IsLegacySettingsFile(SettingsDatabasePath)) return false;
+
+        var values = new SettingsDatabase(SettingsDatabasePath).LoadAll();
+        if (values.Count == 0) return false;
+
+        SetDefaultSettings();
+        ApplyStoredValues(values);
+        return true;
+    }
+
+    private bool TryMigrateLegacySettings()
+    {
+        var legacyPath = GetMostRecentLegacySettingsFilePath();
+        if (legacyPath == null) return false;
+
+        var data = LoadAndDecryptSettings(legacyPath);
+        if (data == null)
+        {
+            // Keep the unreadable file out of the way so a fresh database can be created.
+            BackupLegacyFile(legacyPath);
+            return false;
+        }
+
+        SetDefaultSettings();
+        ApplyData(data);
+        BackupLegacyFile(legacyPath);
+        SaveSettingsInternal();
+        LogService.Information($"Migrated legacy settings from '{legacyPath}' into the SQLite settings database.");
+        return true;
+    }
+
+    private void ApplyData(SettingsData data)
+    {
+        SimilarityThreshold = data.SimilarityThreshold;
+        SelectedSimilarityAlgorithm = data.SimilarityAlgorithm;
+        BaseTheme = data.BaseTheme;
+        AccentColor = data.AccentColor;
+        ImageWidth = data.ImageWidth;
+        ImageHeight = data.ImageHeight;
+        MaxImagesToLoad = data.MaxImagesToLoad;
+        ImageLoaderMaxRetries = data.ImageLoaderMaxRetries;
+        ImageLoaderRetryDelayMilliseconds = data.ImageLoaderRetryDelayMilliseconds;
+        ApiTimeoutSeconds = data.ApiTimeoutSeconds;
+        SearchEngine = data.SearchEngine;
+        BugReportApiKey = data.BugReportApiKey;
+        BugReportApiUrl = data.BugReportApiUrl;
+        GoogleKey = data.GoogleKey;
+        UseMameDescriptions = data.UseMameDescriptions;
+        LastImageFolder = data.LastImageFolder;
+        SupportedExtensions = data.SupportedExtensions.Count > 0
+            ? data.SupportedExtensions
+            : GetDefaultExtensions();
+        AiAssistEnabled = data.AiAssistEnabled;
+        AiProvider = data.AiProvider;
+        AiBaseUrl = data.AiBaseUrl;
+        AiApiKey = data.AiApiKey;
+        AiModel = data.AiModel;
+        AiTimeoutSeconds = data.AiTimeoutSeconds;
+        AiMaxCandidates = data.AiMaxCandidates;
+        AiImageMaxDimension = data.AiImageMaxDimension;
+        AiCandidateThreshold = data.AiCandidateThreshold;
+        AiAutoSaveThreshold = data.AiAutoSaveThreshold;
+        AiAutoSave = data.AiAutoSave;
+        AiAutoRun = data.AiAutoRun;
+        AiVerifyOnSave = data.AiVerifyOnSave;
+        AiSkipPreviouslyQueried = data.AiSkipPreviouslyQueried;
+    }
+
+    private void ApplyStoredValues(IReadOnlyDictionary<string, string> values)
+    {
+        SimilarityThreshold = GetDouble(values, nameof(SimilarityThreshold), SimilarityThreshold);
+        SelectedSimilarityAlgorithm =
+            GetString(values, nameof(SelectedSimilarityAlgorithm), SelectedSimilarityAlgorithm);
+        BaseTheme = GetString(values, nameof(BaseTheme), BaseTheme);
+        AccentColor = GetString(values, nameof(AccentColor), AccentColor);
+        ImageWidth = GetInt(values, nameof(ImageWidth), ImageWidth);
+        ImageHeight = GetInt(values, nameof(ImageHeight), ImageHeight);
+        MaxImagesToLoad = GetInt(values, nameof(MaxImagesToLoad), MaxImagesToLoad);
+        ImageLoaderMaxRetries = GetInt(values, nameof(ImageLoaderMaxRetries), ImageLoaderMaxRetries);
+        ImageLoaderRetryDelayMilliseconds =
+            GetInt(values, nameof(ImageLoaderRetryDelayMilliseconds), ImageLoaderRetryDelayMilliseconds);
+        ApiTimeoutSeconds = GetInt(values, nameof(ApiTimeoutSeconds), ApiTimeoutSeconds);
+        SearchEngine = GetString(values, nameof(SearchEngine), SearchEngine);
+        BugReportApiKey = GetSecret(values, nameof(BugReportApiKey), BugReportApiKey);
+        BugReportApiUrl = GetString(values, nameof(BugReportApiUrl), BugReportApiUrl);
+        GoogleKey = GetSecret(values, nameof(GoogleKey), GoogleKey);
+        UseMameDescriptions = GetBool(values, nameof(UseMameDescriptions), UseMameDescriptions);
+        LastImageFolder = GetString(values, nameof(LastImageFolder), LastImageFolder);
+        SupportedExtensions = GetStringList(values, nameof(SupportedExtensions)) ?? SupportedExtensions;
+        AiAssistEnabled = GetBool(values, nameof(AiAssistEnabled), AiAssistEnabled);
+        AiProvider = GetString(values, nameof(AiProvider), AiProvider);
+        AiBaseUrl = GetString(values, nameof(AiBaseUrl), AiBaseUrl);
+        AiApiKey = GetSecret(values, nameof(AiApiKey), AiApiKey);
+        AiModel = GetString(values, nameof(AiModel), AiModel);
+        AiTimeoutSeconds = GetInt(values, nameof(AiTimeoutSeconds), AiTimeoutSeconds);
+        AiMaxCandidates = GetInt(values, nameof(AiMaxCandidates), AiMaxCandidates);
+        AiImageMaxDimension = GetInt(values, nameof(AiImageMaxDimension), AiImageMaxDimension);
+        AiCandidateThreshold = GetDouble(values, nameof(AiCandidateThreshold), AiCandidateThreshold);
+        AiAutoSaveThreshold = GetDouble(values, nameof(AiAutoSaveThreshold), AiAutoSaveThreshold);
+        AiAutoSave = GetBool(values, nameof(AiAutoSave), AiAutoSave);
+        AiAutoRun = GetBool(values, nameof(AiAutoRun), AiAutoRun);
+        AiVerifyOnSave = GetBool(values, nameof(AiVerifyOnSave), AiVerifyOnSave);
+        AiSkipPreviouslyQueried =
+            GetBool(values, nameof(AiSkipPreviouslyQueried), AiSkipPreviouslyQueried);
+    }
+
+    private static string GetString(IReadOnlyDictionary<string, string> values, string key, string fallback)
+    {
+        return values.GetValueOrDefault(key, fallback);
+    }
+
+    private static int GetInt(IReadOnlyDictionary<string, string> values, string key, int fallback)
+    {
+        return values.TryGetValue(key, out var value) &&
+               int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed)
+            ? parsed
+            : fallback;
+    }
+
+    private static double GetDouble(IReadOnlyDictionary<string, string> values, string key, double fallback)
+    {
+        return values.TryGetValue(key, out var value) &&
+               double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed)
+            ? parsed
+            : fallback;
+    }
+
+    private static bool GetBool(IReadOnlyDictionary<string, string> values, string key, bool fallback)
+    {
+        return values.TryGetValue(key, out var value) && bool.TryParse(value, out var parsed)
+            ? parsed
+            : fallback;
+    }
+
+    private static List<string>? GetStringList(IReadOnlyDictionary<string, string> values, string key)
+    {
+        if (!values.TryGetValue(key, out var value) || string.IsNullOrWhiteSpace(value)) return null;
+
+        try
+        {
+            return JsonSerializer.Deserialize<List<string>>(value);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    private static string GetSecret(IReadOnlyDictionary<string, string> values, string key, string fallback)
+    {
+        if (!values.TryGetValue(key, out var stored) || string.IsNullOrEmpty(stored)) return fallback;
+
+        var decrypted = UnprotectSecret(stored);
+        return string.IsNullOrEmpty(decrypted) ? fallback : decrypted;
+    }
+
+    private static string ProtectSecret(string secret)
+    {
+        if (string.IsNullOrEmpty(secret)) return string.Empty;
+
+        try
+        {
+            return Convert.ToBase64String(Encrypt(Encoding.UTF8.GetBytes(secret)));
+        }
+        catch (Exception ex)
+        {
+            LogService.Warning(ex, "Could not encrypt a settings secret.");
+            return string.Empty;
+        }
+    }
+
+    private static string UnprotectSecret(string protectedSecret)
+    {
+        if (string.IsNullOrEmpty(protectedSecret)) return string.Empty;
+
+        try
+        {
+            return Encoding.UTF8.GetString(Decrypt(Convert.FromBase64String(protectedSecret)));
+        }
+        catch (Exception ex)
+        {
+            LogService.Warning(ex, "Could not decrypt a settings secret; the value was reset.");
+            return string.Empty;
         }
     }
 
@@ -817,28 +988,9 @@ public class SettingsManager : INotifyPropertyChanged
                     .ToList() ?? GetDefaultExtensions()
             };
 
-            // Apply the migrated data
-            SimilarityThreshold = legacyData.SimilarityThreshold;
-            SelectedSimilarityAlgorithm = legacyData.SimilarityAlgorithm;
-            BaseTheme = legacyData.BaseTheme;
-            AccentColor = legacyData.AccentColor;
-            ImageWidth = legacyData.ImageWidth;
-            ImageHeight = legacyData.ImageHeight;
-            MaxImagesToLoad = legacyData.MaxImagesToLoad;
-            ImageLoaderMaxRetries = legacyData.ImageLoaderMaxRetries;
-            ImageLoaderRetryDelayMilliseconds = legacyData.ImageLoaderRetryDelayMilliseconds;
-            ApiTimeoutSeconds = legacyData.ApiTimeoutSeconds;
-            SearchEngine = legacyData.SearchEngine;
-            BugReportApiKey = legacyData.BugReportApiKey;
-            BugReportApiUrl = legacyData.BugReportApiUrl;
-            GoogleKey = legacyData.GoogleKey;
-            UseMameDescriptions = legacyData.UseMameDescriptions;
-            LastImageFolder = legacyData.LastImageFolder;
-            SupportedExtensions = legacyData.SupportedExtensions.Count > 0
-                ? legacyData.SupportedExtensions
-                : GetDefaultExtensions();
-
-            // Save in new encrypted format
+            // Apply the migrated data and save it in the SQLite settings database
+            SetDefaultSettings();
+            ApplyData(legacyData);
             SaveSettingsInternal();
 
             // Rename old file so we don't migrate again
@@ -861,38 +1013,59 @@ public class SettingsManager : INotifyPropertyChanged
         }
     }
 
-    private static string? GetMostRecentSettingsFilePath()
+    private string? GetMostRecentLegacySettingsFilePath()
     {
-        var appDirExists = File.Exists(SettingsFilePath);
-        var userDataExists = File.Exists(UserDataSettingsFilePath);
+        var candidates = new[] { SettingsDatabasePath, LegacyAppDirSettingsFilePath }
+            .Where(IsLegacySettingsFile)
+            .ToList();
 
-        switch (appDirExists)
+        if (candidates.Count == 0) return null;
+
+        try
         {
-            case false when !userDataExists:
-                return null;
-            case true when !userDataExists:
-                return SettingsFilePath;
-            case false when userDataExists:
-                return UserDataSettingsFilePath;
-            default:
-                // Both exist - use the most recently modified one
-                try
-                {
-                    var appDirTime = File.GetLastWriteTimeUtc(SettingsFilePath);
-                    var userDataTime = File.GetLastWriteTimeUtc(UserDataSettingsFilePath);
-                    return userDataTime > appDirTime ? UserDataSettingsFilePath : SettingsFilePath;
-                }
-                catch
-                {
-                    // If we can't get the write time, prefer the app directory version
-                    return SettingsFilePath;
-                }
+            return candidates.OrderByDescending(File.GetLastWriteTimeUtc).First();
+        }
+        catch
+        {
+            return candidates[0];
         }
     }
 
-    private static void QuarantineSettingsFile()
+    private static bool IsLegacySettingsFile(string filePath)
     {
-        foreach (var path in new[] { SettingsFilePath, UserDataSettingsFilePath })
+        try
+        {
+            if (!File.Exists(filePath)) return false;
+
+            Span<byte> header = stackalloc byte[16];
+            using var stream = File.OpenRead(filePath);
+            var read = stream.Read(header);
+
+            return read > 0 && !header[..read].SequenceEqual(SqliteHeader);
+        }
+        catch (Exception ex)
+        {
+            LogService.Warning(ex, $"Could not inspect settings file: {filePath}");
+            return false;
+        }
+    }
+
+    private static void BackupLegacyFile(string filePath)
+    {
+        try
+        {
+            File.Move(filePath, filePath + ".legacy", true);
+            LogService.Information($"Backed up legacy settings file to: {filePath}.legacy");
+        }
+        catch (Exception ex)
+        {
+            LogService.Warning(ex, $"Failed to back up legacy settings file: {filePath}");
+        }
+    }
+
+    private void QuarantineSettingsFile()
+    {
+        foreach (var path in new[] { SettingsDatabasePath, LegacyAppDirSettingsFilePath })
         {
             if (!File.Exists(path)) continue;
 
@@ -921,99 +1094,44 @@ public class SettingsManager : INotifyPropertyChanged
 
     private void SaveSettingsInternal()
     {
-        var data = new SettingsData
+        var values = new Dictionary<string, string>(StringComparer.Ordinal)
         {
-            SimilarityThreshold = SimilarityThreshold,
-            SimilarityAlgorithm = SelectedSimilarityAlgorithm,
-            BaseTheme = BaseTheme,
-            AccentColor = AccentColor,
-            ImageWidth = ImageWidth,
-            ImageHeight = ImageHeight,
-            MaxImagesToLoad = MaxImagesToLoad,
-            ImageLoaderMaxRetries = ImageLoaderMaxRetries,
-            ImageLoaderRetryDelayMilliseconds = ImageLoaderRetryDelayMilliseconds,
-            ApiTimeoutSeconds = ApiTimeoutSeconds,
-            SearchEngine = SearchEngine,
-            BugReportApiKey = BugReportApiKey,
-            BugReportApiUrl = BugReportApiUrl,
-            GoogleKey = GoogleKey,
-            UseMameDescriptions = UseMameDescriptions,
-            LastImageFolder = LastImageFolder,
-            SupportedExtensions = SupportedExtensions,
-            AiAssistEnabled = AiAssistEnabled,
-            AiProvider = AiProvider,
-            AiBaseUrl = AiBaseUrl,
-            AiApiKey = AiApiKey,
-            AiModel = AiModel,
-            AiTimeoutSeconds = AiTimeoutSeconds,
-            AiMaxCandidates = AiMaxCandidates,
-            AiImageMaxDimension = AiImageMaxDimension,
-            AiAutoSaveThreshold = AiAutoSaveThreshold,
-            AiAutoSave = AiAutoSave,
-            AiAutoRun = AiAutoRun,
-            AiVerifyOnSave = AiVerifyOnSave
+            [nameof(SimilarityThreshold)] = SimilarityThreshold.ToString(CultureInfo.InvariantCulture),
+            [nameof(SelectedSimilarityAlgorithm)] = SelectedSimilarityAlgorithm,
+            [nameof(BaseTheme)] = BaseTheme,
+            [nameof(AccentColor)] = AccentColor,
+            [nameof(ImageWidth)] = ImageWidth.ToString(CultureInfo.InvariantCulture),
+            [nameof(ImageHeight)] = ImageHeight.ToString(CultureInfo.InvariantCulture),
+            [nameof(MaxImagesToLoad)] = MaxImagesToLoad.ToString(CultureInfo.InvariantCulture),
+            [nameof(ImageLoaderMaxRetries)] = ImageLoaderMaxRetries.ToString(CultureInfo.InvariantCulture),
+            [nameof(ImageLoaderRetryDelayMilliseconds)] =
+                ImageLoaderRetryDelayMilliseconds.ToString(CultureInfo.InvariantCulture),
+            [nameof(ApiTimeoutSeconds)] = ApiTimeoutSeconds.ToString(CultureInfo.InvariantCulture),
+            [nameof(SearchEngine)] = SearchEngine,
+            [nameof(BugReportApiKey)] = ProtectSecret(BugReportApiKey),
+            [nameof(BugReportApiUrl)] = BugReportApiUrl,
+            [nameof(GoogleKey)] = ProtectSecret(GoogleKey),
+            [nameof(UseMameDescriptions)] = UseMameDescriptions.ToString(CultureInfo.InvariantCulture),
+            [nameof(LastImageFolder)] = LastImageFolder,
+            [nameof(SupportedExtensions)] = JsonSerializer.Serialize(SupportedExtensions),
+            [nameof(AiAssistEnabled)] = AiAssistEnabled.ToString(CultureInfo.InvariantCulture),
+            [nameof(AiProvider)] = AiProvider,
+            [nameof(AiBaseUrl)] = AiBaseUrl,
+            [nameof(AiApiKey)] = ProtectSecret(AiApiKey),
+            [nameof(AiModel)] = AiModel,
+            [nameof(AiTimeoutSeconds)] = AiTimeoutSeconds.ToString(CultureInfo.InvariantCulture),
+            [nameof(AiMaxCandidates)] = AiMaxCandidates.ToString(CultureInfo.InvariantCulture),
+            [nameof(AiImageMaxDimension)] = AiImageMaxDimension.ToString(CultureInfo.InvariantCulture),
+            [nameof(AiCandidateThreshold)] = AiCandidateThreshold.ToString(CultureInfo.InvariantCulture),
+            [nameof(AiAutoSaveThreshold)] = AiAutoSaveThreshold.ToString(CultureInfo.InvariantCulture),
+            [nameof(AiAutoSave)] = AiAutoSave.ToString(CultureInfo.InvariantCulture),
+            [nameof(AiAutoRun)] = AiAutoRun.ToString(CultureInfo.InvariantCulture),
+            [nameof(AiVerifyOnSave)] = AiVerifyOnSave.ToString(CultureInfo.InvariantCulture),
+            [nameof(AiSkipPreviouslyQueried)] = AiSkipPreviouslyQueried.ToString(CultureInfo.InvariantCulture)
         };
 
-        var json = JsonSerializer.Serialize(data);
-        var plaintextBytes = Encoding.UTF8.GetBytes(json);
-        var encryptedBytes = Encrypt(plaintextBytes);
-
-        // Try to save to the application directory first
-        var savedToAppDir = TrySaveToFile(encryptedBytes, SettingsFilePath);
-
-        // Also save to the user data folder as a backup / fallback
-        var savedToUserData = TrySaveToFile(encryptedBytes, UserDataSettingsFilePath);
-
-        switch (savedToAppDir)
-        {
-            case false when !savedToUserData:
-                ShowSaveError("Could not save settings to either location. Your settings changes may be lost.");
-                break;
-            case false:
-                ShowSaveError(
-                    "Could not save settings to the application folder. Settings were saved to the user data folder instead.");
-                break;
-        }
-    }
-
-    private static bool TrySaveToFile(byte[] data, string filePath)
-    {
-        var tempFilePath = filePath + ".tmp";
-        try
-        {
-            var directory = Path.GetDirectoryName(filePath);
-            if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory)) Directory.CreateDirectory(directory);
-
-            File.WriteAllBytes(tempFilePath, data);
-            File.Move(tempFilePath, filePath, true);
-            return true;
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            _ = ErrorLogger.LogAsync(ex, $"Access denied saving settings to: {filePath}");
-            return false;
-        }
-        catch (IOException ex)
-        {
-            _ = ErrorLogger.LogAsync(ex, $"I/O error saving settings to: {filePath}");
-            return false;
-        }
-        catch (Exception ex)
-        {
-            _ = ErrorLogger.LogAsync(ex, $"Failed to save settings to: {filePath}");
-            return false;
-        }
-        finally
-        {
-            try
-            {
-                if (File.Exists(tempFilePath)) File.Delete(tempFilePath);
-            }
-            catch (Exception cleanupEx)
-            {
-                _ = ErrorLogger.LogAsync(cleanupEx, $"Failed to cleanup settings temp file: {tempFilePath}");
-            }
-        }
+        if (!new SettingsDatabase(SettingsDatabasePath).SaveAll(values))
+            ShowSaveError("Could not save settings to the settings database. Your settings changes may be lost.");
     }
 
     private static void ShowSaveError(string message)
@@ -1049,9 +1167,11 @@ public class SettingsManager : INotifyPropertyChanged
         _aiMaxCandidates = 6;
         _aiImageMaxDimension = 512;
         _aiAutoSaveThreshold = 80;
+        _aiCandidateThreshold = 70;
         _aiAutoSave = false;
         _aiAutoRun = false;
         _aiVerifyOnSave = false;
+        _aiSkipPreviouslyQueried = true;
     }
 
     private static List<string> GetDefaultExtensions()
@@ -1074,7 +1194,7 @@ public class SettingsManager : INotifyPropertyChanged
 
     // --- Encryption/Decryption ---
 
-    private static byte[] Encrypt(byte[] data)
+    internal static byte[] Encrypt(byte[] data)
     {
         using var aes = Aes.Create();
         aes.Key = EncryptionKey;

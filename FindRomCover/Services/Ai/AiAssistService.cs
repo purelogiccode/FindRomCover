@@ -41,7 +41,18 @@ public sealed class AiAssistService : IDisposable
         if (!IsEnabled || candidates.Count == 0) return null;
 
         var options = _settings.GetAiVisionOptions();
-        var inputs = PrepareLocalCandidates(candidates, options.MaxCandidates, options.ImageMaxDimension);
+        var filtered = candidates
+            .Where(candidate => candidate.SimilarityScore >= options.CandidateThreshold)
+            .ToList();
+
+        if (filtered.Count == 0)
+        {
+            LogService.Debug(
+                $"AI assist: no local candidates at or above the AI similarity threshold ({options.CandidateThreshold:0}%).");
+            return null;
+        }
+
+        var inputs = PrepareLocalCandidates(filtered, options.MaxCandidates, options.ImageMaxDimension);
         if (inputs.Count == 0) return null;
 
         return await PickBestCoreAsync(romName, searchName, inputs, options, cancellationToken).ConfigureAwait(false);

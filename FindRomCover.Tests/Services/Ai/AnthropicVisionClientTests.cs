@@ -23,7 +23,8 @@ public class AnthropicVisionClientTests
             80,
             false,
             false,
-            false);
+            false,
+            70);
     }
 
     private static List<VisionImageInput> CreateImages()
@@ -63,6 +64,16 @@ public class AnthropicVisionClientTests
         var act = () => AnthropicVisionClient.ExtractMessageContent("{}");
 
         act.Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact]
+    public void ExtractMessageContentShouldExplainExhaustedOutputBudget()
+    {
+        const string json = "{\"stop_reason\":\"max_tokens\",\"content\":[]}";
+
+        var act = () => AnthropicVisionClient.ExtractMessageContent(json);
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*output tokens*");
     }
 
     [Fact]

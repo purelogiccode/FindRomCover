@@ -54,7 +54,7 @@
                             <Label Grid.Column="0" Content="API Key:" VerticalAlignment="Center" />
                             <TextBox Grid.Column="1" x:Name="TxtApiKey"
                                      controls:TextBoxHelper.Watermark="Not required for local models or custom endpoints"
-                                     ToolTip="Your provider API key. Stored encrypted in settings.dat and never logged." />
+                                     ToolTip="Your provider API key. Stored encrypted in the settings database and never logged." />
                         </Grid>
 
                         <Grid Margin="0,5">
@@ -131,6 +131,17 @@
                                 <ColumnDefinition Width="170" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
+                            <Label Grid.Column="0" Content="Candidate similarity (%):" VerticalAlignment="Center" />
+                            <TextBox Grid.Column="1" x:Name="TxtCandidateThreshold"
+                                     controls:TextBoxHelper.Watermark="70"
+                                     ToolTip="Only local images whose filename similarity is at or above this value are sent to the AI (0-100). Uses the algorithm selected in the main window." />
+                        </Grid>
+
+                        <Grid Margin="0,5">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="170" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
                             <Label Grid.Column="0" Content="Image max size (px):" VerticalAlignment="Center" />
                             <TextBox Grid.Column="1" x:Name="TxtImageMaxDimension"
                                      controls:TextBoxHelper.Watermark="512"
@@ -157,6 +168,16 @@
                         <CheckBox x:Name="ChkVerifyOnSave" Margin="0,5"
                                   Content="Verify images with AI before renaming or saving"
                                   ToolTip="When a new image appears in the image folder, ask the AI to confirm it matches the selected game before renaming it" />
+                        <CheckBox x:Name="ChkSkipQueried" Margin="0,5"
+                                  Content="Skip missing covers already queried in previous sessions"
+                                  ToolTip="Batch Fill will not ask the AI twice for the same missing cover, even across restarts" />
+                        <StackPanel Orientation="Horizontal" Margin="0,3">
+                            <Button x:Name="BtnClearHistory" Content="Clear query history" Padding="8,2"
+                                    Click="BtnClearHistory_Click"
+                                    ToolTip="Forget every missing cover that was already queried" />
+                            <TextBlock x:Name="TxtHistoryCount" Margin="10,0,0,0" VerticalAlignment="Center"
+                                       TextWrapping="Wrap" Opacity="0.8" />
+                        </StackPanel>
                     </StackPanel>
                 </GroupBox>
             </StackPanel>

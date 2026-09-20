@@ -21,6 +21,7 @@ public partial class AiSettingsWindow
     private readonly bool _initialized;
     private bool _loading;
     private AiVerdictCache? _modelCache;
+    private AiQueryHistory? _queryHistory;
 
     public AiSettingsWindow(SettingsManager settingsManager)
     {
@@ -42,6 +43,8 @@ public partial class AiSettingsWindow
             ModelCacheFileName),
         ModelCacheTtl);
 
+    private AiQueryHistory QueryHistory => _queryHistory ??= new AiQueryHistory();
+
     private void LoadSettings()
     {
         try
@@ -60,10 +63,13 @@ public partial class AiSettingsWindow
             TxtTimeout.Text = _settingsManager.AiTimeoutSeconds.ToString(CultureInfo.InvariantCulture);
             TxtMaxCandidates.Text = _settingsManager.AiMaxCandidates.ToString(CultureInfo.InvariantCulture);
             TxtImageMaxDimension.Text = _settingsManager.AiImageMaxDimension.ToString(CultureInfo.InvariantCulture);
+            TxtCandidateThreshold.Text = _settingsManager.AiCandidateThreshold.ToString(CultureInfo.InvariantCulture);
             TxtAutoSaveThreshold.Text = _settingsManager.AiAutoSaveThreshold.ToString(CultureInfo.InvariantCulture);
             ChkAutoSave.IsChecked = _settingsManager.AiAutoSave;
             ChkAutoRun.IsChecked = _settingsManager.AiAutoRun;
             ChkVerifyOnSave.IsChecked = _settingsManager.AiVerifyOnSave;
+            ChkSkipQueried.IsChecked = _settingsManager.AiSkipPreviouslyQueried;
+            UpdateHistoryCount();
         }
         catch (Exception ex)
         {
@@ -163,11 +169,14 @@ public partial class AiSettingsWindow
             _settingsManager.AiMaxCandidates = ParseInt(TxtMaxCandidates.Text, _settingsManager.AiMaxCandidates);
             _settingsManager.AiImageMaxDimension =
                 ParseInt(TxtImageMaxDimension.Text, _settingsManager.AiImageMaxDimension);
+            _settingsManager.AiCandidateThreshold =
+                ParseDouble(TxtCandidateThreshold.Text, _settingsManager.AiCandidateThreshold);
             _settingsManager.AiAutoSaveThreshold =
                 ParseDouble(TxtAutoSaveThreshold.Text, _settingsManager.AiAutoSaveThreshold);
             _settingsManager.AiAutoSave = ChkAutoSave.IsChecked == true;
             _settingsManager.AiAutoRun = ChkAutoRun.IsChecked == true;
             _settingsManager.AiVerifyOnSave = ChkVerifyOnSave.IsChecked == true;
+            _settingsManager.AiSkipPreviouslyQueried = ChkSkipQueried.IsChecked == true;
 
             _settingsManager.SaveSettings();
             LogService.Information("AI settings saved successfully.");
@@ -222,7 +231,8 @@ public partial class AiSettingsWindow
                 80,
                 false,
                 false,
-                false);
+                false,
+                70);
 
             BtnTest.IsEnabled = false;
             TxtTestStatus.Text = "Contacting provider...";
@@ -257,6 +267,42 @@ public partial class AiSettingsWindow
         {
             BtnTest.IsEnabled = true;
         }
+    }
+
+    private void BtnClearHistory_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var count = QueryHistory.Count;
+            if (count == 0)
+            {
+                UpdateHistoryCount();
+                return;
+            }
+
+            var choice = MessageBox.Show(
+                $"Forget the {count} missing cover(s) that were already queried?\n\n" +
+                "The AI may query them again in the next batch run.",
+                "Clear AI Query History", MessageBoxButton.YesNo, MessageBoxImage.Question);
+
+            if (choice != MessageBoxResult.Yes) return;
+
+            QueryHistory.Clear();
+            UpdateHistoryCount();
+            LogService.Information($"AI query history cleared ({count} entries).");
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "Error clearing the AI query history.");
+        }
+    }
+
+    private void UpdateHistoryCount()
+    {
+        var count = QueryHistory.Count;
+        TxtHistoryCount.Text = count == 0
+            ? "No queried covers remembered."
+            : $"{count} queried cover(s) remembered.";
     }
 
     private void LoadCachedModels()

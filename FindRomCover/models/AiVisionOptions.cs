@@ -12,4 +12,5 @@ public sealed record AiVisionOptions(
     double AutoSaveThreshold,
     bool AutoSave,
     bool AutoRun,
-    bool VerifyOnSave);
+    bool VerifyOnSave,
+    double CandidateThreshold);

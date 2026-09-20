@@ -22,7 +22,8 @@ public class VisionClientFactoryTests
             80,
             false,
             false,
-            false);
+            false,
+            70);
     }
 
     [Theory]

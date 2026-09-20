@@ -4,6 +4,8 @@ public static class AppConstants
 {
     public const string MameDatFileName = "mame.dat";
     public const string SettingsFileName = "settings.dat";
+    public const string SettingsDatabaseFileName = "Settings.dat";
+    public const string QueryHistoryFileName = "QueryHistory.dat";
 
     public const long DefaultMemoryLimit = 512L * 1024 * 1024;
     public const int DefaultThreadLimit = 4;

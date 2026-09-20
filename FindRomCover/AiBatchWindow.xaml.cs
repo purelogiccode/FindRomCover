@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.IO;
 using System.Windows;
 using FindRomCover.Managers;
 using FindRomCover.Models;
@@ -16,6 +17,7 @@ public partial class AiBatchWindow
     private readonly string _imageFolderPath;
     private readonly List<MissingImageItem> _items;
     private readonly Action<string>? _preRegisterExpectedFile;
+    private readonly AiQueryHistory _queryHistory = new();
     private readonly SettingsManager _settings;
     private CancellationTokenSource? _cts;
     private bool _running;
@@ -38,9 +40,14 @@ public partial class AiBatchWindow
         var hasGoogleKey = !string.IsNullOrWhiteSpace(settings.GoogleKey);
         ChkUseApiFallback.IsChecked = hasGoogleKey;
         ChkUseApiFallback.IsEnabled = hasGoogleKey;
+        ChkSkipQueried.IsChecked = settings.AiSkipPreviouslyQueried;
 
         Progress.Maximum = Math.Max(1, _items.Count);
-        TxtSummary.Text = $"{_items.Count} missing cover(s) available.";
+
+        var alreadyQueried = _items.Count(item => _queryHistory.WasQueried(TargetPathFor(item)));
+        TxtSummary.Text = alreadyQueried == 0
+            ? $"{_items.Count} missing cover(s) available."
+            : $"{_items.Count} missing cover(s) available ({alreadyQueried} already queried).";
     }
 
     public event Action<string>? ItemFilled;
@@ -84,7 +91,8 @@ public partial class AiBatchWindow
                     ChkUseApiFallback.IsChecked == true,
                     _extraQuery,
                     progress,
-                    cancellationToken);
+                    cancellationToken,
+                    ChkSkipQueried.IsChecked == true);
 
                 ShowSummary(results);
             }
@@ -130,7 +138,7 @@ public partial class AiBatchWindow
             r.Outcome is AiBatchOutcome.FilledFromLocal or AiBatchOutcome.FilledFromApi);
         var skipped = results.Count(static r =>
             r.Outcome is AiBatchOutcome.SkippedLowConfidence or AiBatchOutcome.SkippedAlreadyExists
-                or AiBatchOutcome.NoCandidates);
+                or AiBatchOutcome.SkippedAlreadyQueried or AiBatchOutcome.NoCandidates);
         var failed = results.Count(static r => r.Outcome == AiBatchOutcome.Failed);
 
         TxtSummary.Text = $"Done: {filled} filled, {skipped} skipped, {failed} failed.";
@@ -155,6 +163,11 @@ public partial class AiBatchWindow
         if (_running) return;
 
         Close();
+    }
+
+    private string TargetPathFor(MissingImageItem item)
+    {
+        return Path.Combine(_imageFolderPath, SearchQueryHelper.SanitizeFileName(item.RomName) + ".png");
     }
 
     private int ParseMaxItems()

@@ -24,7 +24,8 @@ public class OpenAiCompatibleVisionClientTests
             80,
             false,
             false,
-            false);
+            false,
+            70);
     }
 
     private static List<VisionImageInput> CreateImages()
@@ -118,6 +119,29 @@ public class OpenAiCompatibleVisionClientTests
         var act = () => OpenAiCompatibleVisionClient.ExtractMessageContent("{\"choices\":[]}");
 
         act.Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact]
+    public void ExtractMessageContentShouldExplainExhaustedOutputBudget()
+    {
+        const string json =
+            "{\"choices\":[{\"finish_reason\":\"length\",\"message\":{\"content\":null,\"reasoning\":\"thinking\"}}]}";
+
+        var act = () => OpenAiCompatibleVisionClient.ExtractMessageContent(json);
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*output tokens*");
+    }
+
+    [Fact]
+    public void BuildRequestBodyShouldReserveRoomForReasoningModels()
+    {
+        var body = OpenAiCompatibleVisionClient.BuildRequestBody(
+            CreateOptions(),
+            "system",
+            "user",
+            CreateImages());
+
+        body.Should().Contain("4096");
     }
 
     [Fact]

@@ -83,7 +83,7 @@ public sealed class AnthropicVisionClient : VisionModelClientBase
         var payload = new
         {
             model = options.Model,
-            max_tokens = 400,
+            max_tokens = 4096,
             temperature = 0.1,
             system = systemPrompt,
             messages = new object[] { new { role = "user", content } }
@@ -110,6 +110,12 @@ public sealed class AnthropicVisionClient : VisionModelClientBase
             if (part.TryGetProperty("text", out var text) && text.ValueKind == JsonValueKind.String)
                 builder.Append(text.GetString());
         }
+
+        if (builder.Length == 0 &&
+            doc.RootElement.TryGetProperty("stop_reason", out var stopReason) &&
+            stopReason.ValueKind == JsonValueKind.String &&
+            string.Equals(stopReason.GetString(), "max_tokens", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException(OutputBudgetExhaustedMessage);
 
         return builder.ToString();
     }

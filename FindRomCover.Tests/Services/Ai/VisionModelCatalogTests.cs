@@ -11,7 +11,7 @@ public class VisionModelCatalogTests
 {
     private static AiVisionOptions CreateOptions(string provider, string baseUrl)
     {
-        return new AiVisionOptions(true, provider, baseUrl, "test-key", "test-model", 30, 6, 512, 80, false, false, false);
+        return new AiVisionOptions(true, provider, baseUrl, "test-key", "test-model", 30, 6, 512, 80, false, false, false, 70);
     }
 
     [Fact]

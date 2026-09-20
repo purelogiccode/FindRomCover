@@ -28,6 +28,7 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
 
     private readonly SemaphoreSlim _findSimilarSemaphore = new(1, 1);
     private AiAssistService? _aiAssistService;
+    private AiQueryHistory? _aiQueryHistory;
     private CancellationTokenSource? _aiAssistCts;
     private bool _aiBatchRunning;
     private bool _disposed;

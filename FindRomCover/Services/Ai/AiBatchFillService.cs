@@ -9,16 +9,19 @@ public sealed class AiBatchFillService
 {
     private readonly SettingsManager _settings;
     private readonly AiAssistService _aiAssist;
+    private readonly AiQueryHistory _queryHistory;
     private readonly Action<string>? _preRegisterExpectedFile;
 
     public AiBatchFillService(
         SettingsManager settings,
         AiAssistService aiAssist,
-        Action<string>? preRegisterExpectedFile = null)
+        Action<string>? preRegisterExpectedFile = null,
+        AiQueryHistory? queryHistory = null)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _aiAssist = aiAssist ?? throw new ArgumentNullException(nameof(aiAssist));
         _preRegisterExpectedFile = preRegisterExpectedFile;
+        _queryHistory = queryHistory ?? new AiQueryHistory();
     }
 
     public async Task<List<AiBatchItemResult>> RunAsync(
@@ -27,7 +30,8 @@ public sealed class AiBatchFillService
         bool useApiFallback,
         string? extraQuery,
         IProgress<AiBatchItemResult>? progress,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool skipPreviouslyQueried = true)
     {
         var results = new List<AiBatchItemResult>();
 
@@ -38,7 +42,8 @@ public sealed class AiBatchFillService
             AiBatchItemResult result;
             try
             {
-                result = await ProcessItemAsync(item, imageFolderPath, useApiFallback, extraQuery, cancellationToken)
+                result = await ProcessItemAsync(item, imageFolderPath, useApiFallback, extraQuery,
+                        skipPreviouslyQueried, cancellationToken)
                     .ConfigureAwait(false);
             }
             catch (OperationCanceledException)
@@ -63,6 +68,7 @@ public sealed class AiBatchFillService
         string imageFolderPath,
         bool useApiFallback,
         string? extraQuery,
+        bool skipPreviouslyQueried,
         CancellationToken cancellationToken)
     {
         var targetPath = Path.Combine(imageFolderPath, SearchQueryHelper.SanitizeFileName(item.RomName) + ".png");
@@ -70,22 +76,27 @@ public sealed class AiBatchFillService
             return new AiBatchItemResult(item.RomName, item.SearchName, AiBatchOutcome.SkippedAlreadyExists,
                 "Cover already exists.", targetPath);
 
+        if (skipPreviouslyQueried && _queryHistory.WasQueried(targetPath))
+            return new AiBatchItemResult(item.RomName, item.SearchName, AiBatchOutcome.SkippedAlreadyQueried,
+                "Already queried in a previous session.", targetPath);
+
         var localCandidates = await SimilarityCalculator.FindTopCandidatesAsync(
                 item.SearchName,
                 imageFolderPath,
-                _settings.SimilarityThreshold,
+                _settings.AiCandidateThreshold,
                 _settings.SelectedSimilarityAlgorithm,
                 cancellationToken,
                 Math.Max(1, _settings.AiMaxCandidates))
             .ConfigureAwait(false);
 
+        AiPickResult? pick = null;
         if (localCandidates.Count > 0)
         {
             var images = localCandidates
                 .Select(static candidate => new ImageData(candidate.FilePath, candidate.ImageName, candidate.SimilarityScore))
                 .ToList();
 
-            var pick = await _aiAssist.PickBestAsync(item.RomName, item.SearchName, images, cancellationToken)
+            pick = await _aiAssist.PickBestAsync(item.RomName, item.SearchName, images, cancellationToken)
                 .ConfigureAwait(false);
 
             if (IsConfident(pick) && images[pick!.BestIndex].ImagePath is { } localPath)
@@ -94,20 +105,29 @@ public sealed class AiBatchFillService
                 var saveResult = await ImageProcessor.ConvertAndSaveImageAsync(localPath, targetPath, cancellationToken)
                     .ConfigureAwait(false);
 
-                return saveResult.Success
-                    ? new AiBatchItemResult(item.RomName, item.SearchName, AiBatchOutcome.FilledFromLocal,
-                        $"AI pick '{images[pick.BestIndex].ImageName}' ({pick.Confidence:P0}).", targetPath)
-                    : new AiBatchItemResult(item.RomName, item.SearchName, AiBatchOutcome.Failed,
-                        saveResult.ErrorMessage ?? "Failed to save image.");
+                if (saveResult.Success)
+                {
+                    _queryHistory.Remove(targetPath);
+                    return new AiBatchItemResult(item.RomName, item.SearchName, AiBatchOutcome.FilledFromLocal,
+                        $"AI pick '{images[pick.BestIndex].ImageName}' ({pick.Confidence:P0}).", targetPath);
+                }
+
+                return new AiBatchItemResult(item.RomName, item.SearchName, AiBatchOutcome.Failed,
+                    saveResult.ErrorMessage ?? "Failed to save image.");
             }
         }
 
         if (!useApiFallback || string.IsNullOrWhiteSpace(_settings.GoogleKey))
-            return new AiBatchItemResult(item.RomName, item.SearchName,
-                localCandidates.Count == 0 ? AiBatchOutcome.NoCandidates : AiBatchOutcome.SkippedLowConfidence,
+        {
+            var outcome = localCandidates.Count == 0 ? AiBatchOutcome.NoCandidates : AiBatchOutcome.SkippedLowConfidence;
+            if (outcome == AiBatchOutcome.SkippedLowConfidence && pick != null)
+                _queryHistory.MarkQueried(targetPath, "local-no-match");
+
+            return new AiBatchItemResult(item.RomName, item.SearchName, outcome,
                 localCandidates.Count == 0
                     ? "No local candidates found."
-                    : "AI found no confident local match.");
+                    : "AI found no confident local match.", targetPath);
+        }
 
         List<ImageData> apiResults;
         try
@@ -139,15 +159,22 @@ public sealed class AiBatchFillService
             var saved = await ImageSaveService.DownloadAndSaveImageAsync(imageUrl, targetPath, cancellationToken)
                 .ConfigureAwait(false);
 
-            return saved
-                ? new AiBatchItemResult(item.RomName, item.SearchName, AiBatchOutcome.FilledFromApi,
-                    $"AI pick '{apiResults[apiPick.BestIndex].ImageName}' ({apiPick.Confidence:P0}).", targetPath)
-                : new AiBatchItemResult(item.RomName, item.SearchName, AiBatchOutcome.Failed,
-                    "The image could not be downloaded.");
+            if (saved)
+            {
+                _queryHistory.Remove(targetPath);
+                return new AiBatchItemResult(item.RomName, item.SearchName, AiBatchOutcome.FilledFromApi,
+                    $"AI pick '{apiResults[apiPick.BestIndex].ImageName}' ({apiPick.Confidence:P0}).", targetPath);
+            }
+
+            return new AiBatchItemResult(item.RomName, item.SearchName, AiBatchOutcome.Failed,
+                "The image could not be downloaded.");
         }
 
+        if (apiPick != null)
+            _queryHistory.MarkQueried(targetPath, "api-no-match");
+
         return new AiBatchItemResult(item.RomName, item.SearchName, AiBatchOutcome.SkippedLowConfidence,
-            "AI found no confident match.");
+            "AI found no confident match.", targetPath);
     }
 
     private bool IsConfident(AiPickResult? pick)

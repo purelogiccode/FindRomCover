@@ -6,6 +6,7 @@ public enum AiBatchOutcome
     FilledFromApi,
     SkippedLowConfidence,
     SkippedAlreadyExists,
+    SkippedAlreadyQueried,
     NoCandidates,
     Failed,
     Canceled

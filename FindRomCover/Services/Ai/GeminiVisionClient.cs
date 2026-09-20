@@ -91,7 +91,7 @@ public sealed class GeminiVisionClient : VisionModelClientBase
         {
             systemInstruction = new { parts = new object[] { new { text = systemPrompt } } },
             contents = new object[] { new { role = "user", parts } },
-            generationConfig = new { temperature = 0.1, maxOutputTokens = 400 }
+            generationConfig = new { temperature = 0.1, maxOutputTokens = 4096 }
         };
 
         return JsonSerializer.Serialize(payload);
@@ -121,6 +121,12 @@ public sealed class GeminiVisionClient : VisionModelClientBase
         foreach (var part in parts.EnumerateArray())
             if (part.TryGetProperty("text", out var text) && text.ValueKind == JsonValueKind.String)
                 builder.Append(text.GetString());
+
+        if (builder.Length == 0 &&
+            candidates[0].TryGetProperty("finishReason", out var finishReason) &&
+            finishReason.ValueKind == JsonValueKind.String &&
+            string.Equals(finishReason.GetString(), "MAX_TOKENS", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException(OutputBudgetExhaustedMessage);
 
         return builder.ToString();
     }

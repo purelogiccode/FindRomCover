@@ -281,8 +281,18 @@ public partial class MainWindow
 
         _aiAssistService ??= new AiAssistService(Settings);
 
+        var threshold = Settings.AiCandidateThreshold;
+        var candidates = SimilarImages
+            .Where(image => image.SimilarityScore >= threshold)
+            .ToList();
+
+        if (candidates.Count == 0)
+        {
+            StatusMessage.Text = $"No local images at or above the AI similarity threshold ({threshold:0}%).";
+            return;
+        }
+
         IsAiBusy = true;
-        var candidates = SimilarImages.ToList();
         StatusMessage.Text = $"AI is analyzing {candidates.Count} candidate(s)...";
 
         try
@@ -300,6 +310,8 @@ public partial class MainWindow
                 StatusMessage.Text = "AI did not analyze any candidate image.";
                 return;
             }
+
+            MarkAiQuery(selectedItem);
 
             if (!result.HasPick || result.BestIndex < 0 || result.BestIndex >= candidates.Count)
             {
@@ -334,6 +346,23 @@ public partial class MainWindow
         finally
         {
             IsAiBusy = false;
+        }
+    }
+
+    private void MarkAiQuery(MissingImageItem item)
+    {
+        try
+        {
+            var imageFolderPath = GetValidatedImageFolderPath(false);
+            if (string.IsNullOrEmpty(imageFolderPath)) return;
+
+            _aiQueryHistory ??= new AiQueryHistory();
+            var targetPath = Path.Combine(imageFolderPath, SearchQueryHelper.SanitizeFileName(item.RomName) + ".png");
+            _aiQueryHistory.MarkQueried(targetPath, "manual");
+        }
+        catch (Exception ex)
+        {
+            LogService.Warning(ex, "AI assist: could not record the query in the history.");
         }
     }
 

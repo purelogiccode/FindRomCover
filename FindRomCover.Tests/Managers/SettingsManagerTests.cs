@@ -7,59 +7,32 @@ namespace FindRomCover.Tests.Managers;
 [Collection("SettingsManager")]
 public class SettingsManagerTests : IDisposable
 {
-    private readonly string _originalSettingsPath;
-    private readonly string _tempSettingsPath;
+    private readonly string _settingsDirectory;
 
     public SettingsManagerTests()
     {
-        // SettingsManager uses AppDomain.CurrentDomain.BaseDirectory, so we work in that directory.
-        _originalSettingsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "settings.dat");
-        _tempSettingsPath = _originalSettingsPath + ".backup";
-
-        // Backup existing settings.dat if present (with retry for file locking)
-        if (File.Exists(_originalSettingsPath))
-            RetryFileOperation(() =>
-            {
-                File.Copy(_originalSettingsPath, _tempSettingsPath, true);
-                File.Delete(_originalSettingsPath);
-            });
+        _settingsDirectory = Path.Combine(Path.GetTempPath(), $"SettingsManagerTests_{Guid.NewGuid():N}");
+        Directory.CreateDirectory(_settingsDirectory);
     }
 
     public void Dispose()
     {
-        // Restore original settings.dat (with retry for file locking)
-        RetryFileOperation(() =>
+        try
         {
-            if (File.Exists(_originalSettingsPath)) File.Delete(_originalSettingsPath);
-
-            if (File.Exists(_tempSettingsPath))
-            {
-                File.Copy(_tempSettingsPath, _originalSettingsPath, true);
-                File.Delete(_tempSettingsPath);
-            }
-        });
+            Directory.Delete(_settingsDirectory, true);
+        }
+        catch
+        {
+            /* best effort */
+        }
 
         GC.SuppressFinalize(this);
-    }
-
-    private static void RetryFileOperation(Action action, int maxRetries = 5, int delayMs = 50)
-    {
-        for (var i = 0; i < maxRetries; i++)
-            try
-            {
-                action();
-                return;
-            }
-            catch (IOException) when (i < maxRetries - 1)
-            {
-                Thread.Sleep(delayMs);
-            }
     }
 
     [Fact]
     public void ThumbnailSizeSetWithinRangeShouldUpdateValue()
     {
-        var settings = new SettingsManager
+        var settings = new SettingsManager(_settingsDirectory)
         {
             ThumbnailSize = 200
         };
@@ -75,7 +48,7 @@ public class SettingsManagerTests : IDisposable
     [InlineData(10000, 2000)]
     public void ThumbnailSizeSetOutsideRangeShouldBeClamped(int input, int expected)
     {
-        var settings = new SettingsManager
+        var settings = new SettingsManager(_settingsDirectory)
         {
             ThumbnailSize = input
         };
@@ -86,16 +59,7 @@ public class SettingsManagerTests : IDisposable
     [Fact]
     public void DefaultValuesShouldBeCorrect()
     {
-        // Ensure no settings files exist so we get true defaults
-        var userDataPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "FindRomCover", "settings.dat");
-
-        if (File.Exists(_originalSettingsPath)) File.Delete(_originalSettingsPath);
-
-        if (File.Exists(userDataPath)) File.Delete(userDataPath);
-
-        var settings = new SettingsManager();
+        var settings = new SettingsManager(_settingsDirectory);
 
         settings.ThumbnailSize.Should().Be(300);
         settings.SearchEngine.Should().Be("BingWeb");
@@ -108,7 +72,7 @@ public class SettingsManagerTests : IDisposable
     [Fact]
     public void SaveAndLoadSettingsShouldPersistValues()
     {
-        var settings = new SettingsManager
+        var settings = new SettingsManager(_settingsDirectory)
         {
             ThumbnailSize = 400,
             SearchEngine = "Google",
@@ -120,7 +84,7 @@ public class SettingsManagerTests : IDisposable
 
         settings.SaveSettings();
 
-        var loadedSettings = new SettingsManager();
+        var loadedSettings = new SettingsManager(_settingsDirectory);
         loadedSettings.LoadSettings();
 
         loadedSettings.ThumbnailSize.Should().Be(400);
@@ -134,17 +98,12 @@ public class SettingsManagerTests : IDisposable
     [Fact]
     public void LoadSettingsWhenFileDoesNotExistShouldCreateDefaults()
     {
-        if (File.Exists(_originalSettingsPath)) File.Delete(_originalSettingsPath);
-
-        var settings = new SettingsManager();
+        var settings = new SettingsManager(_settingsDirectory);
         settings.LoadSettings();
 
         settings.ThumbnailSize.Should().Be(300);
         settings.SupportedExtensions.Should().NotBeEmpty();
-        // Settings should be saved to either the app directory or the user data directory
-        var userDataPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "FindRomCover", "settings.dat");
-        (File.Exists(_originalSettingsPath) || File.Exists(userDataPath)).Should().BeTrue();
+        // Settings are saved to the SQLite settings database
+        File.Exists(Path.Combine(_settingsDirectory, "Settings.dat")).Should().BeTrue();
     }
 }

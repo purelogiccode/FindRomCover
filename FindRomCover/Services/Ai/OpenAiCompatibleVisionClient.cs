@@ -72,7 +72,7 @@ public sealed class OpenAiCompatibleVisionClient : VisionModelClientBase
         {
             model = options.Model,
             temperature = 0.1,
-            max_tokens = 400,
+            max_tokens = 4096,
             messages = new object[]
             {
                 new { role = "system", content = systemPrompt },
@@ -105,16 +105,35 @@ public sealed class OpenAiCompatibleVisionClient : VisionModelClientBase
             throw new InvalidOperationException("AI response did not contain a message.");
 
         if (content.ValueKind == JsonValueKind.String)
-            return content.GetString() ?? string.Empty;
+        {
+            var text = content.GetString() ?? string.Empty;
+            if (text.Length == 0) ThrowIfOutputBudgetExhausted(choices[0]);
 
-        if (content.ValueKind != JsonValueKind.Array) return string.Empty;
+            return text;
+        }
+
+        if (content.ValueKind != JsonValueKind.Array)
+        {
+            ThrowIfOutputBudgetExhausted(choices[0]);
+            return string.Empty;
+        }
 
         var builder = new StringBuilder();
         foreach (var part in content.EnumerateArray())
             if (part.TryGetProperty("text", out var text) && text.ValueKind == JsonValueKind.String)
                 builder.Append(text.GetString());
 
+        if (builder.Length == 0) ThrowIfOutputBudgetExhausted(choices[0]);
+
         return builder.ToString();
+    }
+
+    private static void ThrowIfOutputBudgetExhausted(JsonElement choice)
+    {
+        if (choice.TryGetProperty("finish_reason", out var finishReason) &&
+            finishReason.ValueKind == JsonValueKind.String &&
+            string.Equals(finishReason.GetString(), "length", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException(OutputBudgetExhaustedMessage);
     }
 
     internal static string BuildErrorMessage(HttpStatusCode statusCode, string responseBody)

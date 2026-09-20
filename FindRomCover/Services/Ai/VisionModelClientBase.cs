@@ -13,6 +13,10 @@ public abstract class VisionModelClientBase : IVisionModelClient
     internal const int MaxErrorDetailLength = 300;
     internal const string AnthropicVersion = "2023-06-01";
 
+    internal const string OutputBudgetExhaustedMessage =
+        "AI model ran out of output tokens before producing an answer. Reasoning models can spend the whole " +
+        "output budget on internal thinking; try a non-reasoning model (for example google/gemma-3-12b-it).";
+
     private const string PickSystemPrompt =
         "You are a retro video game cover-art expert. You receive a game title and numbered candidate images. " +
         "Choose the candidate that is the official cover or box art for that exact game. " +

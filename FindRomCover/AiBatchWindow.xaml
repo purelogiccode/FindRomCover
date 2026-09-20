@@ -21,6 +21,9 @@
             <CheckBox x:Name="ChkUseApiFallback" Margin="0,3"
                       Content="Use Google API fallback when local candidates are inconclusive"
                       ToolTip="Requires a Google API key in Settings > API Settings" />
+            <CheckBox x:Name="ChkSkipQueried" Margin="0,3"
+                      Content="Skip covers already queried in previous sessions"
+                      ToolTip="Queried items are remembered across sessions so the AI is not asked twice; manage the list in Settings > AI Settings" />
             <Grid Margin="0,3">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />

@@ -23,7 +23,8 @@ public class GeminiVisionClientTests
             80,
             false,
             false,
-            false);
+            false,
+            70);
     }
 
     private static List<VisionImageInput> CreateImages()
@@ -64,6 +65,16 @@ public class GeminiVisionClientTests
         var act = () => GeminiVisionClient.ExtractMessageContent("{\"promptFeedback\":{\"blockReason\":\"SAFETY\"}}");
 
         act.Should().Throw<InvalidOperationException>().WithMessage("*SAFETY*");
+    }
+
+    [Fact]
+    public void ExtractMessageContentShouldExplainExhaustedOutputBudget()
+    {
+        const string json = "{\"candidates\":[{\"finishReason\":\"MAX_TOKENS\",\"content\":{\"parts\":[]}}]}";
+
+        var act = () => GeminiVisionClient.ExtractMessageContent(json);
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*output tokens*");
     }
 
     [Fact]

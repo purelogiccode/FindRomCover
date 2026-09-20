@@ -80,6 +80,7 @@ public class AiBatchFillServiceTests : IDisposable
     {
         var settings = CreateSettings();
         settings.SimilarityThreshold = 90;
+        settings.AiCandidateThreshold = 90;
         CreateImage("completely different game.png");
         using var ai = CreateAiService(settings, PickResponse(0, 0.95));
         var service = new AiBatchFillService(settings, ai);
@@ -115,6 +116,79 @@ public class AiBatchFillServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task RunAsyncShouldSkipItemsAlreadyQueried()
+    {
+        var settings = CreateSettings();
+        CreateImage("super mario bros cover.png");
+
+        var history = new AiQueryHistory(Path.Combine(_testDir, "history.json"));
+        history.MarkQueried(Path.Combine(_testDir, "Super Mario Bros.png"), "local-no-match");
+
+        var requests = 0;
+        using var ai = CreateAiService(settings, PickResponse(0, 0.95), () => requests++);
+        var service = new AiBatchFillService(settings, ai, null, history);
+
+        var results = await service.RunAsync(
+            [new MissingImageItem("Super Mario Bros", "Super Mario Bros")],
+            _testDir,
+            false,
+            null,
+            null,
+            CancellationToken.None);
+
+        results[0].Outcome.Should().Be(AiBatchOutcome.SkippedAlreadyQueried);
+        requests.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task RunAsyncShouldQueryWhenSkipPreviouslyQueriedIsDisabled()
+    {
+        var settings = CreateSettings();
+        CreateImage("super mario bros cover.png");
+
+        var history = new AiQueryHistory(Path.Combine(_testDir, "history.json"));
+        var targetPath = Path.Combine(_testDir, "Super Mario Bros.png");
+        history.MarkQueried(targetPath, "local-no-match");
+
+        using var ai = CreateAiService(settings, PickResponse(0, 0.95));
+        var service = new AiBatchFillService(settings, ai, null, history);
+
+        var results = await service.RunAsync(
+            [new MissingImageItem("Super Mario Bros", "Super Mario Bros")],
+            _testDir,
+            false,
+            null,
+            null,
+            CancellationToken.None,
+            false);
+
+        results[0].Outcome.Should().Be(AiBatchOutcome.FilledFromLocal);
+        history.WasQueried(targetPath).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task RunAsyncShouldRememberItemWhenAiFoundNoConfidentMatch()
+    {
+        var settings = CreateSettings();
+        CreateImage("super mario bros cover.png");
+
+        var history = new AiQueryHistory(Path.Combine(_testDir, "history.json"));
+        using var ai = CreateAiService(settings, PickResponse(0, 0.5));
+        var service = new AiBatchFillService(settings, ai, null, history);
+
+        var results = await service.RunAsync(
+            [new MissingImageItem("Super Mario Bros", "Super Mario Bros")],
+            _testDir,
+            false,
+            null,
+            null,
+            CancellationToken.None);
+
+        results[0].Outcome.Should().Be(AiBatchOutcome.SkippedLowConfidence);
+        history.WasQueried(Path.Combine(_testDir, "Super Mario Bros.png")).Should().BeTrue();
+    }
+
+    [Fact]
     public async Task FindTopCandidatesAsyncShouldRankAndFilterCandidates()
     {
         CreateImage("super mario bros cover.png");
@@ -142,16 +216,24 @@ public class AiBatchFillServiceTests : IDisposable
             AiBaseUrl = "https://example.test/v1",
             AiApiKey = "test-key",
             AiModel = "test-model",
+            AiCandidateThreshold = 0,
             SimilarityThreshold = 0,
             SelectedSimilarityAlgorithm = AppConstants.Algorithms.JaroWinkler
         };
     }
 
-    private static AiAssistService CreateAiService(SettingsManager settings, string responseJson)
+    private static AiAssistService CreateAiService(
+        SettingsManager settings,
+        string responseJson,
+        Action? onRequest = null)
     {
-        var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        var handler = new StubHttpMessageHandler(_ =>
         {
-            Content = new StringContent(responseJson, Encoding.UTF8, "application/json")
+            onRequest?.Invoke();
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(responseJson, Encoding.UTF8, "application/json")
+            };
         });
         var httpClient = new HttpClient(handler);
         var client = new OpenAiCompatibleVisionClient(httpClient);

@@ -291,6 +291,8 @@ public partial class MainWindow
                 return;
             }
 
+            MarkAiQuery(selectedItem);
+
             if (!result.HasPick || result.BestIndex < 0 || result.BestIndex >= candidates.Count)
             {
                 StatusMessage.Text = $"AI found no genuine cover among the API results. {result.Reason}".Trim();
