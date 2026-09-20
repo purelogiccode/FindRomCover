@@ -3,5 +3,14 @@ obj/
 **/bin/
 **/obj/
 
+# Documentation build output
+site/
+wiki-out/
+
+# Python
+__pycache__/
+.venv/
+venv/
+
 # ReSharper user-specific settings
 *.sln.DotSettings.user

@@ -1,0 +1,114 @@
+name: Docs
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - 'docs/**'
+      - 'mkdocs.yml'
+      - 'scripts/Sync-Wiki.ps1'
+      - '.github/workflows/docs.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    name: Build documentation site
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install MkDocs Material
+        run: pip install -r docs/requirements.txt
+
+      - name: Build site
+        run: mkdocs build --strict
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  wiki:
+    name: Sync GitHub wiki
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check wiki token
+        id: wiki-token
+        shell: pwsh
+        env:
+          WIKI_TOKEN: ${{ secrets.WIKI_TOKEN }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:WIKI_TOKEN)) {
+            Write-Host 'WIKI_TOKEN secret is not set; skipping wiki synchronization.'
+            'available=false' >> $env:GITHUB_OUTPUT
+          } else {
+            'available=true' >> $env:GITHUB_OUTPUT
+          }
+
+      - name: Generate wiki pages
+        if: steps.wiki-token.outputs.available == 'true'
+        shell: pwsh
+        run: ./scripts/Sync-Wiki.ps1 -OutputPath wiki-out
+
+      - name: Publish wiki
+        if: steps.wiki-token.outputs.available == 'true'
+        shell: pwsh
+        env:
+          WIKI_TOKEN: ${{ secrets.WIKI_TOKEN }}
+        run: |
+          $wikiUrl = "https://x-access-token:$env:WIKI_TOKEN@github.com/${{ github.repository }}.wiki.git"
+          git clone --depth 1 $wikiUrl wiki-repo
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Could not clone the wiki repository. Create the first wiki page in the web UI and try again.'
+          }
+
+          Get-ChildItem -LiteralPath wiki-repo -Force |
+            Where-Object { $_.Name -ne '.git' } |
+            Remove-Item -Recurse -Force
+
+          Copy-Item -Path (Join-Path 'wiki-out' '*') -Destination 'wiki-repo' -Recurse -Force
+
+          git -C wiki-repo config user.name 'github-actions[bot]'
+          git -C wiki-repo config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git -C wiki-repo add -A
+
+          if (git -C wiki-repo status --porcelain) {
+            git -C wiki-repo commit -m 'docs: sync wiki from documentation'
+            git -C wiki-repo push
+          } else {
+            Write-Host 'Wiki is already up to date.'
+          }

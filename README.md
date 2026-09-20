@@ -11,6 +11,13 @@ It supports **Local Similarity Search** across your existing image folder, plus 
 
 ![Main Window](screenshot2.png)
 
+## Documentation
+
+- **Documentation site**: [purelogiccode.github.io/FindRomCover](https://purelogiccode.github.io/FindRomCover/)
+- **Wiki**: [github.com/purelogiccode/FindRomCover/wiki](https://github.com/purelogiccode/FindRomCover/wiki)
+- **Source**: [`docs/`](docs/) — built with MkDocs Material and synced to the wiki by CI
+- **Recommended AI models**: [RecommendedModels.md](RecommendedModels.md)
+
 ## Features
 
 - **Smart Search**: Automatically searches for game covers using cleaned ROM filenames.
@@ -91,9 +98,15 @@ AI Vision Assist uses a vision-capable model to choose the best cover among cand
     - **Run AI Pick automatically** after each search.
     - **Automatically save the AI pick** when confidence is above the threshold.
     - **Verify images with AI** before renaming or saving.
+    - **Candidate similarity (%)**: only local images whose filename similarity (using the algorithm selected in the main window) is at or above this value are sent to the AI. Raise it to reduce cost and noise; lower it to let the AI look at weaker filename matches.
+    - **Skip missing covers already queried in previous sessions**: queried items are remembered so the AI is not asked twice for the same cover; use **Clear query history** to start over.
 5. Use the **AI Pick Best** button on the Local Files and Google API tabs, or **AI Fill Missing Covers...** on the missing covers list for batch processing.
 
-Images are downscaled before upload (default 512px) and verdicts are cached for 30 days to limit API usage.
+Images are downscaled before upload (default 512px) and verdicts are cached for 30 days to limit API usage. Queried covers are remembered in the SQLite database `%LocalAppData%\FindRomCover\QueryHistory.dat` (180 days).
+
+### Settings Storage
+
+All settings — theme, folders, similarity options, Google key, AI provider, model and API keys — are stored in the SQLite database `%LocalAppData%\FindRomCover\Settings.dat`. API keys are encrypted before being written. On first start after upgrading from an older build, the previous encrypted `settings.dat` file is migrated automatically and kept as `settings.dat.legacy` as a backup.
 
 ## Usage Guide
 
@@ -173,16 +186,19 @@ The application can be minimized to the system tray for background operation:
 The application follows a clean architecture pattern with separation of concerns:
 
 ### Project Structure
-
 ```
 FindRomCover/
 ├── ApiProvider/          # External API integrations (Google Custom Search)
-├── Managers/             # Data management (Settings, MAME)
-├── Models/               # Data models and DTOs
+├── Managers/             # Settings, settings database, MAME data
+├── models/               # Data models and DTOs
 ├── Services/             # Business logic and utilities
-├── Views/                # WPF windows and controls
-└── Resources/            # Images, icons, and audio files
+│   └── Ai/               # AI vision subsystem (clients, picking, batch fill)
+├── audio/                # UI sound assets
+├── icon/                 # Application icon
+└── images/               # UI image assets
 ```
+
+Windows (main window, settings, AI, batch, log, about) live in the project root next to `App.xaml.cs` and the `MainWindow.*.cs` partial files.
 
 ### Key Components
 
@@ -192,6 +208,7 @@ FindRomCover/
   - `ImageProcessor`: Image conversion and processing using Magick.NET
   - `ImageFolderWatcher`: Real-time file system monitoring for automatic image detection
   - `AiAssistService`: Vision-model ranking/verification of cover candidates (OpenRouter, OpenAI, Anthropic, Gemini, GLM or local/custom OpenAI- and Anthropic-compatible servers)
+  - `AiBatchFillService`: Batch processing of the missing covers list with optional Google API fallback and query history
   - `SimilarityCalculator`: Local image name matching via Jaccard, Jaro-Winkler, and Levenshtein algorithms
   - `WebSearchService`: URL generation for web searches
   - `SearchQueryHelper`: ROM filename cleaning and sanitization
@@ -207,7 +224,8 @@ FindRomCover/
 - **NAudio**: Audio feedback system
 - **Serilog**: Structured logging
 - **Microsoft.Extensions.DependencyInjection**: Dependency injection container
-- **MessagePack**: Efficient binary serialization for settings
+- **MessagePack**: Efficient binary serialization for the MAME database
+- **Microsoft.Data.Sqlite**: SQLite storage for settings and AI query history
 
 ## Troubleshooting
 

@@ -11,11 +11,16 @@
 - **Smart model picker**: the loaded model list is filtered to vision-capable models by default (using provider modality metadata where available and a model-name heuristic otherwise), searchable with a filter box, and cached per provider for 7 days so it is available instantly next time.
 - **Verify before saving**: the folder watcher asks the model to confirm that a newly saved image matches the selected game before renaming it. Mismatches are left untouched and reported instead of being silently renamed.
 - **AI Batch Fill**: process the whole missing-covers list — local candidates first, optional Google API fallback — saving only when the confidence is above the threshold, with live progress, cancel and per-item results.
+- **AI candidate similarity threshold**: the existing filename matcher now pre-filters candidates — only local images whose filename similarity is at or above the configured value (default 70%) are sent to the AI, saving tokens and reducing noise.
+- **No duplicate queries**: missing covers that were already queried (manually or by batch fill) are remembered across sessions in the SQLite database `QueryHistory.dat`, so the AI is not asked twice for the same cover. Batch Fill skips them, and the history can be reviewed and cleared in AI Settings.
 - Images are downscaled before upload (default 512px) and verdicts are cached for 30 days to keep API usage low.
+- **Fixed empty AI responses**: reasoning models (GPT-5 Nano, Qwen3.7 Flash, Gemini thinking models) could spend the entire 400-token output limit on internal reasoning and return no text; the limit is now 4,096 tokens, and a clear error explains the cause if a model still runs out.
 
 ## Under the Hood
 
 - New `IVisionModelClient` abstraction with native Anthropic Messages API and Gemini `generateContent` adapters; OpenAI, GLM, local and custom OpenAI-compatible endpoints share one adapter, while custom Anthropic-compatible endpoints reuse the Anthropic adapter. Shared prompts, JSON parsing, timeouts and friendly error messages.
+- **Settings moved to SQLite**: all settings (including API keys, encrypted) now live in `%LocalAppData%\FindRomCover\Settings.dat`. The old encrypted `settings.dat` is migrated automatically on first start and kept as `settings.dat.legacy`.
+- **Full documentation**: a professional documentation site (GitHub Pages) and a synchronized GitHub wiki with side navigation, including release notes and recommended AI models. CI publishes both.
 - AI request failures are logged as warnings and never trigger the automatic bug-report pipeline.
 - Version bumped to **3.2.0** (not released yet).
 - GitHub Actions CI now builds and tests every push and pull request on Windows.

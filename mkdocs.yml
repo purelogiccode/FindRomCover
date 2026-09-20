@@ -1,0 +1,128 @@
+site_name: FindRomCover
+site_description: >-
+  Official documentation for FindRomCover — find and download missing cover art
+  for your retro gaming ROM collection.
+site_url: https://purelogiccode.github.io/FindRomCover/
+site_author: Pure Logic Code
+repo_url: https://github.com/purelogiccode/FindRomCover
+repo_name: purelogiccode/FindRomCover
+edit_uri: edit/master/docs/
+copyright: Copyright &copy; Pure Logic Code — Licensed under GPL-3.0
+docs_dir: docs
+site_dir: site
+
+theme:
+  name: material
+  language: en
+  logo: assets/images/logo.png
+  favicon: assets/images/favicon.ico
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.sections
+    - navigation.indexes
+    - navigation.top
+    - navigation.tracking
+    - navigation.footer
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.action.edit
+    - toc.follow
+  icon:
+    repo: fontawesome/brands/github
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+
+validation:
+  links:
+    absolute_links: info
+    unrecognized_links: info
+    anchors: warn
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: getting-started/installation.md
+      - Quick Start: getting-started/quick-start.md
+  - User Guide:
+      - Interface Overview: user-guide/interface.md
+      - Folders & Scanning: user-guide/folders-and-scanning.md
+      - Local Files Search: user-guide/local-files.md
+      - Web Search: user-guide/web-search.md
+      - Google Custom Search API: user-guide/google-api.md
+      - Image Handling: user-guide/image-handling.md
+      - Missing Covers List: user-guide/missing-covers.md
+  - AI Vision Assist:
+      - Overview: ai/index.md
+      - Providers & Models: ai/providers.md
+      - AI Settings: ai/settings.md
+      - Picking Covers: ai/picking-covers.md
+      - Batch Fill: ai/batch-fill.md
+      - Query History: ai/query-history.md
+      - Recommended Models: ai/recommended-models.md
+      - AI Troubleshooting: ai/troubleshooting.md
+  - Configuration:
+      - Settings Overview: configuration/index.md
+      - Themes & Appearance: configuration/themes.md
+      - Similarity Algorithms: configuration/similarity.md
+      - Supported Extensions: configuration/extensions.md
+      - Data Storage: configuration/data-storage.md
+      - Logs & Diagnostics: configuration/logs.md
+  - Reference:
+      - Command-Line Arguments: reference/command-line.md
+      - Keyboard Shortcuts: reference/keyboard-shortcuts.md
+      - File Formats: reference/file-formats.md
+  - Development:
+      - Architecture: development/architecture.md
+      - Project Structure: development/project-structure.md
+      - Building & Running: development/building.md
+      - Testing: development/testing.md
+      - CI/CD: development/ci-cd.md
+      - Contributing: development/contributing.md
+  - Release Notes: release-notes.md
+  - FAQ: faq.md
+  - Troubleshooting: troubleshooting.md
+  - License: license.md
+
+extra:
+  generator: false
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/purelogiccode/FindRomCover
+      name: GitHub repository
+    - icon: fontawesome/solid/globe
+      link: https://www.purelogiccode.com
+      name: Pure Logic Code
