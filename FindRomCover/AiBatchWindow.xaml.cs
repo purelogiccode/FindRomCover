@@ -47,62 +47,69 @@ public partial class AiBatchWindow
 
     private async void BtnStart_Click(object sender, RoutedEventArgs e)
     {
-        if (_running) return;
-
-        if (!_settings.AiAssistEnabled)
-        {
-            MessageBox.Show(
-                "AI Assist is disabled.\n\nEnable it in Settings > AI Settings... to use this feature.",
-                "AI Batch Fill", MessageBoxButton.OK, MessageBoxImage.Information);
-            return;
-        }
-
-        var items = _items.Take(ParseMaxItems()).ToList();
-        if (items.Count == 0) return;
-
-        _running = true;
-        BtnStart.IsEnabled = false;
-        BtnClose.IsEnabled = false;
-        BtnCancel.IsEnabled = true;
-        LstResults.Items.Clear();
-        Progress.Value = 0;
-
-        _cts = new CancellationTokenSource();
-        var cancellationToken = _cts.Token;
-
         try
         {
-            using var aiAssist = new AiAssistService(_settings);
-            var service = new AiBatchFillService(_settings, aiAssist, _preRegisterExpectedFile);
-            var progress = new Progress<AiBatchItemResult>(OnItemCompleted);
+            if (_running) return;
 
-            var results = await service.RunAsync(
-                items,
-                _imageFolderPath,
-                ChkUseApiFallback.IsChecked == true,
-                _extraQuery,
-                progress,
-                cancellationToken);
+            if (!_settings.AiAssistEnabled)
+            {
+                MessageBox.Show(
+                    "AI Assist is disabled.\n\nEnable it in Settings > AI Settings... to use this feature.",
+                    "AI Batch Fill", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
 
-            ShowSummary(results);
-        }
-        catch (OperationCanceledException)
-        {
-            TxtSummary.Text = "Batch canceled. Already saved covers were kept.";
+            var items = _items.Take(ParseMaxItems()).ToList();
+            if (items.Count == 0) return;
+
+            _running = true;
+            BtnStart.IsEnabled = false;
+            BtnClose.IsEnabled = false;
+            BtnCancel.IsEnabled = true;
+            LstResults.Items.Clear();
+            Progress.Value = 0;
+
+            _cts = new CancellationTokenSource();
+            var cancellationToken = _cts.Token;
+
+            try
+            {
+                using var aiAssist = new AiAssistService(_settings);
+                var service = new AiBatchFillService(_settings, aiAssist, _preRegisterExpectedFile);
+                var progress = new Progress<AiBatchItemResult>(OnItemCompleted);
+
+                var results = await service.RunAsync(
+                    items,
+                    _imageFolderPath,
+                    ChkUseApiFallback.IsChecked == true,
+                    _extraQuery,
+                    progress,
+                    cancellationToken);
+
+                ShowSummary(results);
+            }
+            catch (OperationCanceledException)
+            {
+                TxtSummary.Text = "Batch canceled. Already saved covers were kept.";
+            }
+            catch (Exception ex)
+            {
+                LogService.Warning(ex, "AI batch fill failed.");
+                MessageBox.Show(ex.Message, "AI Batch Fill", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+            finally
+            {
+                _running = false;
+                _cts?.Dispose();
+                _cts = null;
+                BtnStart.IsEnabled = true;
+                BtnClose.IsEnabled = true;
+                BtnCancel.IsEnabled = false;
+            }
         }
         catch (Exception ex)
         {
-            LogService.Warning(ex, "AI batch fill failed.");
-            MessageBox.Show(ex.Message, "AI Batch Fill", MessageBoxButton.OK, MessageBoxImage.Warning);
-        }
-        finally
-        {
-            _running = false;
-            _cts?.Dispose();
-            _cts = null;
-            BtnStart.IsEnabled = true;
-            BtnClose.IsEnabled = true;
-            BtnCancel.IsEnabled = false;
+            LogService.Warning(ex, "Error in method BtnStart_Click");
         }
     }
 

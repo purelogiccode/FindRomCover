@@ -1,5 +1,4 @@
 using System.Net;
-using System.Net.Http;
 using System.Text;
 using FindRomCover.Managers;
 using FindRomCover.Models;
@@ -140,7 +139,7 @@ public class AiAssistServiceTests
                 "Super Mario Bros", "Super Mario Bros", imagePath, CancellationToken.None);
 
             result.Should().NotBeNull();
-            result!.IsMatch.Should().BeTrue();
+            result.IsMatch.Should().BeTrue();
             result.Confidence.Should().BeApproximately(0.93, 0.001);
         }
         finally
@@ -213,11 +212,13 @@ public class AiAssistServiceTests
     private sealed class StubHttpMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> responder)
         : HttpMessageHandler
     {
+        private readonly Func<HttpRequestMessage, HttpResponseMessage> _responder = responder;
+
         protected override Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request,
             CancellationToken cancellationToken)
         {
-            return Task.FromResult(responder(request));
+            return Task.FromResult(_responder(request));
         }
     }
 }

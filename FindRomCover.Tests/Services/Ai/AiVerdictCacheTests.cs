@@ -27,8 +27,6 @@ public class AiVerdictCacheTests : IDisposable
         {
             /* best effort */
         }
-
-        GC.SuppressFinalize(this);
     }
 
     [Fact]

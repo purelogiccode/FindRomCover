@@ -1,5 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Net;
-using System.Net.Http;
 using System.Text;
 using FindRomCover.Models;
 using FindRomCover.Services.Ai;
@@ -39,7 +39,7 @@ public class OpenAiCompatibleVisionClientTests
     [Fact]
     public void ParsePickResponseShouldParseJsonObject()
     {
-        var result = OpenAiCompatibleVisionClient.ParsePickResponse(
+        var result = VisionModelClientBase.ParsePickResponse(
             "{\"bestIndex\":2,\"confidence\":0.87,\"reason\":\"box art\"}");
 
         result.BestIndex.Should().Be(2);
@@ -53,7 +53,7 @@ public class OpenAiCompatibleVisionClientTests
     {
         const string content = "```json\n{\"bestIndex\":\"1\",\"confidence\":\"85\",\"reason\":\"ok\"}\n```";
 
-        var result = OpenAiCompatibleVisionClient.ParsePickResponse(content);
+        var result = VisionModelClientBase.ParsePickResponse(content);
 
         result.BestIndex.Should().Be(1);
         result.Confidence.Should().BeApproximately(0.85, 0.001);
@@ -62,7 +62,7 @@ public class OpenAiCompatibleVisionClientTests
     [Fact]
     public void ParsePickResponseShouldTreatNegativeIndexAsNoPick()
     {
-        var result = OpenAiCompatibleVisionClient.ParsePickResponse(
+        var result = VisionModelClientBase.ParsePickResponse(
             "{\"bestIndex\":-1,\"confidence\":0.2,\"reason\":\"none\"}");
 
         result.HasPick.Should().BeFalse();
@@ -71,7 +71,7 @@ public class OpenAiCompatibleVisionClientTests
     [Fact]
     public void ParsePickResponseShouldThrowWhenNoJsonObjectIsPresent()
     {
-        var act = () => OpenAiCompatibleVisionClient.ParsePickResponse("no json here");
+        var act = () => VisionModelClientBase.ParsePickResponse("no json here");
 
         act.Should().Throw<InvalidOperationException>();
     }
@@ -79,7 +79,7 @@ public class OpenAiCompatibleVisionClientTests
     [Fact]
     public void ParseVerificationResponseShouldParseBooleanMatch()
     {
-        var result = OpenAiCompatibleVisionClient.ParseVerificationResponse(
+        var result = VisionModelClientBase.ParseVerificationResponse(
             "{\"match\":true,\"confidence\":0.9,\"reason\":\"yes\"}");
 
         result.IsMatch.Should().BeTrue();
@@ -89,9 +89,9 @@ public class OpenAiCompatibleVisionClientTests
     [Fact]
     public void ParseVerificationResponseShouldParseYesNoStrings()
     {
-        OpenAiCompatibleVisionClient.ParseVerificationResponse("{\"match\":\"yes\",\"confidence\":0.5}")
+        VisionModelClientBase.ParseVerificationResponse("{\"match\":\"yes\",\"confidence\":0.5}")
             .IsMatch.Should().BeTrue();
-        OpenAiCompatibleVisionClient.ParseVerificationResponse("{\"match\":\"no\",\"confidence\":0.5}")
+        VisionModelClientBase.ParseVerificationResponse("{\"match\":\"no\",\"confidence\":0.5}")
             .IsMatch.Should().BeFalse();
     }
 
@@ -143,7 +143,7 @@ public class OpenAiCompatibleVisionClientTests
     [Fact]
     public void BuildPickPromptShouldListCandidateNames()
     {
-        var prompt = OpenAiCompatibleVisionClient.BuildPickPrompt(
+        var prompt = VisionModelClientBase.BuildPickPrompt(
             "Super Mario Bros", "Super Mario Bros", CreateImages());
 
         prompt.Should().Contain("Super Mario Bros");
@@ -183,6 +183,7 @@ public class OpenAiCompatibleVisionClientTests
     }
 
     [Fact]
+    [SuppressMessage("ReSharper", "AccessToDisposedClosure")]
     public async Task PickBestAsyncShouldThrowFriendlyMessageOnUnauthorized()
     {
         using var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.Unauthorized)
@@ -199,6 +200,7 @@ public class OpenAiCompatibleVisionClientTests
     }
 
     [Fact]
+    [SuppressMessage("ReSharper", "AccessToDisposedClosure")]
     public async Task PickBestAsyncShouldRejectEmptyImageList()
     {
         using var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
@@ -214,11 +216,13 @@ public class OpenAiCompatibleVisionClientTests
     private sealed class StubHttpMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> responder)
         : HttpMessageHandler
     {
+        private readonly Func<HttpRequestMessage, HttpResponseMessage> _responder = responder;
+
         protected override Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request,
             CancellationToken cancellationToken)
         {
-            return Task.FromResult(responder(request));
+            return Task.FromResult(_responder(request));
         }
     }
 }

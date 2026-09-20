@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Net;
-using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using FindRomCover.Managers;
@@ -33,8 +32,6 @@ public class AiBatchFillServiceTests : IDisposable
         {
             /* best effort */
         }
-
-        GC.SuppressFinalize(this);
     }
 
     [Fact]
@@ -184,11 +181,13 @@ public class AiBatchFillServiceTests : IDisposable
     private sealed class StubHttpMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> responder)
         : HttpMessageHandler
     {
+        private readonly Func<HttpRequestMessage, HttpResponseMessage> _responder = responder;
+
         protected override Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request,
             CancellationToken cancellationToken)
         {
-            return Task.FromResult(responder(request));
+            return Task.FromResult(_responder(request));
         }
     }
 }

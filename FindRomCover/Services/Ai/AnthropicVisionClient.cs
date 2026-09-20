@@ -1,4 +1,3 @@
-using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
@@ -6,16 +5,16 @@ using FindRomCover.Models;
 
 namespace FindRomCover.Services.Ai;
 
-public sealed class OpenAiCompatibleVisionClient : VisionModelClientBase
+public sealed class AnthropicVisionClient : VisionModelClientBase
 {
     private readonly HttpClient _httpClient;
 
-    public OpenAiCompatibleVisionClient()
+    public AnthropicVisionClient()
         : this(CreateDefaultHttpClient(), true)
     {
     }
 
-    public OpenAiCompatibleVisionClient(HttpClient httpClient, bool ownsClient = false)
+    public AnthropicVisionClient(HttpClient httpClient, bool ownsClient = false)
     {
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
         OwnsClient = ownsClient;
@@ -37,7 +36,7 @@ public sealed class OpenAiCompatibleVisionClient : VisionModelClientBase
     {
         var requestBody = BuildRequestBody(options, systemPrompt, userPrompt, images);
 
-        using var request = new HttpRequestMessage(HttpMethod.Post, BuildChatCompletionsUrl(options.BaseUrl));
+        using var request = new HttpRequestMessage(HttpMethod.Post, BuildMessagesUrl(options.BaseUrl));
         request.Content = new StringContent(requestBody, Encoding.UTF8, "application/json");
         ApplyAuthHeaders(request, options);
 
@@ -48,9 +47,17 @@ public sealed class OpenAiCompatibleVisionClient : VisionModelClientBase
         var responseText = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
 
         if (!response.IsSuccessStatusCode)
-            throw new InvalidOperationException(BuildErrorMessage(response.StatusCode, responseText));
+            throw new InvalidOperationException(BuildHttpErrorMessage(response.StatusCode, responseText));
 
         return ExtractMessageContent(responseText);
+    }
+
+    internal static string BuildMessagesUrl(string baseUrl)
+    {
+        if (string.IsNullOrWhiteSpace(baseUrl))
+            throw new InvalidOperationException("AI Base URL is not configured.");
+
+        return baseUrl.Trim().TrimEnd('/') + "/messages";
     }
 
     internal static string BuildRequestBody(
@@ -59,67 +66,52 @@ public sealed class OpenAiCompatibleVisionClient : VisionModelClientBase
         string userPrompt,
         IReadOnlyList<VisionImageInput> images)
     {
-        var userContent = new List<object> { new { type = "text", text = userPrompt } };
+        var content = new List<object> { new { type = "text", text = userPrompt } };
 
         foreach (var image in images)
-            userContent.Add(new
+            content.Add(new
             {
-                type = "image_url",
-                image_url = new { url = "data:image/jpeg;base64," + Convert.ToBase64String(image.Image.JpegBytes) }
+                type = "image",
+                source = new
+                {
+                    type = "base64",
+                    media_type = "image/jpeg",
+                    data = Convert.ToBase64String(image.Image.JpegBytes)
+                }
             });
 
         var payload = new
         {
             model = options.Model,
-            temperature = 0.1,
             max_tokens = 400,
-            messages = new object[]
-            {
-                new { role = "system", content = systemPrompt },
-                new { role = "user", content = userContent }
-            }
+            temperature = 0.1,
+            system = systemPrompt,
+            messages = new object[] { new { role = "user", content } }
         };
 
         return JsonSerializer.Serialize(payload);
-    }
-
-    internal static string BuildChatCompletionsUrl(string baseUrl)
-    {
-        if (string.IsNullOrWhiteSpace(baseUrl))
-            throw new InvalidOperationException("AI Base URL is not configured.");
-
-        return baseUrl.Trim().TrimEnd('/') + "/chat/completions";
     }
 
     internal static string ExtractMessageContent(string responseJson)
     {
         using var doc = JsonDocument.Parse(responseJson);
 
-        if (!doc.RootElement.TryGetProperty("choices", out var choices) ||
-            choices.ValueKind != JsonValueKind.Array ||
-            choices.GetArrayLength() == 0)
-            throw new InvalidOperationException("AI response did not contain any choices.");
-
-        if (!choices[0].TryGetProperty("message", out var message) ||
-            !message.TryGetProperty("content", out var content))
-            throw new InvalidOperationException("AI response did not contain a message.");
-
-        if (content.ValueKind == JsonValueKind.String)
-            return content.GetString() ?? string.Empty;
-
-        if (content.ValueKind != JsonValueKind.Array) return string.Empty;
+        if (!doc.RootElement.TryGetProperty("content", out var content) ||
+            content.ValueKind != JsonValueKind.Array)
+            throw new InvalidOperationException("AI response did not contain any content.");
 
         var builder = new StringBuilder();
         foreach (var part in content.EnumerateArray())
+        {
+            if (!part.TryGetProperty("type", out var type) || type.ValueKind != JsonValueKind.String ||
+                !string.Equals(type.GetString(), "text", StringComparison.OrdinalIgnoreCase))
+                continue;
+
             if (part.TryGetProperty("text", out var text) && text.ValueKind == JsonValueKind.String)
                 builder.Append(text.GetString());
+        }
 
         return builder.ToString();
-    }
-
-    internal static string BuildErrorMessage(HttpStatusCode statusCode, string responseBody)
-    {
-        return BuildHttpErrorMessage(statusCode, responseBody);
     }
 
     private static HttpClient CreateDefaultHttpClient()

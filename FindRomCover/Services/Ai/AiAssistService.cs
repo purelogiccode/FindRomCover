@@ -12,7 +12,7 @@ public sealed class AiAssistService : IDisposable
     private const int RemoteImageTimeoutSeconds = 15;
 
     private readonly SettingsManager _settings;
-    private readonly OpenAiCompatibleVisionClient _client;
+    private readonly IVisionModelClient? _client;
     private readonly AiVerdictCache _cache;
     private readonly HttpClient _imageHttpClient;
     private readonly SemaphoreSlim _requestLock = new(1, 1);
@@ -20,7 +20,7 @@ public sealed class AiAssistService : IDisposable
 
     public AiAssistService(
         SettingsManager settings,
-        OpenAiCompatibleVisionClient? client = null,
+        IVisionModelClient? client = null,
         AiVerdictCache? cache = null,
         HttpClient? imageHttpClient = null)
     {
@@ -102,14 +102,22 @@ public sealed class AiAssistService : IDisposable
         await _requestLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            var result = await _client
-                .VerifyAsync(options, romName, searchName, input, cancellationToken)
-                .ConfigureAwait(false);
+            var client = ResolveClient(options);
+            try
+            {
+                var result = await client
+                    .VerifyAsync(options, romName, searchName, input, cancellationToken)
+                    .ConfigureAwait(false);
 
-            _cache.Set(cacheKey, result);
-            LogService.Information(
-                $"AI assist: verification match={result.IsMatch} confidence={result.Confidence:P0}.");
-            return result;
+                _cache.Set(cacheKey, result);
+                LogService.Information(
+                    $"AI assist: verification match={result.IsMatch} confidence={result.Confidence:P0}.");
+                return result;
+            }
+            finally
+            {
+                if (_client == null) client.Dispose();
+            }
         }
         catch (OperationCanceledException)
         {
@@ -132,8 +140,7 @@ public sealed class AiAssistService : IDisposable
 
         _disposed = true;
         _requestLock.Dispose();
-        _client.Dispose();
-        GC.SuppressFinalize(this);
+        _client?.Dispose();
     }
 
     internal static List<VisionImageInput> PrepareLocalCandidates(
@@ -241,23 +248,31 @@ public sealed class AiAssistService : IDisposable
         await _requestLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            var result = await _client
-                .PickBestAsync(options, romName, searchName, inputs, cancellationToken)
-                .ConfigureAwait(false);
-
-            var mapped = new AiPickResult
+            var client = ResolveClient(options);
+            try
             {
-                BestIndex = result.BestIndex >= 0 && result.BestIndex < inputs.Count
-                    ? inputs[result.BestIndex].SourceIndex
-                    : -1,
-                Confidence = result.Confidence,
-                Reason = result.Reason
-            };
+                var result = await client
+                    .PickBestAsync(options, romName, searchName, inputs, cancellationToken)
+                    .ConfigureAwait(false);
 
-            _cache.Set(cacheKey, mapped);
-            LogService.Information(
-                $"AI assist: picked candidate {mapped.BestIndex} with confidence {mapped.Confidence:P0}.");
-            return mapped;
+                var mapped = new AiPickResult
+                {
+                    BestIndex = result.BestIndex >= 0 && result.BestIndex < inputs.Count
+                        ? inputs[result.BestIndex].SourceIndex
+                        : -1,
+                    Confidence = result.Confidence,
+                    Reason = result.Reason
+                };
+
+                _cache.Set(cacheKey, mapped);
+                LogService.Information(
+                    $"AI assist: picked candidate {mapped.BestIndex} with confidence {mapped.Confidence:P0}.");
+                return mapped;
+            }
+            finally
+            {
+                if (_client == null) client.Dispose();
+            }
         }
         catch (OperationCanceledException)
         {
@@ -272,6 +287,11 @@ public sealed class AiAssistService : IDisposable
         {
             _requestLock.Release();
         }
+    }
+
+    private IVisionModelClient ResolveClient(AiVisionOptions options)
+    {
+        return _client ?? VisionClientFactory.Create(options);
     }
 
     private static string BuildCacheKey(

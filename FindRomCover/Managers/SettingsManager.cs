@@ -528,18 +528,26 @@ public class SettingsManager : INotifyPropertyChanged
     {
         if (!string.IsNullOrWhiteSpace(_aiBaseUrl)) return _aiBaseUrl.Trim();
 
-        return string.Equals(_aiProvider, AppConstants.AiProviders.Local, StringComparison.Ordinal)
-            ? AppConstants.AiProviders.LocalBaseUrl
-            : AppConstants.AiProviders.OpenRouterBaseUrl;
+        return _aiProvider switch
+        {
+            AppConstants.AiProviders.Local => AppConstants.AiProviders.LocalBaseUrl,
+            AppConstants.AiProviders.Anthropic => AppConstants.AiProviders.AnthropicBaseUrl,
+            AppConstants.AiProviders.Gemini => AppConstants.AiProviders.GeminiBaseUrl,
+            _ => AppConstants.AiProviders.OpenRouterBaseUrl
+        };
     }
 
     public string GetEffectiveAiModel()
     {
         if (!string.IsNullOrWhiteSpace(_aiModel)) return _aiModel.Trim();
 
-        return string.Equals(_aiProvider, AppConstants.AiProviders.Local, StringComparison.Ordinal)
-            ? AppConstants.AiProviders.DefaultLocalModel
-            : AppConstants.AiProviders.DefaultOpenRouterModel;
+        return _aiProvider switch
+        {
+            AppConstants.AiProviders.Local => AppConstants.AiProviders.DefaultLocalModel,
+            AppConstants.AiProviders.Anthropic => AppConstants.AiProviders.DefaultAnthropicModel,
+            AppConstants.AiProviders.Gemini => AppConstants.AiProviders.DefaultGeminiModel,
+            _ => AppConstants.AiProviders.DefaultOpenRouterModel
+        };
     }
 
     public AiVisionOptions GetAiVisionOptions()

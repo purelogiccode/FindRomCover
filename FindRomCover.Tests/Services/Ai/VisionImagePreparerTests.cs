@@ -22,12 +22,10 @@ public class VisionImagePreparerTests : IDisposable
             {
                 Directory.Delete(_testDir, true);
             }
-            catch
-            {
-                /* best effort */
-            }
-
-        GC.SuppressFinalize(this);
+        catch
+        {
+            /* best effort */
+        }
     }
 
     private string CreateImage(string fileName, uint width, uint height)

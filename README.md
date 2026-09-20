@@ -27,7 +27,7 @@ It supports **Local Similarity Search** across your existing image folder, plus 
 - **Flexible Configuration**: Support for custom file extensions and search queries.
 - **Automatic Image Conversion**: Automatically converts downloaded images (JPG, BMP, GIF, TIFF, WebP, AVIF, HEIC, HEIF, JXL, JP2) to PNG format using Magick.NET (ImageMagick). Also, automatically converts newly saved images in the image folder to PNG.
 - **Automatic File Rename & Match**: A built-in `FileSystemWatcher` monitors the image folder and automatically renames any newly saved image to match the currently selected missing ROM's filename, then converts it to PNG and removes the entry from the missing covers list — so images saved from the embedded browser are matched hands-free.
-- **AI Vision Assist**: Connect a vision-capable model (OpenRouter cloud or a local Ollama/LM Studio server) to actually *look* at candidate images and pick the correct cover. Works on Local Files and Google API results, can auto-save above a confidence threshold, verify images before renaming or saving, and batch-fill the entire missing list.
+- **AI Vision Assist**: Connect a vision-capable model (OpenRouter, Anthropic or Google Gemini cloud, or a local Ollama/LM Studio server) to actually *look* at candidate images and pick the correct cover. Works on Local Files and Google API results, can auto-save above a confidence threshold, verify images before renaming or saving, and batch-fill the entire missing list.
 - **Detailed Logging**: Built-in log viewer for troubleshooting and `app.log`/`error.log` files using Serilog.
 - **Sound Feedback**: Optional audio feedback for user actions using NAudio.
 - **Command-line Arguments**: Start the application with pre-set ROM and Image folders for quick scanning.
@@ -75,17 +75,20 @@ To use the **Google Custom Search API**:
 
 ### AI Setup (Optional, for AI Vision Assist)
 
-AI Vision Assist uses an OpenAI-compatible vision model to choose the best cover among candidates.
+AI Vision Assist uses a vision-capable model to choose the best cover among candidates.
 
 1. Open `Settings > AI Settings...`.
 2. Choose a provider:
-    - **OpenRouter** (cloud): paste an API key from [openrouter.ai/keys](https://openrouter.ai/keys) and keep the default `google/gemini-2.5-flash` model or pick another vision model.
+    - **OpenRouter** (cloud): paste an API key from [openrouter.ai/keys](https://openrouter.ai/keys). Default model: `google/gemini-2.5-flash`.
+    - **Anthropic** (cloud): paste an API key from [console.anthropic.com](https://console.anthropic.com). Default model: `claude-sonnet-4-5`.
+    - **Gemini** (cloud): paste an API key from [aistudio.google.com](https://aistudio.google.com/apikey). Default model: `gemini-2.5-flash`.
     - **Local**: run [Ollama](https://ollama.com) (default `http://localhost:11434/v1`, model e.g. `qwen2.5vl:7b`) or LM Studio (`http://localhost:1234/v1`). No API key needed.
-3. Enable **AI-assisted image selection** and optionally:
+3. Click **Test / Load Models** to verify the connection and pick a model from the loaded list.
+4. Enable **AI-assisted image selection** and optionally:
     - **Run AI Pick automatically** after each search.
     - **Automatically save the AI pick** when confidence is above the threshold.
     - **Verify images with AI** before renaming or saving.
-4. Use the **AI Pick Best** button on the Local Files and Google API tabs, or **AI Fill Missing Covers...** on the missing covers list for batch processing.
+5. Use the **AI Pick Best** button on the Local Files and Google API tabs, or **AI Fill Missing Covers...** on the missing covers list for batch processing.
 
 Images are downscaled before upload (default 512px) and verdicts are cached for 30 days to limit API usage.
 
@@ -185,7 +188,7 @@ FindRomCover/
 - **Services**: Modular services for specific functionality:
   - `ImageProcessor`: Image conversion and processing using Magick.NET
   - `ImageFolderWatcher`: Real-time file system monitoring for automatic image detection
-  - `AiAssistService`: Vision-model ranking/verification of cover candidates (OpenRouter or local OpenAI-compatible servers)
+  - `AiAssistService`: Vision-model ranking/verification of cover candidates (OpenRouter, Anthropic, Gemini or local OpenAI-compatible servers)
   - `SimilarityCalculator`: Local image name matching via Jaccard, Jaro-Winkler, and Levenshtein algorithms
   - `WebSearchService`: URL generation for web searches
   - `SearchQueryHelper`: ROM filename cleaning and sanitization

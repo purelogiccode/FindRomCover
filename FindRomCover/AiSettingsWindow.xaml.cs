@@ -1,9 +1,12 @@
 using System.Globalization;
+using System.Net.Http;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Navigation;
 using FindRomCover.Managers;
+using FindRomCover.Models;
 using FindRomCover.Services;
+using FindRomCover.Services.Ai;
 
 namespace FindRomCover;
 
@@ -35,7 +38,7 @@ public partial class AiSettingsWindow
 
             TxtBaseUrl.Text = _settingsManager.AiBaseUrl;
             TxtApiKey.Text = _settingsManager.AiApiKey;
-            TxtModel.Text = _settingsManager.AiModel;
+            CmbModel.Text = _settingsManager.AiModel;
             TxtTimeout.Text = _settingsManager.AiTimeoutSeconds.ToString(CultureInfo.InvariantCulture);
             TxtMaxCandidates.Text = _settingsManager.AiMaxCandidates.ToString(CultureInfo.InvariantCulture);
             TxtImageMaxDimension.Text = _settingsManager.AiImageMaxDimension.ToString(CultureInfo.InvariantCulture);
@@ -66,9 +69,9 @@ public partial class AiSettingsWindow
             if (string.IsNullOrEmpty(currentBaseUrl) || IsKnownDefaultBaseUrl(currentBaseUrl))
                 TxtBaseUrl.Text = DefaultBaseUrl(provider);
 
-            var currentModel = TxtModel.Text.Trim();
+            var currentModel = CmbModel.Text.Trim();
             if (string.IsNullOrEmpty(currentModel) || IsKnownDefaultModel(currentModel))
-                TxtModel.Text = DefaultModel(provider);
+                CmbModel.Text = DefaultModel(provider);
         }
         catch (Exception ex)
         {
@@ -93,11 +96,12 @@ public partial class AiSettingsWindow
                 return;
             }
 
-            if (enabled && string.Equals(provider, AppConstants.AiProviders.OpenRouter, StringComparison.Ordinal) &&
+            if (enabled && !string.Equals(provider, AppConstants.AiProviders.Local, StringComparison.Ordinal) &&
                 string.IsNullOrEmpty(apiKey))
             {
                 MessageBox.Show(
-                    "An API key is required when using OpenRouter.\n\nEnter your key or switch the provider to Local.",
+                    "An API key is required for OpenRouter, Anthropic and Gemini.\n\n" +
+                    "Enter your key or switch the provider to Local.",
                     "API Key Required", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
@@ -106,7 +110,7 @@ public partial class AiSettingsWindow
             _settingsManager.AiProvider = provider;
             _settingsManager.AiBaseUrl = baseUrl;
             _settingsManager.AiApiKey = apiKey;
-            _settingsManager.AiModel = TxtModel.Text.Trim();
+            _settingsManager.AiModel = CmbModel.Text.Trim();
             _settingsManager.AiTimeoutSeconds = ParseInt(TxtTimeout.Text, _settingsManager.AiTimeoutSeconds);
             _settingsManager.AiMaxCandidates = ParseInt(TxtMaxCandidates.Text, _settingsManager.AiMaxCandidates);
             _settingsManager.AiImageMaxDimension =
@@ -143,30 +147,108 @@ public partial class AiSettingsWindow
         e.Handled = true;
     }
 
+    private async void BtnTest_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var provider = SelectedProvider;
+            var baseUrl = TxtBaseUrl.Text.Trim();
+
+            if (!string.IsNullOrEmpty(baseUrl) && !Uri.TryCreate(baseUrl, UriKind.Absolute, out _))
+            {
+                MessageBox.Show(
+                    "Please enter a valid AI Base URL, for example:\n\nhttps://openrouter.ai/api/v1\nhttp://localhost:11434/v1",
+                    "Invalid Base URL", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var options = new AiVisionOptions(
+                true,
+                provider,
+                string.IsNullOrWhiteSpace(baseUrl) ? DefaultBaseUrl(provider) : baseUrl,
+                TxtApiKey.Text.Trim(),
+                string.IsNullOrWhiteSpace(CmbModel.Text) ? DefaultModel(provider) : CmbModel.Text.Trim(),
+                ParseInt(TxtTimeout.Text, 90),
+                6,
+                512,
+                80,
+                false,
+                false,
+                false);
+
+            BtnTest.IsEnabled = false;
+            TxtTestStatus.Text = "Contacting provider...";
+
+            using var httpClient = new HttpClient();
+            httpClient.Timeout = Timeout.InfiniteTimeSpan;
+            var modelIds = await VisionModelCatalog.FetchModelIdsAsync(options, httpClient, CancellationToken.None);
+
+            var currentModel = CmbModel.Text.Trim();
+            CmbModel.ItemsSource = modelIds;
+            if (!string.IsNullOrWhiteSpace(currentModel)) CmbModel.Text = currentModel;
+
+            var modelAvailable = modelIds.Contains(options.Model, StringComparer.OrdinalIgnoreCase);
+            TxtTestStatus.Text = modelIds.Count == 0
+                ? "Connected, but the provider returned no models."
+                : modelAvailable
+                    ? $"Connected — {modelIds.Count} model(s) found. '{options.Model}' is available."
+                    : $"Connected — {modelIds.Count} model(s) found, but '{options.Model}' was not in the list.";
+
+            LogService.Information($"AI connection test succeeded for {provider}: {modelIds.Count} model(s).");
+        }
+        catch (Exception ex)
+        {
+            TxtTestStatus.Text = ex.Message;
+            LogService.Warning(ex, "AI connection test failed.");
+        }
+        finally
+        {
+            BtnTest.IsEnabled = true;
+        }
+    }
+
     private static string DefaultBaseUrl(string provider)
     {
-        return string.Equals(provider, AppConstants.AiProviders.Local, StringComparison.Ordinal)
-            ? AppConstants.AiProviders.LocalBaseUrl
-            : AppConstants.AiProviders.OpenRouterBaseUrl;
+        return provider switch
+        {
+            AppConstants.AiProviders.Local => AppConstants.AiProviders.LocalBaseUrl,
+            AppConstants.AiProviders.Anthropic => AppConstants.AiProviders.AnthropicBaseUrl,
+            AppConstants.AiProviders.Gemini => AppConstants.AiProviders.GeminiBaseUrl,
+            _ => AppConstants.AiProviders.OpenRouterBaseUrl
+        };
     }
 
     private static string DefaultModel(string provider)
     {
-        return string.Equals(provider, AppConstants.AiProviders.Local, StringComparison.Ordinal)
-            ? AppConstants.AiProviders.DefaultLocalModel
-            : AppConstants.AiProviders.DefaultOpenRouterModel;
+        return provider switch
+        {
+            AppConstants.AiProviders.Local => AppConstants.AiProviders.DefaultLocalModel,
+            AppConstants.AiProviders.Anthropic => AppConstants.AiProviders.DefaultAnthropicModel,
+            AppConstants.AiProviders.Gemini => AppConstants.AiProviders.DefaultGeminiModel,
+            _ => AppConstants.AiProviders.DefaultOpenRouterModel
+        };
     }
 
     private static bool IsKnownDefaultBaseUrl(string baseUrl)
     {
-        return string.Equals(baseUrl, AppConstants.AiProviders.OpenRouterBaseUrl, StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(baseUrl, AppConstants.AiProviders.LocalBaseUrl, StringComparison.OrdinalIgnoreCase);
+        return new[]
+        {
+            AppConstants.AiProviders.OpenRouterBaseUrl,
+            AppConstants.AiProviders.LocalBaseUrl,
+            AppConstants.AiProviders.AnthropicBaseUrl,
+            AppConstants.AiProviders.GeminiBaseUrl
+        }.Contains(baseUrl, StringComparer.OrdinalIgnoreCase);
     }
 
     private static bool IsKnownDefaultModel(string model)
     {
-        return string.Equals(model, AppConstants.AiProviders.DefaultOpenRouterModel, StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(model, AppConstants.AiProviders.DefaultLocalModel, StringComparison.OrdinalIgnoreCase);
+        return new[]
+        {
+            AppConstants.AiProviders.DefaultOpenRouterModel,
+            AppConstants.AiProviders.DefaultLocalModel,
+            AppConstants.AiProviders.DefaultAnthropicModel,
+            AppConstants.AiProviders.DefaultGeminiModel
+        }.Contains(model, StringComparer.OrdinalIgnoreCase);
     }
 
     private static int ParseInt(string text, int fallback)

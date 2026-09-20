@@ -13,7 +13,7 @@
         </Grid.RowDefinitions>
 
         <TextBlock Grid.Row="0" TextWrapping="Wrap" Margin="0,0,0,10"
-                   Text="AI Assist uses a vision-capable model to look at candidate images and pick the best cover for the selected game. Use OpenRouter (cloud) or a local OpenAI-compatible server such as Ollama or LM Studio." />
+                   Text="AI Assist uses a vision-capable model to look at candidate images and pick the best cover for the selected game. Choose OpenRouter, Anthropic or Gemini (cloud), or a local OpenAI-compatible server such as Ollama or LM Studio." />
 
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
             <StackPanel>
@@ -31,7 +31,7 @@
                             <Label Grid.Column="0" Content="Provider:" VerticalAlignment="Center" />
                             <ComboBox Grid.Column="1" x:Name="CmbProvider"
                                       SelectionChanged="CmbProvider_SelectionChanged"
-                                      ToolTip="OpenRouter uses a cloud API key; Local targets Ollama or LM Studio running on this machine" />
+                                      ToolTip="OpenRouter, Anthropic and Gemini use a cloud API key; Local targets Ollama or LM Studio running on this machine" />
                         </Grid>
 
                         <Grid Margin="0,5">
@@ -60,12 +60,18 @@
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="170" />
                                 <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <Label Grid.Column="0" Content="Model:" VerticalAlignment="Center" />
-                            <TextBox Grid.Column="1" x:Name="TxtModel"
-                                     controls:TextBoxHelper.Watermark="google/gemini-2.5-flash"
-                                     ToolTip="Vision-capable model name, e.g. google/gemini-2.5-flash (OpenRouter) or qwen2.5vl:7b (Ollama)" />
+                            <ComboBox Grid.Column="1" x:Name="CmbModel" IsEditable="True" IsTextSearchEnabled="False"
+                                      ToolTip="Vision-capable model name, e.g. google/gemini-2.5-flash (OpenRouter), claude-sonnet-4-5 (Anthropic), gemini-2.5-flash (Gemini) or qwen2.5vl:7b (Ollama)" />
+                            <Button Grid.Column="2" x:Name="BtnTest" Content="Test / Load Models" Margin="5,0,0,0"
+                                    Padding="8,2" Click="BtnTest_Click"
+                                    ToolTip="Contact the provider, verify the key and load the available model list" />
                         </Grid>
+
+                        <TextBlock x:Name="TxtTestStatus" Margin="0,3,0,0" TextWrapping="Wrap"
+                                   Foreground="#FF0078D7" />
 
                         <TextBlock Margin="0,5,0,0">
                             <Hyperlink NavigateUri="https://openrouter.ai/keys"
