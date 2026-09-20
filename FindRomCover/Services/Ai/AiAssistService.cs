@@ -1,4 +1,5 @@
 using System.IO;
+using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
 using FindRomCover.Managers;
@@ -8,20 +9,25 @@ namespace FindRomCover.Services.Ai;
 
 public sealed class AiAssistService : IDisposable
 {
+    private const int RemoteImageTimeoutSeconds = 15;
+
     private readonly SettingsManager _settings;
     private readonly OpenAiCompatibleVisionClient _client;
     private readonly AiVerdictCache _cache;
+    private readonly HttpClient _imageHttpClient;
     private readonly SemaphoreSlim _requestLock = new(1, 1);
     private bool _disposed;
 
     public AiAssistService(
         SettingsManager settings,
         OpenAiCompatibleVisionClient? client = null,
-        AiVerdictCache? cache = null)
+        AiVerdictCache? cache = null,
+        HttpClient? imageHttpClient = null)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _client = client ?? new OpenAiCompatibleVisionClient();
         _cache = cache ?? new AiVerdictCache();
+        _imageHttpClient = imageHttpClient ?? HttpClientHelper.Client;
     }
 
     public bool IsEnabled => !_disposed && _settings.AiAssistEnabled;
@@ -35,50 +41,32 @@ public sealed class AiAssistService : IDisposable
         if (!IsEnabled || candidates.Count == 0) return null;
 
         var options = _settings.GetAiVisionOptions();
-        var inputs = PrepareCandidates(candidates, options.MaxCandidates, options.ImageMaxDimension);
+        var inputs = PrepareLocalCandidates(candidates, options.MaxCandidates, options.ImageMaxDimension);
         if (inputs.Count == 0) return null;
 
-        var cacheKey = BuildCacheKey("pick", options, romName, searchName, inputs);
-        if (_cache.TryGet<AiPickResult>(cacheKey, out var cached) && cached != null)
-        {
-            LogService.Debug("AI assist: using cached pick verdict.");
-            return cached;
-        }
+        return await PickBestCoreAsync(romName, searchName, inputs, options, cancellationToken).ConfigureAwait(false);
+    }
 
-        await _requestLock.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
-        {
-            var result = await _client
-                .PickBestAsync(options, romName, searchName, inputs, cancellationToken)
-                .ConfigureAwait(false);
+    public async Task<AiPickResult?> PickBestForApiAsync(
+        string romName,
+        string searchName,
+        IReadOnlyList<ImageData> candidates,
+        CancellationToken cancellationToken)
+    {
+        if (!IsEnabled || candidates.Count == 0) return null;
 
-            var mapped = new AiPickResult
-            {
-                BestIndex = result.BestIndex >= 0 && result.BestIndex < inputs.Count
-                    ? inputs[result.BestIndex].SourceIndex
-                    : -1,
-                Confidence = result.Confidence,
-                Reason = result.Reason
-            };
+        var options = _settings.GetAiVisionOptions();
+        var inputs = await PrepareRemoteCandidatesAsync(
+                _imageHttpClient,
+                candidates,
+                options.MaxCandidates,
+                options.ImageMaxDimension,
+                cancellationToken)
+            .ConfigureAwait(false);
 
-            _cache.Set(cacheKey, mapped);
-            LogService.Information(
-                $"AI assist: picked candidate {mapped.BestIndex} with confidence {mapped.Confidence:P0}.");
-            return mapped;
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            LogService.Warning(ex, "AI assist: pick request failed.");
-            throw new InvalidOperationException(FriendlyMessage(ex), ex);
-        }
-        finally
-        {
-            _requestLock.Release();
-        }
+        if (inputs.Count == 0) return null;
+
+        return await PickBestCoreAsync(romName, searchName, inputs, options, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<AiVerificationResult?> VerifyAsync(
@@ -148,7 +136,7 @@ public sealed class AiAssistService : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    private static List<VisionImageInput> PrepareCandidates(
+    internal static List<VisionImageInput> PrepareLocalCandidates(
         IReadOnlyList<ImageData> candidates,
         int maxCandidates,
         int maxDimension)
@@ -177,6 +165,113 @@ public sealed class AiAssistService : IDisposable
         }
 
         return inputs;
+    }
+
+    internal static async Task<List<VisionImageInput>> PrepareRemoteCandidatesAsync(
+        HttpClient httpClient,
+        IReadOnlyList<ImageData> candidates,
+        int maxCandidates,
+        int maxDimension,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(httpClient);
+
+        var inputs = new List<VisionImageInput>();
+        var limit = Math.Min(Math.Max(1, maxCandidates), candidates.Count);
+
+        for (var i = 0; i < limit; i++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var url = string.IsNullOrWhiteSpace(candidates[i].ThumbnailUrl)
+                ? candidates[i].ImagePath
+                : candidates[i].ThumbnailUrl;
+
+            if (string.IsNullOrWhiteSpace(url)) continue;
+
+            try
+            {
+                using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                timeoutCts.CancelAfter(TimeSpan.FromSeconds(RemoteImageTimeoutSeconds));
+
+                using var response = await httpClient.GetAsync(url, timeoutCts.Token).ConfigureAwait(false);
+                if (!response.IsSuccessStatusCode)
+                {
+                    LogService.Debug(
+                        $"AI assist: thumbnail download failed ({(int)response.StatusCode}) for '{url}'.");
+                    continue;
+                }
+
+                var bytes = await response.Content.ReadAsByteArrayAsync(timeoutCts.Token).ConfigureAwait(false);
+                var prepared = VisionImagePreparer.Prepare(bytes, maxDimension);
+
+                var name = string.IsNullOrWhiteSpace(candidates[i].ImageName)
+                    ? Path.GetFileNameWithoutExtension(url) ?? url
+                    : candidates[i].ImageName!;
+
+                inputs.Add(new VisionImageInput(name, prepared, i));
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                LogService.Warning(ex, $"AI assist: could not prepare remote image '{url}'.");
+            }
+        }
+
+        return inputs;
+    }
+
+    private async Task<AiPickResult?> PickBestCoreAsync(
+        string romName,
+        string searchName,
+        List<VisionImageInput> inputs,
+        AiVisionOptions options,
+        CancellationToken cancellationToken)
+    {
+        var cacheKey = BuildCacheKey("pick", options, romName, searchName, inputs);
+        if (_cache.TryGet<AiPickResult>(cacheKey, out var cached) && cached != null)
+        {
+            LogService.Debug("AI assist: using cached pick verdict.");
+            return cached;
+        }
+
+        await _requestLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var result = await _client
+                .PickBestAsync(options, romName, searchName, inputs, cancellationToken)
+                .ConfigureAwait(false);
+
+            var mapped = new AiPickResult
+            {
+                BestIndex = result.BestIndex >= 0 && result.BestIndex < inputs.Count
+                    ? inputs[result.BestIndex].SourceIndex
+                    : -1,
+                Confidence = result.Confidence,
+                Reason = result.Reason
+            };
+
+            _cache.Set(cacheKey, mapped);
+            LogService.Information(
+                $"AI assist: picked candidate {mapped.BestIndex} with confidence {mapped.Confidence:P0}.");
+            return mapped;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            LogService.Warning(ex, "AI assist: pick request failed.");
+            throw new InvalidOperationException(FriendlyMessage(ex), ex);
+        }
+        finally
+        {
+            _requestLock.Release();
+        }
     }
 
     private static string BuildCacheKey(

@@ -53,6 +53,8 @@
                             </MultiBinding>
                         </TextBlock.Text>
                     </TextBlock>
+                    <TextBlock HorizontalAlignment="Center" Text="{Binding AiBadge}"
+                               Foreground="#FF00A36C" FontWeight="Bold" Margin="0,2,0,0" />
                 </StackPanel>
             </Button>
         </DataTemplate>
@@ -482,8 +484,18 @@
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
 
-                        <Label x:Name="LblApiSearchQuery" Grid.Row="0" Margin="5,0,5,5"
-                               ToolTip="Displays the current API search query" />
+                        <Grid Grid.Row="0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Label x:Name="LblApiSearchQuery" Grid.Column="0" Margin="5,0,5,5"
+                                   ToolTip="Displays the current API search query" />
+                            <Button Grid.Column="1" x:Name="BtnAiPickApi" Content="AI Pick Best"
+                                    Click="BtnAiPickApi_Click" Margin="5,0,5,5" Padding="10,2"
+                                    IsEnabled="{Binding IsAiPickApiAvailable}"
+                                    ToolTip="Ask the configured AI vision model which API result is the correct cover" />
+                        </Grid>
 
                         <Grid Grid.Row="1">
                             <ScrollViewer x:Name="ApiImageScrollViewer" VerticalScrollBarVisibility="Auto"

@@ -73,6 +73,34 @@ public class GoogleAdditionalTests
     }
 
     [Fact]
+    public void MapToImageDataShouldMapThumbnailLink()
+    {
+        var searchResult = new GoogleSearchResult
+        {
+            Items =
+            [
+                new GoogleSearchItem
+                {
+                    Link = "https://example.com/full.png",
+                    Title = "Test",
+                    Mime = "image/png",
+                    Image = new GoogleImageInfo
+                    {
+                        Width = 100,
+                        Height = 100,
+                        ByteSize = 2048,
+                        ThumbnailLink = "https://example.com/thumb.png"
+                    }
+                }
+            ]
+        };
+
+        var result = Google.MapToImageData(searchResult);
+
+        result[0].ThumbnailUrl.Should().Be("https://example.com/thumb.png");
+    }
+
+    [Fact]
     public void MapToImageDataWithZeroByteSizeShouldReturnUnknown()
     {
         var searchResult = new GoogleSearchResult

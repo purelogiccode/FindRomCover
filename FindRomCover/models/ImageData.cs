@@ -44,6 +44,7 @@ public class ImageData : INotifyPropertyChanged
     }
 
     public string? ImagePath { get; init; }
+    public string? ThumbnailUrl { get; init; }
     public string? ImageName { get; set; } = "Unknown Filename";
     public string ImageFileSize { get; set; } = "Unknown File Size";
     public string ImageEncodingFormat { get; set; } = "Unknown Encoding Format";

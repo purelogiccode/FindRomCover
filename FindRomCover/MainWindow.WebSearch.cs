@@ -6,6 +6,7 @@ using System.Windows.Documents;
 using FindRomCover.ApiProvider;
 using FindRomCover.Models;
 using FindRomCover.Services;
+using FindRomCover.Services.Ai;
 
 namespace FindRomCover;
 
@@ -160,6 +161,9 @@ public partial class MainWindow
                     : "No images found.";
                 StatusImageCount.Text = PanelImages.Count.ToString(CultureInfo.InvariantCulture);
             });
+
+            if (Settings.AiAutoRun && Settings.AiAssistEnabled && PanelImages.Count > 0)
+                _ = RunAiPickApiAsync();
         }
         catch (OperationCanceledException)
         {
@@ -189,42 +193,136 @@ public partial class MainWindow
         {
             if (sender is not FrameworkElement { DataContext: ImageData { ImagePath: not null } imageData }) return;
 
-            var imageFolderPath = GetValidatedImageFolderPath(false);
-            if (string.IsNullOrEmpty(_selectedRomFileName) || string.IsNullOrEmpty(imageFolderPath)) return;
-
-            try
-            {
-                var safeFileName = SearchQueryHelper.SanitizeFileName(_selectedRomFileName);
-                var newFileName = Path.Combine(imageFolderPath, safeFileName + ".png");
-                _imageFolderWatcher?.PreRegisterExpectedFile(newFileName);
-                var result = await ImageSaveService.DownloadAndSaveImageAsync(imageData.ImagePath, newFileName);
-
-                if (result)
-                {
-                    App.AudioService.PlayClickSound();
-                    RemoveSelectedItem();
-                    PanelImages.Clear();
-                    UpdateMissingCount();
-                }
-                else
-                {
-                    MessageBox.Show(
-                        "The image could not be downloaded. The server may have blocked the request or the image is no longer available.\n\nPlease try a different image.",
-                        "Download Failed",
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Warning);
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error saving image: {ex.Message}", "Error", MessageBoxButton.OK,
-                    MessageBoxImage.Error);
-                LogService.Error(ex, "Error saving API image");
-            }
+            await SaveApiImageAsync(imageData);
         }
         catch (Exception ex)
         {
             LogService.Error(ex, "Error saving API image");
+        }
+    }
+
+    private async Task SaveApiImageAsync(ImageData imageData)
+    {
+        var imageFolderPath = GetValidatedImageFolderPath(false);
+        if (string.IsNullOrEmpty(_selectedRomFileName) || string.IsNullOrEmpty(imageFolderPath) ||
+            string.IsNullOrEmpty(imageData.ImagePath))
+            return;
+
+        try
+        {
+            var safeFileName = SearchQueryHelper.SanitizeFileName(_selectedRomFileName);
+            var newFileName = Path.Combine(imageFolderPath, safeFileName + ".png");
+            _imageFolderWatcher?.PreRegisterExpectedFile(newFileName);
+            var result = await ImageSaveService.DownloadAndSaveImageAsync(imageData.ImagePath, newFileName);
+
+            if (result)
+            {
+                App.AudioService.PlayClickSound();
+                RemoveSelectedItem();
+                PanelImages.Clear();
+                UpdateMissingCount();
+            }
+            else
+            {
+                MessageBox.Show(
+                    "The image could not be downloaded. The server may have blocked the request or the image is no longer available.\n\nPlease try a different image.",
+                    "Download Failed",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+            }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Error saving image: {ex.Message}", "Error", MessageBoxButton.OK,
+                MessageBoxImage.Error);
+            LogService.Error(ex, "Error saving API image");
+        }
+    }
+
+    private async void BtnAiPickApi_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            await RunAiPickApiAsync();
+        }
+        catch (Exception ex)
+        {
+            LogService.Warning(ex, "Error in BtnAiPickApi_Click");
+        }
+    }
+
+    private async Task RunAiPickApiAsync()
+    {
+        if (!Settings.AiAssistEnabled)
+        {
+            MessageBox.Show(
+                "AI Assist is disabled.\n\nEnable it in Settings > AI Settings... to use this feature.",
+                "AI Assist", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        if (LstMissingImages.SelectedItem is not MissingImageItem selectedItem) return;
+        if (PanelImages.Count == 0 || IsAiBusy) return;
+
+        _aiAssistCts?.Cancel();
+        _aiAssistCts?.Dispose();
+        _aiAssistCts = new CancellationTokenSource();
+        var cancellationToken = _aiAssistCts.Token;
+
+        _aiAssistService ??= new AiAssistService(Settings);
+
+        IsAiBusy = true;
+        var candidates = PanelImages.ToList();
+        StatusMessage.Text = $"AI is analyzing {candidates.Count} API result(s)...";
+
+        try
+        {
+            var result = await _aiAssistService.PickBestForApiAsync(
+                selectedItem.RomName,
+                selectedItem.SearchName,
+                candidates,
+                cancellationToken);
+
+            if (cancellationToken.IsCancellationRequested) return;
+
+            if (result is null)
+            {
+                StatusMessage.Text = "AI did not analyze any API result.";
+                return;
+            }
+
+            if (!result.HasPick || result.BestIndex < 0 || result.BestIndex >= candidates.Count)
+            {
+                StatusMessage.Text = $"AI found no genuine cover among the API results. {result.Reason}".Trim();
+                return;
+            }
+
+            foreach (var image in candidates) image.AiBadge = string.Empty;
+
+            var picked = candidates[result.BestIndex];
+            picked.AiBadge = $"AI pick {result.Confidence:P0}";
+
+            var currentIndex = PanelImages.IndexOf(picked);
+            if (currentIndex > 0) PanelImages.Move(currentIndex, 0);
+
+            ApiImageScrollViewer.ScrollToTop();
+            StatusMessage.Text = $"AI picked '{picked.ImageName}' ({result.Confidence:P0}). {result.Reason}".Trim();
+
+            if (Settings.AiAutoSave && result.Confidence * 100 >= Settings.AiAutoSaveThreshold)
+                await SaveApiImageAsync(picked);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            LogService.Warning(ex, "AI assist failed for API results");
+            StatusMessage.Text = "AI assist failed. Check the log for details.";
+            MessageBox.Show(ex.Message, "AI Assist", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        finally
+        {
+            IsAiBusy = false;
         }
     }
 }

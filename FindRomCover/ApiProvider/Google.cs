@@ -46,6 +46,7 @@ public static class Google
             return searchResults.Items.ConvertAll(static item => new ImageData
             {
                 ImagePath = item.Link,
+                ThumbnailUrl = item.Image?.ThumbnailLink,
                 ImageName = FormatImageName(item.Title),
                 ImageFileSize = item.Image is { ByteSize: > 0 }
                     ? Math.Round(item.Image.ByteSize / 1024.0, 2) + " KB"

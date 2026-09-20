@@ -69,6 +69,7 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
 
         Settings.PropertyChanged += AppSettingsManagerPropertyChangedAsync;
         SimilarImages.CollectionChanged += (_, _) => UpdateAiPickAvailability();
+        PanelImages.CollectionChanged += (_, _) => UpdateAiPickAvailability();
         Closing += OnWindowClosing;
         Loaded += MainWindow_LoadedAsync;
         StateChanged += OnWindowStateChanged;
@@ -145,6 +146,18 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
     }
 
     public bool IsAiPickAvailable
+    {
+        get;
+        set
+        {
+            if (field == value) return;
+
+            field = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public bool IsAiPickApiAvailable
     {
         get;
         set
@@ -606,6 +619,7 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         try
         {
             IsAiPickAvailable = Settings.AiAssistEnabled && SimilarImages.Count > 0 && !IsAiBusy;
+            IsAiPickApiAvailable = Settings.AiAssistEnabled && PanelImages.Count > 0 && !IsAiBusy;
         }
         catch (Exception ex)
         {
