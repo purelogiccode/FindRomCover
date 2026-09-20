@@ -18,6 +18,8 @@ public partial class MainWindow
     {
         try
         {
+            if (_aiBatchRunning) return;
+
             CommandManager.InvalidateRequerySuggested();
 
             // Cancel any pending searches
@@ -354,6 +356,17 @@ public partial class MainWindow
         if (string.IsNullOrEmpty(_selectedRomFileName) || string.IsNullOrEmpty(imagePath) ||
             string.IsNullOrEmpty(imageFolderPath))
             return;
+
+        var verification = await TryVerifyImageAsync(_selectedRomFileName, imagePath);
+        if (verification is { IsMatch: false })
+        {
+            var choice = MessageBox.Show(
+                $"AI thinks this image is not a cover for '{_selectedRomFileName}'.\n\n" +
+                $"{verification.Reason}\n\nSave it anyway?",
+                "AI Verification", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+
+            if (choice != MessageBoxResult.Yes) return;
+        }
 
         var safeFileName = SearchQueryHelper.SanitizeFileName(_selectedRomFileName);
         var newFileName = Path.Combine(imageFolderPath, safeFileName + ".png");

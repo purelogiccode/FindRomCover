@@ -42,6 +42,7 @@ public partial class AiSettingsWindow
             TxtAutoSaveThreshold.Text = _settingsManager.AiAutoSaveThreshold.ToString(CultureInfo.InvariantCulture);
             ChkAutoSave.IsChecked = _settingsManager.AiAutoSave;
             ChkAutoRun.IsChecked = _settingsManager.AiAutoRun;
+            ChkVerifyOnSave.IsChecked = _settingsManager.AiVerifyOnSave;
         }
         catch (Exception ex)
         {
@@ -114,6 +115,7 @@ public partial class AiSettingsWindow
                 ParseDouble(TxtAutoSaveThreshold.Text, _settingsManager.AiAutoSaveThreshold);
             _settingsManager.AiAutoSave = ChkAutoSave.IsChecked == true;
             _settingsManager.AiAutoRun = ChkAutoRun.IsChecked == true;
+            _settingsManager.AiVerifyOnSave = ChkVerifyOnSave.IsChecked == true;
 
             _settingsManager.SaveSettings();
             LogService.Information("AI settings saved successfully.");

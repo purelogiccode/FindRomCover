@@ -129,6 +129,9 @@
                         <CheckBox x:Name="ChkAutoRun" Margin="0,5"
                                   Content="Run AI Pick automatically when a game is selected"
                                   ToolTip="Starts the AI analysis right after the local search finishes" />
+                        <CheckBox x:Name="ChkVerifyOnSave" Margin="0,5"
+                                  Content="Verify images with AI before renaming or saving"
+                                  ToolTip="When a new image appears in the image folder, ask the AI to confirm it matches the selected game before renaming it" />
                     </StackPanel>
                 </GroupBox>
             </StackPanel>

@@ -1,5 +1,7 @@
 using System.Net;
 using System.Net.Http;
+using System.Text;
+using FindRomCover.Managers;
 using FindRomCover.Models;
 using FindRomCover.Services.Ai;
 using FluentAssertions;
@@ -15,6 +17,20 @@ public class AiAssistServiceTests
         using var image = new MagickImage(MagickColors.Red, width, height);
         image.Format = MagickFormat.Png;
         return image.ToByteArray();
+    }
+
+    private static string CreateTempImage()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"ai_test_{Guid.NewGuid():N}.png");
+        using var image = new MagickImage(MagickColors.Red, 64, 64);
+        image.Format = MagickFormat.Png;
+        image.Write(path);
+        return path;
+    }
+
+    private static AiVerdictCache CreateTempCache()
+    {
+        return new AiVerdictCache(Path.Combine(Path.GetTempPath(), $"ai_cache_{Guid.NewGuid():N}.json"));
     }
 
     [Fact]
@@ -92,6 +108,89 @@ public class AiAssistServiceTests
         inputs.Should().HaveCount(2);
         inputs[0].SourceIndex.Should().Be(0);
         inputs[1].SourceIndex.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task VerifyAsyncShouldReturnMatchFromProvider()
+    {
+        var imagePath = CreateTempImage();
+        try
+        {
+            var settings = new SettingsManager
+            {
+                AiAssistEnabled = true,
+                AiVerifyOnSave = true,
+                AiBaseUrl = "https://example.test/v1",
+                AiApiKey = "test-key",
+                AiModel = "test-model"
+            };
+
+            using var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    "{\"choices\":[{\"message\":{\"content\":\"{\\\"match\\\":true,\\\"confidence\\\":0.93,\\\"reason\\\":\\\"cover\\\"}\"}}]}",
+                    Encoding.UTF8,
+                    "application/json")
+            });
+            using var httpClient = new HttpClient(handler);
+            using var client = new OpenAiCompatibleVisionClient(httpClient);
+            using var service = new AiAssistService(settings, client, CreateTempCache(), httpClient);
+
+            var result = await service.VerifyAsync(
+                "Super Mario Bros", "Super Mario Bros", imagePath, CancellationToken.None);
+
+            result.Should().NotBeNull();
+            result!.IsMatch.Should().BeTrue();
+            result.Confidence.Should().BeApproximately(0.93, 0.001);
+        }
+        finally
+        {
+            File.Delete(imagePath);
+        }
+    }
+
+    [Fact]
+    public async Task VerifyAsyncShouldReturnNullWhenAiAssistDisabled()
+    {
+        var imagePath = CreateTempImage();
+        try
+        {
+            var settings = new SettingsManager { AiAssistEnabled = false, AiVerifyOnSave = true };
+            using var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
+            using var httpClient = new HttpClient(handler);
+            using var client = new OpenAiCompatibleVisionClient(httpClient);
+            using var service = new AiAssistService(settings, client, CreateTempCache(), httpClient);
+
+            var result = await service.VerifyAsync("game", "game", imagePath, CancellationToken.None);
+
+            result.Should().BeNull();
+        }
+        finally
+        {
+            File.Delete(imagePath);
+        }
+    }
+
+    [Fact]
+    public async Task VerifyAsyncShouldReturnNullWhenVerifyOnSaveDisabled()
+    {
+        var imagePath = CreateTempImage();
+        try
+        {
+            var settings = new SettingsManager { AiAssistEnabled = true, AiVerifyOnSave = false };
+            using var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
+            using var httpClient = new HttpClient(handler);
+            using var client = new OpenAiCompatibleVisionClient(httpClient);
+            using var service = new AiAssistService(settings, client, CreateTempCache(), httpClient);
+
+            var result = await service.VerifyAsync("game", "game", imagePath, CancellationToken.None);
+
+            result.Should().BeNull();
+        }
+        finally
+        {
+            File.Delete(imagePath);
+        }
     }
 
     [Fact]

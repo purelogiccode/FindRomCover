@@ -29,6 +29,7 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
     private readonly SemaphoreSlim _findSimilarSemaphore = new(1, 1);
     private AiAssistService? _aiAssistService;
     private CancellationTokenSource? _aiAssistCts;
+    private bool _aiBatchRunning;
     private bool _disposed;
     private CancellationTokenSource? _findSimilarCts;
     private Task? _findSimilarTask;
@@ -846,6 +847,80 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         }
     }
 
+    private async void BtnAiBatchFill_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (!Settings.AiAssistEnabled)
+            {
+                MessageBox.Show(
+                    "AI Assist is disabled.\n\nEnable it in Settings > AI Settings... to use this feature.",
+                    "AI Batch Fill", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var imageFolderPath = GetValidatedImageFolderPath();
+            if (string.IsNullOrEmpty(imageFolderPath)) return;
+
+            if (MissingImages.Count == 0)
+            {
+                MessageBox.Show("There are no missing covers to process.", "AI Batch Fill",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var filledCount = 0;
+            var window = new AiBatchWindow(
+                Settings,
+                MissingImages.ToList(),
+                imageFolderPath,
+                _imageFolderWatcher != null ? _imageFolderWatcher.PreRegisterExpectedFile : null,
+                TxtExtraQuery.Text.Trim())
+            {
+                Owner = this
+            };
+
+            void OnItemFilled(string romName)
+            {
+                filledCount++;
+                RemoveMissingItemByName(romName);
+            }
+
+            window.ItemFilled += OnItemFilled;
+            _aiBatchRunning = true;
+            try
+            {
+                window.ShowDialog();
+            }
+            finally
+            {
+                _aiBatchRunning = false;
+                window.ItemFilled -= OnItemFilled;
+            }
+
+            if (filledCount > 0)
+            {
+                StatusMessage.Text = $"AI batch fill saved {filledCount} cover(s).";
+                await RefreshMissingImagesListAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "Error in BtnAiBatchFill_Click");
+        }
+    }
+
+    private void RemoveMissingItemByName(string romName)
+    {
+        var index = MissingImages.ToList().FindIndex(m =>
+            string.Equals(m.RomName, romName, StringComparison.OrdinalIgnoreCase));
+
+        if (index < 0) return;
+
+        MissingImages.RemoveAt(index);
+        UpdateMissingCount();
+    }
+
     private async Task RefreshMissingImagesListAsync()
     {
         if (_loadMissingCts != null)
@@ -1460,6 +1535,9 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         _imageFolderWatcher.ImageFound += OnImageFolderImageFound;
         _imageFolderWatcher.ConversionFailed -= OnImageFolderConversionFailed;
         _imageFolderWatcher.ConversionFailed += OnImageFolderConversionFailed;
+        _imageFolderWatcher.VerificationFailed -= OnImageFolderVerificationFailed;
+        _imageFolderWatcher.VerificationFailed += OnImageFolderVerificationFailed;
+        _imageFolderWatcher.VerifyImageAsync = VerifyImageWithAiAsync;
         try
         {
             if (_imageFolderWatcher.Start(folderPath))
@@ -1502,6 +1580,59 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
         });
+    }
+
+    private void OnImageFolderVerificationFailed(string filePath, string romName)
+    {
+        Dispatcher.Invoke(() =>
+        {
+            StatusMessage.Text =
+                $"AI thinks '{Path.GetFileName(filePath)}' is not a cover for '{romName}' — rename skipped.";
+            MessageBox.Show(
+                $"The AI model does not think this image is a cover for '{romName}'.\n\n" +
+                $"The file was left as-is:\n{filePath}\n\n" +
+                "You can still assign it manually or save a different image.",
+                "AI Verification", MessageBoxButton.OK, MessageBoxImage.Warning);
+        });
+    }
+
+    private async Task<bool> VerifyImageWithAiAsync(string filePath, string romName, CancellationToken cancellationToken)
+    {
+        if (_disposed || !Settings.AiAssistEnabled || !Settings.AiVerifyOnSave) return true;
+
+        try
+        {
+            _aiAssistService ??= new AiAssistService(Settings);
+            var result = await _aiAssistService.VerifyAsync(romName, romName, filePath, cancellationToken);
+
+            if (result is null || result.IsMatch) return true;
+
+            LogService.Warning(
+                $"AI verification rejected '{Path.GetFileName(filePath)}' for '{romName}' " +
+                $"(confidence {result.Confidence:P0}): {result.Reason}");
+            return false;
+        }
+        catch (Exception ex)
+        {
+            LogService.Warning(ex, "AI verification failed; proceeding without verification.");
+            return true;
+        }
+    }
+
+    private async Task<AiVerificationResult?> TryVerifyImageAsync(string romName, string imagePath)
+    {
+        if (_disposed || !Settings.AiAssistEnabled || !Settings.AiVerifyOnSave) return null;
+
+        try
+        {
+            _aiAssistService ??= new AiAssistService(Settings);
+            return await _aiAssistService.VerifyAsync(romName, romName, imagePath, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            LogService.Warning(ex, "AI verification failed; proceeding without verification.");
+            return null;
+        }
     }
 
     private void SearchTabControl_SelectionChanged(object sender, SelectionChangedEventArgs e)

@@ -354,6 +354,7 @@
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
                             <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
                         <Button Grid.Row="0" Content="Check for Missing Images" x:Name="BtnCheckForMissingImages"
                                 Click="BtnCheckForMissingImages_ClickAsync" Margin="5" IsDefault="True"
@@ -386,6 +387,9 @@
                                 Click="BtnRemoveSelectedItem_Click" Margin="5"
                                 IsEnabled="{Binding ElementName=LstMissingImages, Path=SelectedItem, Converter={StaticResource IsNotNullConverter}}"
                                 ToolTip="Remove the selected ROM from the missing covers list" />
+                        <Button Grid.Row="3" x:Name="BtnAiBatchFill" Content="AI Fill Missing Covers..."
+                                Click="BtnAiBatchFill_Click" Margin="5,0,5,5"
+                                ToolTip="Let the AI fill missing covers automatically from local images and Google API results" />
                     </Grid>
                 </GroupBox>
             </Grid>

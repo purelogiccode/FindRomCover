@@ -101,6 +101,9 @@ public sealed class ImageFolderWatcher : IDisposable
 
     public event Action<string>? ImageFound;
     public event Action<string, string>? ConversionFailed;
+    public event Action<string, string>? VerificationFailed;
+
+    public Func<string, string, CancellationToken, Task<bool>>? VerifyImageAsync { get; set; }
 
     private void TryClearPendingRenameTarget(string? expectedValue)
     {
@@ -528,6 +531,30 @@ public sealed class ImageFolderWatcher : IDisposable
                 var renameTarget = PendingRenameTarget;
                 LogService.Debug(
                     $"ImageFolderWatcher: processing '{Path.GetFileName(filePath)}' — PendingRenameTarget = '{renameTarget}'");
+
+                if (!string.IsNullOrEmpty(renameTarget) && VerifyImageAsync != null)
+                {
+                    var verified = true;
+                    try
+                    {
+                        using var verifyCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                        verified = await VerifyImageAsync(filePath, renameTarget, verifyCts.Token);
+                    }
+                    catch (Exception ex)
+                    {
+                        LogService.Warning(ex,
+                            $"ImageFolderWatcher: AI verification failed for '{filePath}' — proceeding with rename");
+                    }
+
+                    if (!verified)
+                    {
+                        _recentlyProcessed.TryRemove(filePath, out _);
+                        LogService.Warning(
+                            $"ImageFolderWatcher: AI verification rejected '{Path.GetFileName(filePath)}' for '{renameTarget}' — rename skipped");
+                        VerificationFailed?.Invoke(filePath, renameTarget);
+                        return;
+                    }
+                }
 
                 var wasRenamed = false;
                 if (!string.IsNullOrEmpty(renameTarget))

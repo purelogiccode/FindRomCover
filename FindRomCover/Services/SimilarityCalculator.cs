@@ -25,9 +25,116 @@ public static class SimilarityCalculator
     {
         var result = new SimilarityCalculationResult();
 
-        if (string.IsNullOrEmpty(imageFolderPath) || !Directory.Exists(imageFolderPath)) return result;
-
         if (maxImagesToLoad <= 0) maxImagesToLoad = GetConfiguredMaxImagesToLoad();
+
+        var (topCandidates, processingErrors) = await FindCandidatesCoreAsync(
+            selectedFileName,
+            imageFolderPath,
+            similarityThreshold,
+            algorithm,
+            maxImagesToLoad,
+            cancellationToken);
+
+        var imageList = new ConcurrentBag<ImageData>();
+
+        try
+        {
+            var ioParallelOptions = new ParallelOptions
+            {
+                MaxDegreeOfParallelism = Math.Min(Math.Max(1, Environment.ProcessorCount - 1), 4),
+                CancellationToken = cancellationToken
+            };
+
+            await Parallel.ForEachAsync(topCandidates, ioParallelOptions, async (candidate, ct) =>
+            {
+                ct.ThrowIfCancellationRequested();
+
+                try
+                {
+                    var (maxRetries, retryDelayMilliseconds) = GetConfiguredImageLoaderSettings();
+                    var imageSource = await ImageLoader.LoadImageToMemoryAsync(
+                        candidate.FilePath,
+                        ct,
+                        maxRetries,
+                        retryDelayMilliseconds);
+
+                    if (imageSource == null)
+                    {
+                        processingErrors.Add(
+                            $"Image '{Path.GetFileName(candidate.FilePath)}' could not be loaded (corrupted or empty).");
+                        return;
+                    }
+
+                    var imageData = new ImageData(candidate.FilePath, candidate.ImageName, candidate.SimilarityScore)
+                    {
+                        ImageSource = imageSource
+                    };
+                    imageList.Add(imageData);
+                    onImageLoaded?.Invoke(imageData);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    processingErrors.Add(
+                        $"Could not load image '{Path.GetFileName(candidate.FilePath)}' for display: {ex.Message}");
+                }
+            });
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            processingErrors.Add($"An unexpected error occurred during image loading for display: {ex.Message}");
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        result.SimilarImages = imageList.OrderByDescending(static x => x.SimilarityScore).ToList();
+        result.ProcessingErrors = processingErrors.ToList();
+
+        return result;
+    }
+
+    public static async Task<List<(string FilePath, string ImageName, double SimilarityScore)>> FindTopCandidatesAsync(
+        string selectedFileName,
+        string imageFolderPath,
+        double similarityThreshold,
+        string algorithm,
+        CancellationToken cancellationToken,
+        int maxCandidates)
+    {
+        var (candidates, errors) = await FindCandidatesCoreAsync(
+            selectedFileName,
+            imageFolderPath,
+            similarityThreshold,
+            algorithm,
+            maxCandidates,
+            cancellationToken);
+
+        if (errors.Count > 0)
+            LogService.Debug($"FindTopCandidatesAsync: {errors.Count} issue(s) while scanning images.");
+
+        return candidates;
+    }
+
+    private static async Task<(List<(string FilePath, string ImageName, double SimilarityScore)> Candidates, List<string>
+        Errors)> FindCandidatesCoreAsync(
+        string selectedFileName,
+        string imageFolderPath,
+        double similarityThreshold,
+        string algorithm,
+        int maxCandidates,
+        CancellationToken cancellationToken)
+    {
+        var processingErrors = new ConcurrentBag<string>();
+
+        if (string.IsNullOrEmpty(imageFolderPath) || !Directory.Exists(imageFolderPath))
+            return ([], processingErrors.ToList());
 
         string[] imageExtensions =
         [
@@ -39,7 +146,7 @@ public static class SimilarityCalculator
             .SelectMany(ext => Directory.EnumerateFiles(imageFolderPath, ext))
             .ToList();
 
-        if (allImageFiles.Count == 0) return result;
+        if (allImageFiles.Count == 0) return ([], processingErrors.ToList());
 
         HashSet<string>? jaccardQueryUnigrams = null;
         HashSet<string>? jaccardQueryBigrams = null;
@@ -60,7 +167,6 @@ public static class SimilarityCalculator
         if (filesToProcess.Count > 5000) maxParallelism = Math.Min(maxParallelism, 4);
 
         var candidateFiles = new ConcurrentBag<(string FilePath, string ImageName, double SimilarityScore)>();
-        var processingErrors = new ConcurrentBag<string>();
 
         var parallelOptions = new ParallelOptions
         {
@@ -126,72 +232,10 @@ public static class SimilarityCalculator
 
         var topCandidates = candidateFiles
             .OrderByDescending(static x => x.SimilarityScore)
-            .Take(maxImagesToLoad)
+            .Take(Math.Max(1, maxCandidates))
             .ToList();
 
-        var imageList = new ConcurrentBag<ImageData>();
-
-        try
-        {
-            var ioParallelOptions = new ParallelOptions
-            {
-                MaxDegreeOfParallelism = Math.Min(maxParallelism, 4),
-                CancellationToken = cancellationToken
-            };
-
-            await Parallel.ForEachAsync(topCandidates, ioParallelOptions, async (candidate, ct) =>
-            {
-                ct.ThrowIfCancellationRequested();
-
-                try
-                {
-                    var (maxRetries, retryDelayMilliseconds) = GetConfiguredImageLoaderSettings();
-                    var imageSource = await ImageLoader.LoadImageToMemoryAsync(
-                        candidate.FilePath,
-                        ct,
-                        maxRetries,
-                        retryDelayMilliseconds);
-
-                    if (imageSource == null)
-                    {
-                        processingErrors.Add(
-                            $"Image '{Path.GetFileName(candidate.FilePath)}' could not be loaded (corrupted or empty).");
-                        return;
-                    }
-
-                    var imageData = new ImageData(candidate.FilePath, candidate.ImageName, candidate.SimilarityScore)
-                    {
-                        ImageSource = imageSource
-                    };
-                    imageList.Add(imageData);
-                    onImageLoaded?.Invoke(imageData);
-                }
-                catch (OperationCanceledException)
-                {
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    processingErrors.Add(
-                        $"Could not load image '{Path.GetFileName(candidate.FilePath)}' for display: {ex.Message}");
-                }
-            });
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            processingErrors.Add($"An unexpected error occurred during image loading for display: {ex.Message}");
-        }
-
-        cancellationToken.ThrowIfCancellationRequested();
-
-        result.SimilarImages = imageList.OrderByDescending(static x => x.SimilarityScore).ToList();
-        result.ProcessingErrors = processingErrors.ToList();
-
-        return result;
+        return (topCandidates, processingErrors.ToList());
     }
 
     private static int GetConfiguredMaxImagesToLoad()

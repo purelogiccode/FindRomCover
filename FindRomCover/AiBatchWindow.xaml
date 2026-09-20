@@ -1,0 +1,52 @@
+<controls:MetroWindow x:Class="FindRomCover.AiBatchWindow"
+                      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                      xmlns:controls="http://metro.mahapps.com/winfx/xaml/controls"
+                      Title="AI Batch Fill" Height="560" Width="680"
+                      WindowStartupLocation="CenterOwner"
+                      ToolTip="Let the AI fill missing covers automatically">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" TextWrapping="Wrap" Margin="0,0,0,10"
+                   Text="The AI inspects each missing cover, ranks your local images first and, if enabled, falls back to the Google API. An image is saved automatically only when the AI confidence is above the configured threshold. A request is sent per item, so large batches may take a while." />
+
+        <StackPanel Grid.Row="1" Margin="0,0,0,10">
+            <CheckBox x:Name="ChkUseApiFallback" Margin="0,3"
+                      Content="Use Google API fallback when local candidates are inconclusive"
+                      ToolTip="Requires a Google API key in Settings > API Settings" />
+            <Grid Margin="0,3">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="80" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Label Grid.Column="0" Content="Max items per run:" VerticalAlignment="Center" />
+                <TextBox Grid.Column="1" x:Name="TxtMaxItems" Text="25" VerticalContentAlignment="Center"
+                         ToolTip="How many missing covers to process in this run (1-500)" />
+                <TextBlock Grid.Column="2" x:Name="TxtSummary" Margin="10,0,0,0" VerticalAlignment="Center"
+                           TextWrapping="Wrap" />
+            </Grid>
+        </StackPanel>
+
+        <ProgressBar Grid.Row="2" x:Name="Progress" Height="18" Margin="0,0,0,8" Minimum="0" Maximum="1"
+                     ToolTip="Batch progress" />
+
+        <ListBox Grid.Row="3" x:Name="LstResults" ToolTip="Per-item results" />
+
+        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+            <Button x:Name="BtnStart" Content="Start" Width="100" Margin="0,0,10,0" Click="BtnStart_Click"
+                    ToolTip="Start the batch fill" />
+            <Button x:Name="BtnCancel" Content="Cancel" Width="100" Margin="0,0,10,0" Click="BtnCancel_Click"
+                    IsEnabled="False" ToolTip="Stop the batch after the current item" />
+            <Button x:Name="BtnClose" Content="Close" Width="100" Click="BtnClose_Click"
+                    ToolTip="Close this window" />
+        </StackPanel>
+    </Grid>
+</controls:MetroWindow>
