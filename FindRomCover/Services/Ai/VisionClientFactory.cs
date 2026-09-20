@@ -14,6 +14,7 @@ public static class VisionClientFactory
         return options.Provider switch
         {
             AppConstants.AiProviders.Anthropic => new AnthropicVisionClient(SharedHttpClient),
+            AppConstants.AiProviders.CustomAnthropic => new AnthropicVisionClient(SharedHttpClient),
             AppConstants.AiProviders.Gemini => new GeminiVisionClient(SharedHttpClient),
             _ => new OpenAiCompatibleVisionClient(SharedHttpClient)
         };

@@ -36,6 +36,51 @@ public class VisionModelCatalogTests
     }
 
     [Fact]
+    public void ParseModelsShouldUseOpenRouterModalityMetadata()
+    {
+        const string json =
+            "{\"data\":[{\"id\":\"some-text-model\",\"architecture\":{\"input_modalities\":[\"text\"]}},{\"id\":\"some-image-model\",\"architecture\":{\"input_modalities\":[\"text\",\"image\"]}}]}";
+
+        var models = VisionModelCatalog.ParseModels(json);
+
+        models.Should().ContainSingle(static model => model.Id == "some-image-model" && model.IsVisionCapable);
+        models.Should().ContainSingle(static model => model.Id == "some-text-model" && !model.IsVisionCapable);
+    }
+
+    [Theory]
+    [InlineData("gpt-4o-mini", true)]
+    [InlineData("claude-sonnet-4-5", true)]
+    [InlineData("gemini-2.5-flash", true)]
+    [InlineData("glm-4.5v", true)]
+    [InlineData("qwen2.5vl:7b", true)]
+    [InlineData("llama3.2-vision:11b", true)]
+    [InlineData("text-embedding-3-small", false)]
+    [InlineData("whisper-1", false)]
+    [InlineData("dall-e-3", false)]
+    [InlineData("gemini-embedding-001", false)]
+    public void LooksVisionCapableShouldClassifyCommonModels(string modelId, bool expected)
+    {
+        VisionModelCatalog.LooksVisionCapable(modelId).Should().Be(expected);
+    }
+
+    [Fact]
+    public async Task FetchModelsAsyncShouldReturnVisionFlags()
+    {
+        using var handler = new StubHttpMessageHandler(_ => Json(
+            "{\"data\":[{\"id\":\"gpt-4o-mini\"},{\"id\":\"text-embedding-3-small\"}]}"));
+        using var httpClient = new HttpClient(handler);
+
+        var models = await VisionModelCatalog.FetchModelsAsync(
+            CreateOptions(AppConstants.AiProviders.OpenAi, "https://api.openai.com/v1"),
+            httpClient,
+            CancellationToken.None);
+
+        models.Should().ContainSingle(static model => model.Id == "gpt-4o-mini" && model.IsVisionCapable);
+        models.Should().ContainSingle(static model =>
+            model.Id == "text-embedding-3-small" && !model.IsVisionCapable);
+    }
+
+    [Fact]
     public void BuildModelsUrlShouldAppendPath()
     {
         VisionModelCatalog.BuildModelsUrl("https://openrouter.ai/api/v1/")

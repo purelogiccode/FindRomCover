@@ -74,6 +74,15 @@ public class AiVerdictCacheTests : IDisposable
     }
 
     [Fact]
+    public void CustomTtlShouldExpireEntries()
+    {
+        var cache = new AiVerdictCache(_cachePath, TimeSpan.Zero);
+        cache.Set("key", new AiPickResult { BestIndex = 1 });
+
+        cache.TryGet<AiPickResult>("key", out _).Should().BeFalse();
+    }
+
+    [Fact]
     public void CorruptCacheFileShouldNotThrow()
     {
         Directory.CreateDirectory(Path.GetDirectoryName(_cachePath)!);

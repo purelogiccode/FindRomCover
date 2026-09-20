@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.IO;
 using System.Net.Http;
 using System.Windows;
 using System.Windows.Controls;
@@ -12,17 +13,34 @@ namespace FindRomCover;
 
 public partial class AiSettingsWindow
 {
+    private const string ModelCacheFileName = "ai-models.json";
+    private static readonly TimeSpan ModelCacheTtl = TimeSpan.FromDays(7);
+
     private readonly SettingsManager _settingsManager;
+    private List<VisionModelInfo> _allModels = [];
+    private bool _initialized;
     private bool _loading;
+    private AiVerdictCache? _modelCache;
 
     public AiSettingsWindow(SettingsManager settingsManager)
     {
         InitializeComponent();
         _settingsManager = settingsManager ?? throw new ArgumentNullException(nameof(settingsManager));
         LoadSettings();
+        _initialized = true;
+        LoadCachedModels();
     }
 
     private string SelectedProvider => CmbProvider.SelectedItem as string ?? AppConstants.AiProviders.OpenRouter;
+
+    private string ModelCacheKey => $"{SelectedProvider}|{TxtBaseUrl.Text.Trim().ToLowerInvariant()}";
+
+    private AiVerdictCache ModelCache => _modelCache ??= new AiVerdictCache(
+        Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "FindRomCover",
+            ModelCacheFileName),
+        ModelCacheTtl);
 
     private void LoadSettings()
     {
@@ -72,11 +90,28 @@ public partial class AiSettingsWindow
             var currentModel = CmbModel.Text.Trim();
             if (string.IsNullOrEmpty(currentModel) || IsKnownDefaultModel(currentModel))
                 CmbModel.Text = DefaultModel(provider);
+
+            if (_initialized) LoadCachedModels();
         }
         catch (Exception ex)
         {
             LogService.Error(ex, "Error applying AI provider preset");
         }
+    }
+
+    private void TxtBaseUrl_LostFocus(object sender, RoutedEventArgs e)
+    {
+        if (_initialized) LoadCachedModels();
+    }
+
+    private void TxtModelFilter_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_initialized) ApplyModelFilter();
+    }
+
+    private void ChkVisionOnly_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_initialized) ApplyModelFilter();
     }
 
     private void BtnSave_Click(object sender, RoutedEventArgs e)
@@ -96,11 +131,24 @@ public partial class AiSettingsWindow
                 return;
             }
 
-            if (enabled && !string.Equals(provider, AppConstants.AiProviders.Local, StringComparison.Ordinal) &&
+            var isCustomProvider = provider is AppConstants.AiProviders.CustomOpenAi
+                or AppConstants.AiProviders.CustomAnthropic;
+
+            if (enabled && isCustomProvider &&
+                (string.IsNullOrWhiteSpace(baseUrl) || string.IsNullOrWhiteSpace(CmbModel.Text)))
+            {
+                MessageBox.Show(
+                    "A Base URL and a Model are required for custom providers.",
+                    "Configuration Required", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            if (enabled && !isCustomProvider &&
+                !string.Equals(provider, AppConstants.AiProviders.Local, StringComparison.Ordinal) &&
                 string.IsNullOrEmpty(apiKey))
             {
                 MessageBox.Show(
-                    "An API key is required for OpenRouter, Anthropic and Gemini.\n\n" +
+                    "An API key is required for OpenRouter, OpenAI, Anthropic, Gemini and GLM.\n\n" +
                     "Enter your key or switch the provider to Local.",
                     "API Key Required", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
@@ -181,20 +229,24 @@ public partial class AiSettingsWindow
 
             using var httpClient = new HttpClient();
             httpClient.Timeout = Timeout.InfiniteTimeSpan;
-            var modelIds = await VisionModelCatalog.FetchModelIdsAsync(options, httpClient, CancellationToken.None);
+            var models = await VisionModelCatalog.FetchModelsAsync(options, httpClient, CancellationToken.None);
 
-            var currentModel = CmbModel.Text.Trim();
-            CmbModel.ItemsSource = modelIds;
-            if (!string.IsNullOrWhiteSpace(currentModel)) CmbModel.Text = currentModel;
+            _allModels = models;
+            ModelCache.Set(ModelCacheKey, models);
+            ApplyModelFilter();
 
-            var modelAvailable = modelIds.Contains(options.Model, StringComparer.OrdinalIgnoreCase);
-            TxtTestStatus.Text = modelIds.Count == 0
+            var modelAvailable = models.Any(model =>
+                string.Equals(model.Id, options.Model, StringComparison.OrdinalIgnoreCase));
+            var visionCount = models.Count(static model => model.IsVisionCapable);
+
+            TxtTestStatus.Text = models.Count == 0
                 ? "Connected, but the provider returned no models."
                 : modelAvailable
-                    ? $"Connected — {modelIds.Count} model(s) found. '{options.Model}' is available."
-                    : $"Connected — {modelIds.Count} model(s) found, but '{options.Model}' was not in the list.";
+                    ? $"Connected — {models.Count} model(s) ({visionCount} vision-capable). '{options.Model}' is available."
+                    : $"Connected — {models.Count} model(s) ({visionCount} vision-capable), but '{options.Model}' was not in the list.";
 
-            LogService.Information($"AI connection test succeeded for {provider}: {modelIds.Count} model(s).");
+            LogService.Information(
+                $"AI connection test succeeded for {provider}: {models.Count} model(s), {visionCount} vision-capable.");
         }
         catch (Exception ex)
         {
@@ -207,13 +259,67 @@ public partial class AiSettingsWindow
         }
     }
 
+    private void LoadCachedModels()
+    {
+        try
+        {
+            if (ModelCache.TryGet<List<VisionModelInfo>>(ModelCacheKey, out var cached) && cached is { Count: > 0 })
+            {
+                _allModels = cached;
+                ApplyModelFilter();
+                TxtModelCount.Text =
+                    $"{_allModels.Count} cached model(s) loaded. Click Test / Load Models to refresh.";
+                return;
+            }
+        }
+        catch (Exception ex)
+        {
+            LogService.Warning(ex, "Could not load the cached AI model list.");
+        }
+
+        _allModels = [];
+        ApplyModelFilter();
+        TxtModelCount.Text = string.Empty;
+    }
+
+    private void ApplyModelFilter()
+    {
+        try
+        {
+            var filter = TxtModelFilter.Text.Trim();
+            var visionOnly = ChkVisionOnly.IsChecked == true;
+
+            var filtered = _allModels
+                .Where(model => !visionOnly || model.IsVisionCapable)
+                .Where(model => string.IsNullOrEmpty(filter) ||
+                                model.Id.Contains(filter, StringComparison.OrdinalIgnoreCase))
+                .Select(static model => model.Id)
+                .ToList();
+
+            var currentModel = CmbModel.Text;
+            CmbModel.ItemsSource = filtered;
+            CmbModel.Text = currentModel;
+
+            if (_allModels.Count > 0)
+                TxtModelCount.Text = $"{filtered.Count} of {_allModels.Count} model(s) shown.";
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "Error filtering the AI model list.");
+        }
+    }
+
     private static string DefaultBaseUrl(string provider)
     {
         return provider switch
         {
-            AppConstants.AiProviders.Local => AppConstants.AiProviders.LocalBaseUrl,
+            AppConstants.AiProviders.OpenAi => AppConstants.AiProviders.OpenAiBaseUrl,
             AppConstants.AiProviders.Anthropic => AppConstants.AiProviders.AnthropicBaseUrl,
+            AppConstants.AiProviders.CustomAnthropic => AppConstants.AiProviders.AnthropicBaseUrl,
             AppConstants.AiProviders.Gemini => AppConstants.AiProviders.GeminiBaseUrl,
+            AppConstants.AiProviders.Glm => AppConstants.AiProviders.GlmBaseUrl,
+            AppConstants.AiProviders.Local => AppConstants.AiProviders.LocalBaseUrl,
+            AppConstants.AiProviders.CustomOpenAi => string.Empty,
             _ => AppConstants.AiProviders.OpenRouterBaseUrl
         };
     }
@@ -222,9 +328,13 @@ public partial class AiSettingsWindow
     {
         return provider switch
         {
-            AppConstants.AiProviders.Local => AppConstants.AiProviders.DefaultLocalModel,
+            AppConstants.AiProviders.OpenAi => AppConstants.AiProviders.DefaultOpenAiModel,
             AppConstants.AiProviders.Anthropic => AppConstants.AiProviders.DefaultAnthropicModel,
             AppConstants.AiProviders.Gemini => AppConstants.AiProviders.DefaultGeminiModel,
+            AppConstants.AiProviders.Glm => AppConstants.AiProviders.DefaultGlmModel,
+            AppConstants.AiProviders.Local => AppConstants.AiProviders.DefaultLocalModel,
+            AppConstants.AiProviders.CustomAnthropic => string.Empty,
+            AppConstants.AiProviders.CustomOpenAi => string.Empty,
             _ => AppConstants.AiProviders.DefaultOpenRouterModel
         };
     }
@@ -234,9 +344,11 @@ public partial class AiSettingsWindow
         return new[]
         {
             AppConstants.AiProviders.OpenRouterBaseUrl,
-            AppConstants.AiProviders.LocalBaseUrl,
+            AppConstants.AiProviders.OpenAiBaseUrl,
             AppConstants.AiProviders.AnthropicBaseUrl,
-            AppConstants.AiProviders.GeminiBaseUrl
+            AppConstants.AiProviders.GeminiBaseUrl,
+            AppConstants.AiProviders.GlmBaseUrl,
+            AppConstants.AiProviders.LocalBaseUrl
         }.Contains(baseUrl, StringComparer.OrdinalIgnoreCase);
     }
 
@@ -245,9 +357,11 @@ public partial class AiSettingsWindow
         return new[]
         {
             AppConstants.AiProviders.DefaultOpenRouterModel,
-            AppConstants.AiProviders.DefaultLocalModel,
+            AppConstants.AiProviders.DefaultOpenAiModel,
             AppConstants.AiProviders.DefaultAnthropicModel,
-            AppConstants.AiProviders.DefaultGeminiModel
+            AppConstants.AiProviders.DefaultGeminiModel,
+            AppConstants.AiProviders.DefaultGlmModel,
+            AppConstants.AiProviders.DefaultLocalModel
         }.Contains(model, StringComparer.OrdinalIgnoreCase);
     }
 

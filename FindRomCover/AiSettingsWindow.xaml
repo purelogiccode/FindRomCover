@@ -13,7 +13,7 @@
         </Grid.RowDefinitions>
 
         <TextBlock Grid.Row="0" TextWrapping="Wrap" Margin="0,0,0,10"
-                   Text="AI Assist uses a vision-capable model to look at candidate images and pick the best cover for the selected game. Choose OpenRouter, Anthropic or Gemini (cloud), or a local OpenAI-compatible server such as Ollama or LM Studio." />
+                   Text="AI Assist uses a vision-capable model to look at candidate images and pick the best cover for the selected game. Choose OpenRouter, OpenAI, Anthropic, Gemini or GLM (cloud), a local OpenAI-compatible server such as Ollama or LM Studio, or a custom OpenAI/Anthropic-compatible endpoint." />
 
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
             <StackPanel>
@@ -31,7 +31,7 @@
                             <Label Grid.Column="0" Content="Provider:" VerticalAlignment="Center" />
                             <ComboBox Grid.Column="1" x:Name="CmbProvider"
                                       SelectionChanged="CmbProvider_SelectionChanged"
-                                      ToolTip="OpenRouter, Anthropic and Gemini use a cloud API key; Local targets Ollama or LM Studio running on this machine" />
+                                      ToolTip="Cloud providers need an API key; Local targets Ollama or LM Studio; custom endpoints need a Base URL and Model" />
                         </Grid>
 
                         <Grid Margin="0,5">
@@ -42,6 +42,7 @@
                             <Label Grid.Column="0" Content="Base URL:" VerticalAlignment="Center" />
                             <TextBox Grid.Column="1" x:Name="TxtBaseUrl"
                                      controls:TextBoxHelper.Watermark="https://openrouter.ai/api/v1"
+                                     LostFocus="TxtBaseUrl_LostFocus"
                                      ToolTip="OpenAI-compatible API base URL, e.g. https://openrouter.ai/api/v1 or http://localhost:11434/v1" />
                         </Grid>
 
@@ -52,7 +53,7 @@
                             </Grid.ColumnDefinitions>
                             <Label Grid.Column="0" Content="API Key:" VerticalAlignment="Center" />
                             <TextBox Grid.Column="1" x:Name="TxtApiKey"
-                                     controls:TextBoxHelper.Watermark="Not required for local models"
+                                     controls:TextBoxHelper.Watermark="Not required for local models or custom endpoints"
                                      ToolTip="Your provider API key. Stored encrypted in settings.dat and never logged." />
                         </Grid>
 
@@ -69,6 +70,24 @@
                                     Padding="8,2" Click="BtnTest_Click"
                                     ToolTip="Contact the provider, verify the key and load the available model list" />
                         </Grid>
+
+                        <Grid Margin="0,3">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="170" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox Grid.Column="1" x:Name="TxtModelFilter"
+                                     controls:TextBoxHelper.Watermark="Filter models..."
+                                     TextChanged="TxtModelFilter_TextChanged"
+                                     ToolTip="Type to filter the loaded model list" />
+                            <CheckBox Grid.Column="2" x:Name="ChkVisionOnly" Content="Vision-capable only"
+                                      Margin="8,0,0,0" VerticalAlignment="Center" IsChecked="True"
+                                      Checked="ChkVisionOnly_Changed" Unchecked="ChkVisionOnly_Changed"
+                                      ToolTip="Hide models that most likely cannot analyze images" />
+                        </Grid>
+
+                        <TextBlock x:Name="TxtModelCount" Margin="0,2,0,0" TextWrapping="Wrap" Opacity="0.8" />
 
                         <TextBlock x:Name="TxtTestStatus" Margin="0,3,0,0" TextWrapping="Wrap"
                                    Foreground="#FF0078D7" />

@@ -183,6 +183,7 @@ public abstract class VisionModelClientBase : IVisionModelClient
             switch (options.Provider)
             {
                 case AppConstants.AiProviders.Anthropic:
+                case AppConstants.AiProviders.CustomAnthropic:
                     request.Headers.TryAddWithoutValidation("x-api-key", options.ApiKey);
                     break;
                 case AppConstants.AiProviders.Gemini:
@@ -193,7 +194,7 @@ public abstract class VisionModelClientBase : IVisionModelClient
                     break;
             }
 
-        if (string.Equals(options.Provider, AppConstants.AiProviders.Anthropic, StringComparison.Ordinal))
+        if (options.Provider is AppConstants.AiProviders.Anthropic or AppConstants.AiProviders.CustomAnthropic)
             request.Headers.TryAddWithoutValidation("anthropic-version", AnthropicVersion);
 
         if (string.Equals(options.Provider, AppConstants.AiProviders.OpenRouter, StringComparison.Ordinal))

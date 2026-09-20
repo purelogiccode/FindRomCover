@@ -6,16 +6,18 @@ namespace FindRomCover.Services.Ai;
 public sealed class AiVerdictCache
 {
     private const int MaxEntries = 2000;
-    private static readonly TimeSpan Ttl = TimeSpan.FromDays(30);
+    private static readonly TimeSpan DefaultTtl = TimeSpan.FromDays(30);
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = false };
 
     private readonly string _filePath;
     private readonly Lock _lock = new();
+    private readonly TimeSpan _ttl;
     private Dictionary<string, CacheEntry>? _entries;
 
-    public AiVerdictCache(string? filePath = null)
+    public AiVerdictCache(string? filePath = null, TimeSpan? ttl = null)
     {
         _filePath = string.IsNullOrWhiteSpace(filePath) ? DefaultFilePath : filePath;
+        _ttl = ttl ?? DefaultTtl;
     }
 
     public static string DefaultFilePath => Path.Combine(
@@ -32,7 +34,7 @@ public sealed class AiVerdictCache
             var entries = EnsureLoaded();
             if (!entries.TryGetValue(key, out var entry)) return false;
 
-            if (DateTimeOffset.UtcNow - entry.CreatedUtc > Ttl)
+            if (DateTimeOffset.UtcNow - entry.CreatedUtc > _ttl)
             {
                 entries.Remove(key);
                 return false;
@@ -92,10 +94,11 @@ public sealed class AiVerdictCache
         }
     }
 
-    private static void Prune(Dictionary<string, CacheEntry> entries)
+    private void Prune(Dictionary<string, CacheEntry> entries)
     {
         var now = DateTimeOffset.UtcNow;
-        foreach (var key in entries.Where(kvp => now - kvp.Value.CreatedUtc > Ttl).Select(static kvp => kvp.Key).ToList())
+        foreach (var key in entries.Where(kvp => now - kvp.Value.CreatedUtc > _ttl).Select(static kvp => kvp.Key)
+                     .ToList())
             entries.Remove(key);
 
         if (entries.Count <= MaxEntries) return;

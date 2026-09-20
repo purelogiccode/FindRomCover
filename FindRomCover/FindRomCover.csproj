@@ -8,8 +8,8 @@
         <UseWPF>true</UseWPF>
         <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
         <ApplicationIcon>icon\icon.ico</ApplicationIcon>
-        <AssemblyVersion>3.1.0</AssemblyVersion>
-        <FileVersion>3.1.0</FileVersion>
+        <AssemblyVersion>3.2.0</AssemblyVersion>
+        <FileVersion>3.2.0</FileVersion>
         <LangVersion>14</LangVersion>
         <DebugType>embedded</DebugType>
         <DebugSymbols>true</DebugSymbols>

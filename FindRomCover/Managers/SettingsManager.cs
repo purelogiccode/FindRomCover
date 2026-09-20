@@ -530,9 +530,13 @@ public class SettingsManager : INotifyPropertyChanged
 
         return _aiProvider switch
         {
-            AppConstants.AiProviders.Local => AppConstants.AiProviders.LocalBaseUrl,
+            AppConstants.AiProviders.OpenAi => AppConstants.AiProviders.OpenAiBaseUrl,
             AppConstants.AiProviders.Anthropic => AppConstants.AiProviders.AnthropicBaseUrl,
             AppConstants.AiProviders.Gemini => AppConstants.AiProviders.GeminiBaseUrl,
+            AppConstants.AiProviders.Glm => AppConstants.AiProviders.GlmBaseUrl,
+            AppConstants.AiProviders.Local => AppConstants.AiProviders.LocalBaseUrl,
+            AppConstants.AiProviders.CustomAnthropic => AppConstants.AiProviders.AnthropicBaseUrl,
+            AppConstants.AiProviders.CustomOpenAi => string.Empty,
             _ => AppConstants.AiProviders.OpenRouterBaseUrl
         };
     }
@@ -543,9 +547,13 @@ public class SettingsManager : INotifyPropertyChanged
 
         return _aiProvider switch
         {
-            AppConstants.AiProviders.Local => AppConstants.AiProviders.DefaultLocalModel,
+            AppConstants.AiProviders.OpenAi => AppConstants.AiProviders.DefaultOpenAiModel,
             AppConstants.AiProviders.Anthropic => AppConstants.AiProviders.DefaultAnthropicModel,
             AppConstants.AiProviders.Gemini => AppConstants.AiProviders.DefaultGeminiModel,
+            AppConstants.AiProviders.Glm => AppConstants.AiProviders.DefaultGlmModel,
+            AppConstants.AiProviders.Local => AppConstants.AiProviders.DefaultLocalModel,
+            AppConstants.AiProviders.CustomAnthropic => string.Empty,
+            AppConstants.AiProviders.CustomOpenAi => string.Empty,
             _ => AppConstants.AiProviders.DefaultOpenRouterModel
         };
     }

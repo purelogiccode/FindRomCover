@@ -1,0 +1,46 @@
+# FindRomCover 3.2.0 — What's New
+
+> Unreleased — included in the next build. Download links will be added when 3.2.0 ships.
+
+## AI Vision Assist (New)
+
+- **AI Pick Best** on the Local Files and Google API tabs: a vision-capable model looks at the candidate images and highlights the best cover (green badge, moved to the front).
+- **Cloud or local models**: OpenRouter, OpenAI, Anthropic (Claude), Google Gemini and GLM (Zhipu/Z.AI), plus local OpenAI-compatible servers (Ollama, LM Studio) and custom OpenAI/Anthropic-compatible endpoints.
+- **AI Settings** window: provider presets, encrypted API key storage, an editable model picker with **Test / Load Models**, request timeout, candidate/image limits, auto-save threshold, auto-run and verify-on-save toggles.
+- **Smart model picker**: the loaded model list is filtered to vision-capable models by default (using provider modality metadata where available and a model-name heuristic otherwise), searchable with a filter box, and cached per provider for 7 days so it is available instantly next time.
+- **Verify before saving**: the folder watcher asks the model to confirm that a newly saved image matches the selected game before renaming it. Mismatches are left untouched and reported instead of being silently renamed.
+- **AI Batch Fill**: process the whole missing-covers list — local candidates first, optional Google API fallback — saving only when the confidence is above the threshold, with live progress, cancel and per-item results.
+- Images are downscaled before upload (default 512px) and verdicts are cached for 30 days to keep API usage low.
+
+## Under the Hood
+
+- New `IVisionModelClient` abstraction with native Anthropic Messages API and Gemini `generateContent` adapters; OpenAI, GLM, local and custom OpenAI-compatible endpoints share one adapter, while custom Anthropic-compatible endpoints reuse the Anthropic adapter. Shared prompts, JSON parsing, timeouts and friendly error messages.
+- AI request failures are logged as warnings and never trigger the automatic bug-report pipeline.
+- Version bumped to **3.2.0** (not released yet).
+- GitHub Actions CI now builds and tests every push and pull request on Windows.
+
+---
+
+# FindRomCover 3.1.0 — What's New
+
+## Fixes & Improvements
+
+- **Automatic scan after selecting a folder** — Browsing to your ROM or Image folder now scans automatically as soon as both folders are set. No more wondering why the list stays empty after using "Browse..." ([#1](https://github.com/purelogiccode/FindRomCover/issues/1))
+- **Clear scan feedback** — The status bar now reports how many ROM files matched the supported extensions and how many are missing covers. If nothing matches, you get an explicit message instead of a silently empty list. ([#1](https://github.com/purelogiccode/FindRomCover/issues/1))
+- **Refresh after editing supported extensions** — Changing the extension list (Settings > Edit Supported Extensions...) now re-scans immediately instead of showing stale results.
+- **Repository migrated** — The project now lives at [purelogiccode/FindRomCover](https://github.com/purelogiccode/FindRomCover). The built-in update checker follows the new releases page.
+
+## Under the Hood
+
+- Hardened settings loading: a corrupt `settings.dat` is quarantined as `settings.dat.corrupt` and defaults are restored instead of failing.
+- Added a managed PBKDF2 fallback so settings decryption no longer crashes on systems where the OS cryptographic implementation fails.
+- Friendlier Google Custom Search API error messages (invalid API key, quota exceeded, bad requests) instead of raw JSON dumps.
+- More robust link opening with an `explorer.exe` fallback for systems without a default browser association.
+- Version bumped to **3.1.0**.
+
+## Download
+
+- `release_3.1.0_win-x64.zip` — Windows x64
+- `release_3.1.0_win-arm64.zip` — Windows ARM64
+
+Both builds are framework-dependent and require the [.NET 10.0 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0). Extract and run `FindRomCover.exe`.
