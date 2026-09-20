@@ -26,6 +26,8 @@ public class ImageData : INotifyPropertyChanged
         }
     });
 
+    private string _aiBadge = string.Empty;
+
     private int _imageHeight;
 
     private int _imageWidth;
@@ -51,6 +53,18 @@ public class ImageData : INotifyPropertyChanged
     public BitmapImage? ImageSource { get; init; }
 
     public BitmapImage DisplayImage => ImageSource ?? BrokenImageLazy.Value;
+
+    public string AiBadge
+    {
+        get => _aiBadge;
+        set
+        {
+            if (string.Equals(_aiBadge, value, StringComparison.Ordinal)) return;
+
+            _aiBadge = value;
+            OnPropertyChanged();
+        }
+    }
 
     public int ImageWidth
     {

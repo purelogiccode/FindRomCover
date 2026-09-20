@@ -19,4 +19,17 @@ public class SettingsData
     public bool UseMameDescriptions { get; set; }
     public string LastImageFolder { get; set; } = string.Empty;
     public List<string> SupportedExtensions { get; set; } = [];
+
+    public bool AiAssistEnabled { get; set; }
+    public string AiProvider { get; set; } = AppConstants.AiProviders.OpenRouter;
+    public string AiBaseUrl { get; set; } = string.Empty;
+    public string AiApiKey { get; set; } = string.Empty;
+    public string AiModel { get; set; } = string.Empty;
+    public int AiTimeoutSeconds { get; set; } = 90;
+    public int AiMaxCandidates { get; set; } = 6;
+    public int AiImageMaxDimension { get; set; } = 512;
+    public double AiAutoSaveThreshold { get; set; } = 80;
+    public bool AiAutoSave { get; set; }
+    public bool AiAutoRun { get; set; }
+    public bool AiVerifyOnSave { get; set; }
 }

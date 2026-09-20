@@ -6,6 +6,7 @@ using System.Windows.Documents;
 using System.Windows.Input;
 using FindRomCover.Models;
 using FindRomCover.Services;
+using FindRomCover.Services.Ai;
 
 namespace FindRomCover;
 
@@ -26,6 +27,9 @@ public partial class MainWindow
             _webSearchCts?.Cancel();
             _webSearchCts?.Dispose();
             _webSearchCts = null;
+            _aiAssistCts?.Cancel();
+            _aiAssistCts?.Dispose();
+            _aiAssistCts = null;
 
             if (LstMissingImages.SelectedItem is not MissingImageItem selectedItem)
             {
@@ -215,6 +219,9 @@ public partial class MainWindow
                     }
 
                     LocalImageScrollViewer.ScrollToTop();
+
+                    if (Settings.AiAutoRun && Settings.AiAssistEnabled && SimilarImages.Count > 0)
+                        _ = RunAiPickAsync();
                 }
             }
             finally
@@ -237,6 +244,94 @@ public partial class MainWindow
         finally
         {
             IsFindingSimilar = false;
+        }
+    }
+
+    private async void BtnAiPickLocal_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            await RunAiPickAsync();
+        }
+        catch (Exception ex)
+        {
+            LogService.Warning(ex, "Error in BtnAiPickLocal_Click");
+        }
+    }
+
+    private async Task RunAiPickAsync()
+    {
+        if (!Settings.AiAssistEnabled)
+        {
+            MessageBox.Show(
+                "AI Assist is disabled.\n\nEnable it in Settings > AI Settings... to use this feature.",
+                "AI Assist", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        if (LstMissingImages.SelectedItem is not MissingImageItem selectedItem) return;
+        if (SimilarImages.Count == 0 || IsAiBusy) return;
+
+        _aiAssistCts?.Cancel();
+        _aiAssistCts?.Dispose();
+        _aiAssistCts = new CancellationTokenSource();
+        var cancellationToken = _aiAssistCts.Token;
+
+        _aiAssistService ??= new AiAssistService(Settings);
+
+        IsAiBusy = true;
+        var candidates = SimilarImages.ToList();
+        StatusMessage.Text = $"AI is analyzing {candidates.Count} candidate(s)...";
+
+        try
+        {
+            var result = await _aiAssistService.PickBestAsync(
+                selectedItem.RomName,
+                selectedItem.SearchName,
+                candidates,
+                cancellationToken);
+
+            if (cancellationToken.IsCancellationRequested) return;
+
+            if (result is null)
+            {
+                StatusMessage.Text = "AI did not analyze any candidate image.";
+                return;
+            }
+
+            if (!result.HasPick || result.BestIndex < 0 || result.BestIndex >= candidates.Count)
+            {
+                StatusMessage.Text = $"AI found no genuine cover among the candidates. {result.Reason}".Trim();
+                return;
+            }
+
+            foreach (var image in candidates) image.AiBadge = string.Empty;
+
+            var picked = candidates[result.BestIndex];
+            picked.AiBadge = $"AI pick {result.Confidence:P0}";
+
+            var currentIndex = SimilarImages.IndexOf(picked);
+            if (currentIndex > 0) SimilarImages.Move(currentIndex, 0);
+
+            LocalImageScrollViewer.ScrollToTop();
+            StatusMessage.Text = $"AI picked '{picked.ImageName}' ({result.Confidence:P0}). {result.Reason}".Trim();
+
+            if (Settings.AiAutoSave && result.Confidence * 100 >= Settings.AiAutoSaveThreshold &&
+                picked.ImagePath != null)
+                await UseImageAsync(picked.ImagePath);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            LogService.Warning(ex, "AI assist failed");
+            StatusMessage.Text = "AI assist failed. Check the log for details.";
+            MessageBox.Show(ex.Message, "AI Assist", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        finally
+        {
+            IsAiBusy = false;
         }
     }
 

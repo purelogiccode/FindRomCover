@@ -29,4 +29,20 @@ public static class AppConstants
         public const string DefaultSimilarityThreshold = "70";
         public const string MissingCoversPrefix = "MISSING COVERS: ";
     }
+
+    public static class AiProviders
+    {
+        public const string OpenRouter = "OpenRouter";
+        public const string Local = "Local";
+
+        public const string OpenRouterBaseUrl = "https://openrouter.ai/api/v1";
+        public const string LocalBaseUrl = "http://localhost:11434/v1";
+
+        public const string DefaultOpenRouterModel = "google/gemini-2.5-flash";
+        public const string DefaultLocalModel = "qwen2.5vl:7b";
+
+        public const string PromptVersion = "v1";
+
+        public static readonly string[] All = [OpenRouter, Local];
+    }
 }

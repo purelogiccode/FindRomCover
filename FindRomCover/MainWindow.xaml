@@ -29,6 +29,8 @@
                     <TextBlock HorizontalAlignment="Center"
                                Text="{Binding SimilarityScore, StringFormat={}{0:F2}%, FallbackValue='0.00%'}"
                                FontWeight="Bold" />
+                    <TextBlock HorizontalAlignment="Center" Text="{Binding AiBadge}"
+                               Foreground="#FF00A36C" FontWeight="Bold" Margin="0,2,0,0" />
                 </StackPanel>
             </Button>
         </DataTemplate>
@@ -212,6 +214,16 @@
                         </StackPanel>
                     </MenuItem.Header>
                 </MenuItem>
+                <MenuItem Click="AiSettings_Click"
+                          ToolTip="Configure the AI vision model used to pick cover images">
+                    <MenuItem.Header>
+                        <StackPanel Orientation="Horizontal">
+                            <Image Source="pack://application:,,,/images/settings.png" Width="16" Height="16"
+                                   Margin="0,0,5,0" />
+                            <TextBlock Text="AI Settings..." />
+                        </StackPanel>
+                    </MenuItem.Header>
+                </MenuItem>
                 <MenuItem Click="EditExtensions_Click" ToolTip="Manage which ROM file extensions to scan for">
                     <MenuItem.Header>
                         <StackPanel Orientation="Horizontal">
@@ -388,8 +400,18 @@
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
 
-                        <Label x:Name="LblLocalSearchQuery" Grid.Row="0" Margin="5,0,5,5"
-                               ToolTip="Displays the current search query and settings" />
+                        <Grid Grid.Row="0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Label x:Name="LblLocalSearchQuery" Grid.Column="0" Margin="5,0,5,5"
+                                   ToolTip="Displays the current search query and settings" />
+                            <Button Grid.Column="1" x:Name="BtnAiPickLocal" Content="AI Pick Best"
+                                    Click="BtnAiPickLocal_Click" Margin="5,0,5,5" Padding="10,2"
+                                    IsEnabled="{Binding IsAiPickAvailable}"
+                                    ToolTip="Ask the configured AI vision model which candidate is the correct cover" />
+                        </Grid>
 
                         <Grid Grid.Row="1">
                             <ScrollViewer x:Name="LocalImageScrollViewer" VerticalScrollBarVisibility="Auto"

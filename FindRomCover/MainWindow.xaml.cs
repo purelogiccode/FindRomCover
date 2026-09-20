@@ -9,6 +9,7 @@ using System.Windows.Input;
 using FindRomCover.Managers;
 using FindRomCover.Models;
 using FindRomCover.Services;
+using FindRomCover.Services.Ai;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.Wpf;
 using Microsoft.Win32;
@@ -26,6 +27,8 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
     };
 
     private readonly SemaphoreSlim _findSimilarSemaphore = new(1, 1);
+    private AiAssistService? _aiAssistService;
+    private CancellationTokenSource? _aiAssistCts;
     private bool _disposed;
     private CancellationTokenSource? _findSimilarCts;
     private Task? _findSimilarTask;
@@ -65,6 +68,7 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         UpdateMameDescriptionCheck();
 
         Settings.PropertyChanged += AppSettingsManagerPropertyChangedAsync;
+        SimilarImages.CollectionChanged += (_, _) => UpdateAiPickAvailability();
         Closing += OnWindowClosing;
         Loaded += MainWindow_LoadedAsync;
         StateChanged += OnWindowStateChanged;
@@ -73,6 +77,7 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
 
         _ = LoadMameDataAsync();
         UpdateUiStateForFolderPaths();
+        UpdateAiPickAvailability();
     }
 
     public ObservableCollection<ImageData> SimilarImages { get; set; } = [];
@@ -139,6 +144,31 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         }
     }
 
+    public bool IsAiPickAvailable
+    {
+        get;
+        set
+        {
+            if (field == value) return;
+
+            field = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public bool IsAiBusy
+    {
+        get;
+        set
+        {
+            if (field == value) return;
+
+            field = value;
+            OnPropertyChanged();
+            UpdateAiPickAvailability();
+        }
+    }
+
     public SettingsManager Settings { get; }
 
     public ICommand CheckForMissingImagesCommand { get; }
@@ -153,6 +183,7 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
 
         _findSimilarCts?.Cancel();
         _loadMissingCts?.Cancel();
+        _aiAssistCts?.Cancel();
 
         try
         {
@@ -167,6 +198,10 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         _findSimilarCts = null;
         _loadMissingCts?.Dispose();
         _loadMissingCts = null;
+        _aiAssistCts?.Dispose();
+        _aiAssistCts = null;
+        _aiAssistService?.Dispose();
+        _aiAssistService = null;
 
         _findSimilarSemaphore.Dispose();
         _imageFolderWatcher?.Dispose();
@@ -465,6 +500,9 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
                     if (_mameLookup is { Count: > 0 })
                         await RefreshMissingImagesListAsync();
                     break;
+                case nameof(SettingsManager.AiAssistEnabled):
+                    UpdateAiPickAvailability();
+                    break;
             }
         }
         catch (Exception ex)
@@ -563,6 +601,18 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         }
     }
 
+    private void UpdateAiPickAvailability()
+    {
+        try
+        {
+            IsAiPickAvailable = Settings.AiAssistEnabled && SimilarImages.Count > 0 && !IsAiBusy;
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "Error in UpdateAiPickAvailability");
+        }
+    }
+
     private void DonateButton_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -634,6 +684,19 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         catch (Exception ex)
         {
             LogService.Error(ex, "Error in ApiSettings_Click");
+        }
+    }
+
+    private void AiSettings_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            new AiSettingsWindow(Settings) { Owner = this }.ShowDialog();
+            UpdateAiPickAvailability();
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "Error in AiSettings_Click");
         }
     }
 

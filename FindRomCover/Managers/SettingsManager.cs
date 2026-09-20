@@ -39,6 +39,30 @@ public class SettingsManager : INotifyPropertyChanged
 
     private readonly Lock _ioLock = new();
 
+    private bool _aiAssistEnabled;
+
+    private string _aiApiKey = string.Empty;
+
+    private double _aiAutoSaveThreshold = 80;
+
+    private bool _aiAutoRun;
+
+    private bool _aiAutoSave;
+
+    private string _aiBaseUrl = string.Empty;
+
+    private int _aiImageMaxDimension = 512;
+
+    private int _aiMaxCandidates = 6;
+
+    private string _aiModel = string.Empty;
+
+    private string _aiProvider = AppConstants.AiProviders.OpenRouter;
+
+    private int _aiTimeoutSeconds = 90;
+
+    private bool _aiVerifyOnSave;
+
     private string _accentColor = "Blue";
 
     private int _apiTimeoutSeconds = 30;
@@ -345,6 +369,196 @@ public class SettingsManager : INotifyPropertyChanged
         }
     }
 
+    public bool AiAssistEnabled
+    {
+        get => _aiAssistEnabled;
+        set
+        {
+            if (_aiAssistEnabled == value) return;
+
+            _aiAssistEnabled = value;
+            OnPropertyChanged(nameof(AiAssistEnabled));
+        }
+    }
+
+    public string AiProvider
+    {
+        get => _aiProvider;
+        set
+        {
+            var normalized = AppConstants.AiProviders.All.Contains(value, StringComparer.OrdinalIgnoreCase)
+                ? AppConstants.AiProviders.All.First(p => string.Equals(p, value, StringComparison.OrdinalIgnoreCase))
+                : AppConstants.AiProviders.OpenRouter;
+
+            if (string.Equals(_aiProvider, normalized, StringComparison.Ordinal)) return;
+
+            _aiProvider = normalized;
+            OnPropertyChanged(nameof(AiProvider));
+        }
+    }
+
+    public string AiBaseUrl
+    {
+        get => _aiBaseUrl;
+        set
+        {
+            value = value?.Trim() ?? string.Empty;
+            if (string.Equals(_aiBaseUrl, value, StringComparison.Ordinal)) return;
+
+            _aiBaseUrl = value;
+            OnPropertyChanged(nameof(AiBaseUrl));
+        }
+    }
+
+    public string AiApiKey
+    {
+        get => _aiApiKey;
+        set
+        {
+            value = value?.Trim() ?? string.Empty;
+            if (string.Equals(_aiApiKey, value, StringComparison.Ordinal)) return;
+
+            _aiApiKey = value;
+            OnPropertyChanged(nameof(AiApiKey));
+        }
+    }
+
+    public string AiModel
+    {
+        get => _aiModel;
+        set
+        {
+            value = value?.Trim() ?? string.Empty;
+            if (string.Equals(_aiModel, value, StringComparison.Ordinal)) return;
+
+            _aiModel = value;
+            OnPropertyChanged(nameof(AiModel));
+        }
+    }
+
+    public int AiTimeoutSeconds
+    {
+        get => _aiTimeoutSeconds;
+        set
+        {
+            value = Math.Clamp(value, 10, 300);
+            if (_aiTimeoutSeconds == value) return;
+
+            _aiTimeoutSeconds = value;
+            OnPropertyChanged(nameof(AiTimeoutSeconds));
+        }
+    }
+
+    public int AiMaxCandidates
+    {
+        get => _aiMaxCandidates;
+        set
+        {
+            value = Math.Clamp(value, 1, 20);
+            if (_aiMaxCandidates == value) return;
+
+            _aiMaxCandidates = value;
+            OnPropertyChanged(nameof(AiMaxCandidates));
+        }
+    }
+
+    public int AiImageMaxDimension
+    {
+        get => _aiImageMaxDimension;
+        set
+        {
+            value = Math.Clamp(value, 128, 2048);
+            if (_aiImageMaxDimension == value) return;
+
+            _aiImageMaxDimension = value;
+            OnPropertyChanged(nameof(AiImageMaxDimension));
+        }
+    }
+
+    public double AiAutoSaveThreshold
+    {
+        get => _aiAutoSaveThreshold;
+        set
+        {
+            value = Math.Clamp(value, 0, 100);
+            if (Math.Abs(_aiAutoSaveThreshold - value) < 0.01) return;
+
+            _aiAutoSaveThreshold = value;
+            OnPropertyChanged(nameof(AiAutoSaveThreshold));
+        }
+    }
+
+    public bool AiAutoSave
+    {
+        get => _aiAutoSave;
+        set
+        {
+            if (_aiAutoSave == value) return;
+
+            _aiAutoSave = value;
+            OnPropertyChanged(nameof(AiAutoSave));
+        }
+    }
+
+    public bool AiAutoRun
+    {
+        get => _aiAutoRun;
+        set
+        {
+            if (_aiAutoRun == value) return;
+
+            _aiAutoRun = value;
+            OnPropertyChanged(nameof(AiAutoRun));
+        }
+    }
+
+    public bool AiVerifyOnSave
+    {
+        get => _aiVerifyOnSave;
+        set
+        {
+            if (_aiVerifyOnSave == value) return;
+
+            _aiVerifyOnSave = value;
+            OnPropertyChanged(nameof(AiVerifyOnSave));
+        }
+    }
+
+    public string GetEffectiveAiBaseUrl()
+    {
+        if (!string.IsNullOrWhiteSpace(_aiBaseUrl)) return _aiBaseUrl.Trim();
+
+        return string.Equals(_aiProvider, AppConstants.AiProviders.Local, StringComparison.Ordinal)
+            ? AppConstants.AiProviders.LocalBaseUrl
+            : AppConstants.AiProviders.OpenRouterBaseUrl;
+    }
+
+    public string GetEffectiveAiModel()
+    {
+        if (!string.IsNullOrWhiteSpace(_aiModel)) return _aiModel.Trim();
+
+        return string.Equals(_aiProvider, AppConstants.AiProviders.Local, StringComparison.Ordinal)
+            ? AppConstants.AiProviders.DefaultLocalModel
+            : AppConstants.AiProviders.DefaultOpenRouterModel;
+    }
+
+    public AiVisionOptions GetAiVisionOptions()
+    {
+        return new AiVisionOptions(
+            AiAssistEnabled,
+            AiProvider,
+            GetEffectiveAiBaseUrl(),
+            AiApiKey,
+            GetEffectiveAiModel(),
+            AiTimeoutSeconds,
+            AiMaxCandidates,
+            AiImageMaxDimension,
+            AiAutoSaveThreshold,
+            AiAutoSave,
+            AiAutoRun,
+            AiVerifyOnSave);
+    }
+
     public event PropertyChangedEventHandler? PropertyChanged;
 
     private void OnPropertyChanged(string propertyName)
@@ -479,6 +693,18 @@ public class SettingsManager : INotifyPropertyChanged
                 GoogleKey = data.GoogleKey;
                 UseMameDescriptions = data.UseMameDescriptions;
                 LastImageFolder = data.LastImageFolder;
+                AiAssistEnabled = data.AiAssistEnabled;
+                AiProvider = data.AiProvider;
+                AiBaseUrl = data.AiBaseUrl;
+                AiApiKey = data.AiApiKey;
+                AiModel = data.AiModel;
+                AiTimeoutSeconds = data.AiTimeoutSeconds;
+                AiMaxCandidates = data.AiMaxCandidates;
+                AiImageMaxDimension = data.AiImageMaxDimension;
+                AiAutoSaveThreshold = data.AiAutoSaveThreshold;
+                AiAutoSave = data.AiAutoSave;
+                AiAutoRun = data.AiAutoRun;
+                AiVerifyOnSave = data.AiVerifyOnSave;
 
                 if (data.SupportedExtensions.Count > 0)
                     SupportedExtensions = data.SupportedExtensions;
@@ -697,7 +923,19 @@ public class SettingsManager : INotifyPropertyChanged
             GoogleKey = GoogleKey,
             UseMameDescriptions = UseMameDescriptions,
             LastImageFolder = LastImageFolder,
-            SupportedExtensions = SupportedExtensions
+            SupportedExtensions = SupportedExtensions,
+            AiAssistEnabled = AiAssistEnabled,
+            AiProvider = AiProvider,
+            AiBaseUrl = AiBaseUrl,
+            AiApiKey = AiApiKey,
+            AiModel = AiModel,
+            AiTimeoutSeconds = AiTimeoutSeconds,
+            AiMaxCandidates = AiMaxCandidates,
+            AiImageMaxDimension = AiImageMaxDimension,
+            AiAutoSaveThreshold = AiAutoSaveThreshold,
+            AiAutoSave = AiAutoSave,
+            AiAutoRun = AiAutoRun,
+            AiVerifyOnSave = AiVerifyOnSave
         };
 
         var json = JsonSerializer.Serialize(data);
@@ -786,6 +1024,18 @@ public class SettingsManager : INotifyPropertyChanged
         _bugReportApiKey = AppConstants.BugReportApiKey;
         _bugReportApiUrl = AppConstants.BugReportApiUrl;
         _googleKey = string.Empty;
+        _aiAssistEnabled = false;
+        _aiProvider = AppConstants.AiProviders.OpenRouter;
+        _aiBaseUrl = string.Empty;
+        _aiApiKey = string.Empty;
+        _aiModel = string.Empty;
+        _aiTimeoutSeconds = 90;
+        _aiMaxCandidates = 6;
+        _aiImageMaxDimension = 512;
+        _aiAutoSaveThreshold = 80;
+        _aiAutoSave = false;
+        _aiAutoRun = false;
+        _aiVerifyOnSave = false;
     }
 
     private static List<string> GetDefaultExtensions()

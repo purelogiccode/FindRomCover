@@ -1,0 +1,144 @@
+<controls:MetroWindow x:Class="FindRomCover.AiSettingsWindow"
+                      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                      xmlns:controls="http://metro.mahapps.com/winfx/xaml/controls"
+                      Title="AI Vision Settings" Height="640" Width="620"
+                      WindowStartupLocation="CenterScreen"
+                      ToolTip="Configure the AI vision model used to pick cover images">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" TextWrapping="Wrap" Margin="0,0,0,10"
+                   Text="AI Assist uses a vision-capable model to look at candidate images and pick the best cover for the selected game. Use OpenRouter (cloud) or a local OpenAI-compatible server such as Ollama or LM Studio." />
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <GroupBox Header="AI Vision Assist" Margin="0,0,0,15"
+                          ToolTip="Provider and model configuration">
+                    <StackPanel Margin="5">
+                        <CheckBox x:Name="ChkAiEnabled" Content="Enable AI-assisted image selection" Margin="0,5"
+                                  ToolTip="When enabled, the AI Pick Best button is available on the Local Files tab" />
+
+                        <Grid Margin="0,5">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="170" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Label Grid.Column="0" Content="Provider:" VerticalAlignment="Center" />
+                            <ComboBox Grid.Column="1" x:Name="CmbProvider"
+                                      SelectionChanged="CmbProvider_SelectionChanged"
+                                      ToolTip="OpenRouter uses a cloud API key; Local targets Ollama or LM Studio running on this machine" />
+                        </Grid>
+
+                        <Grid Margin="0,5">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="170" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Label Grid.Column="0" Content="Base URL:" VerticalAlignment="Center" />
+                            <TextBox Grid.Column="1" x:Name="TxtBaseUrl"
+                                     controls:TextBoxHelper.Watermark="https://openrouter.ai/api/v1"
+                                     ToolTip="OpenAI-compatible API base URL, e.g. https://openrouter.ai/api/v1 or http://localhost:11434/v1" />
+                        </Grid>
+
+                        <Grid Margin="0,5">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="170" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Label Grid.Column="0" Content="API Key:" VerticalAlignment="Center" />
+                            <TextBox Grid.Column="1" x:Name="TxtApiKey"
+                                     controls:TextBoxHelper.Watermark="Not required for local models"
+                                     ToolTip="Your provider API key. Stored encrypted in settings.dat and never logged." />
+                        </Grid>
+
+                        <Grid Margin="0,5">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="170" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Label Grid.Column="0" Content="Model:" VerticalAlignment="Center" />
+                            <TextBox Grid.Column="1" x:Name="TxtModel"
+                                     controls:TextBoxHelper.Watermark="google/gemini-2.5-flash"
+                                     ToolTip="Vision-capable model name, e.g. google/gemini-2.5-flash (OpenRouter) or qwen2.5vl:7b (Ollama)" />
+                        </Grid>
+
+                        <TextBlock Margin="0,5,0,0">
+                            <Hyperlink NavigateUri="https://openrouter.ai/keys"
+                                       RequestNavigate="Hyperlink_RequestNavigate">
+                                Get an OpenRouter API key
+                            </Hyperlink>
+                        </TextBlock>
+                    </StackPanel>
+                </GroupBox>
+
+                <GroupBox Header="Limits &amp; Behavior" Margin="0,0,0,15"
+                          ToolTip="Controls how many images are analyzed and when results are saved">
+                    <StackPanel Margin="5">
+                        <Grid Margin="0,5">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="170" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Label Grid.Column="0" Content="Timeout (seconds):" VerticalAlignment="Center" />
+                            <TextBox Grid.Column="1" x:Name="TxtTimeout"
+                                     controls:TextBoxHelper.Watermark="90"
+                                     ToolTip="How long to wait for the AI provider before giving up (10-300)" />
+                        </Grid>
+
+                        <Grid Margin="0,5">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="170" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Label Grid.Column="0" Content="Max candidates sent:" VerticalAlignment="Center" />
+                            <TextBox Grid.Column="1" x:Name="TxtMaxCandidates"
+                                     controls:TextBoxHelper.Watermark="6"
+                                     ToolTip="How many top-ranked local images are sent to the model (1-20)" />
+                        </Grid>
+
+                        <Grid Margin="0,5">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="170" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Label Grid.Column="0" Content="Image max size (px):" VerticalAlignment="Center" />
+                            <TextBox Grid.Column="1" x:Name="TxtImageMaxDimension"
+                                     controls:TextBoxHelper.Watermark="512"
+                                     ToolTip="Images are downscaled to this maximum dimension before upload (128-2048)" />
+                        </Grid>
+
+                        <Grid Margin="0,5">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="170" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Label Grid.Column="0" Content="Auto-save threshold (%):" VerticalAlignment="Center" />
+                            <TextBox Grid.Column="1" x:Name="TxtAutoSaveThreshold"
+                                     controls:TextBoxHelper.Watermark="80"
+                                     ToolTip="Minimum AI confidence required for automatic saving (0-100)" />
+                        </Grid>
+
+                        <CheckBox x:Name="ChkAutoSave" Margin="0,5"
+                                  Content="Automatically save the AI pick when confidence is above the threshold"
+                                  ToolTip="The AI-selected image is saved and the game is removed from the missing list automatically" />
+                        <CheckBox x:Name="ChkAutoRun" Margin="0,5"
+                                  Content="Run AI Pick automatically when a game is selected"
+                                  ToolTip="Starts the AI analysis right after the local search finishes" />
+                    </StackPanel>
+                </GroupBox>
+            </StackPanel>
+        </ScrollViewer>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+            <Button x:Name="BtnSave" Content="Save" Width="100" Margin="0,0,10,0" Click="BtnSave_Click"
+                    ToolTip="Save the AI settings" />
+            <Button x:Name="BtnCancel" Content="Cancel" Width="100" Click="BtnCancel_Click"
+                    ToolTip="Discard changes and close this window" />
+        </StackPanel>
+    </Grid>
+</controls:MetroWindow>
