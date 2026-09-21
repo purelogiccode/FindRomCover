@@ -59,6 +59,7 @@ FindRomCover stores all settings in a single encrypted SQLite database. Most set
 | Timeout | 90 s | 10–300 | Per-request timeout |
 | Max candidates sent | 6 | 1–20 | Images sent to the model |
 | Image max size | 512 px | 128–2048 | Downscale before upload |
+| Min cover width | 200 px | 0–2048 | Reject narrower downloads (0 disables) |
 | Auto-save threshold | 80% | 0–100 | Minimum confidence for auto-save |
 | Candidate similarity | 70% | 0–100 | Filename pre-filter for AI candidates |
 | Auto-save | Off | — | Save confident picks automatically |

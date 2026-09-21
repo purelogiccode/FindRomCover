@@ -28,6 +28,7 @@ public class SettingsData
     public int AiTimeoutSeconds { get; set; } = 90;
     public int AiMaxCandidates { get; set; } = 6;
     public int AiImageMaxDimension { get; set; } = 512;
+    public int AiMinCoverWidth { get; set; } = 200;
     public double AiAutoSaveThreshold { get; set; } = 80;
     public double AiCandidateThreshold { get; set; } = 70;
     public bool AiAutoSave { get; set; }

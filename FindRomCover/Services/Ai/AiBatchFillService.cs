@@ -159,7 +159,8 @@ public sealed class AiBatchFillService
         {
             _preRegisterExpectedFile?.Invoke(targetPath);
             var saved = await ImageSaveService
-                .DownloadAndSaveImageAsync(imageUrl, pickedApiImage.ThumbnailUrl, targetPath, cancellationToken)
+                .DownloadAndSaveImageAsync(imageUrl, pickedApiImage.ThumbnailUrl, targetPath,
+                    _settings.AiMinCoverWidth, cancellationToken)
                 .ConfigureAwait(false);
 
             if (saved)

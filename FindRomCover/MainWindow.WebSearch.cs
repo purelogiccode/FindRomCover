@@ -214,7 +214,7 @@ public partial class MainWindow
             var newFileName = Path.Combine(imageFolderPath, safeFileName + ".png");
             _imageFolderWatcher?.PreRegisterExpectedFile(newFileName);
             var result = await ImageSaveService.DownloadAndSaveImageAsync(imageData.ImagePath,
-                imageData.ThumbnailUrl, newFileName);
+                imageData.ThumbnailUrl, newFileName, Settings.AiMinCoverWidth);
 
             if (result)
             {

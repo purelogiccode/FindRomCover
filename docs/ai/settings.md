@@ -25,6 +25,7 @@ The loaded list is cached per provider and base URL for 7 days, so it is availab
 | **Max candidates sent** | 6 | 1–20 | How many top-ranked local images are sent to the model |
 | **Candidate similarity (%)** | 70 | 0–100 | Only local images with filename similarity at or above this value are sent to the AI |
 | **Image max size (px)** | 512 | 128–2048 | Images are downscaled to this maximum dimension before upload |
+| **Min cover width (px)** | 200 | 0–2048 | Downloaded covers narrower than this are rejected as too low resolution (0 disables the check) |
 | **Auto-save threshold (%)** | 80 | 0–100 | Minimum confidence required for automatic saving |
 
 ### Behavior toggles

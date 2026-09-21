@@ -237,13 +237,69 @@ public class ImageSaveServiceTests : IDisposable
         ImageSaveService.LooksLikeImageData([]).Should().BeFalse();
     }
 
-    private static byte[] CreatePngBytes()
+    [Fact]
+    public async Task DownloadAndSaveImageAsyncShouldRejectImageBelowMinWidth()
     {
-        using var image = new MagickImage(MagickColors.Green, 8, 8);
+        var outputPath = Path.Combine(_testOutputDir, "narrow.png");
+        using var client = new HttpClient(new StubHttpMessageHandler(_ =>
+            new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(CreatePngBytes()) }));
+
+        var result = await ImageSaveService.DownloadAndSaveImageAsync(
+            "https://example.test/narrow.png", null, outputPath, 200, client, CancellationToken.None);
+
+        result.Should().BeFalse();
+        File.Exists(outputPath).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task DownloadAndSaveImageAsyncShouldAcceptImageAtMinWidth()
+    {
+        var outputPath = Path.Combine(_testOutputDir, "wide.png");
+        using var client = new HttpClient(new StubHttpMessageHandler(_ =>
+            new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new ByteArrayContent(CreatePngBytes(250, 100))
+            }));
+
+        var result = await ImageSaveService.DownloadAndSaveImageAsync(
+            "https://example.test/wide.png", null, outputPath, 200, client, CancellationToken.None);
+
+        result.Should().BeTrue();
+        File.Exists(outputPath).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task DownloadAndSaveImageAsyncShouldIgnoreMinWidthWhenZero()
+    {
+        var outputPath = Path.Combine(_testOutputDir, "tiny.png");
+        using var client = new HttpClient(new StubHttpMessageHandler(_ =>
+            new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(CreatePngBytes()) }));
+
+        var result = await ImageSaveService.DownloadAndSaveImageAsync(
+            "https://example.test/tiny.png", null, outputPath, 0, client, CancellationToken.None);
+
+        result.Should().BeTrue();
+        File.Exists(outputPath).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ConvertStreamToPngAndSaveAsyncShouldRejectNarrowImage()
+    {
+        var outputPath = Path.Combine(_testOutputDir, "narrow-stream.png");
+        await using var stream = new MemoryStream(CreatePngBytes());
+
+        var result = await ImageSaveService.ConvertStreamToPngAndSaveAsync(stream, outputPath, 200);
+
+        result.Should().BeFalse();
+        File.Exists(outputPath).Should().BeFalse();
+    }
+
+    private static byte[] CreatePngBytes(int width = 8, int height = 8)
+    {
+        using var image = new MagickImage(MagickColors.Green, (uint)width, (uint)height);
         image.Format = MagickFormat.Png;
         return image.ToByteArray();
     }
-
     private sealed class StubHttpMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> responder)
         : HttpMessageHandler
     {

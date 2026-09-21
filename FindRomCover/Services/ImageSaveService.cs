@@ -22,33 +22,48 @@ public static class ImageSaveService
     public static Task<bool> DownloadAndSaveImageAsync(string imageUrl, string outputPath,
         CancellationToken cancellationToken = default)
     {
-        return DownloadAndSaveImageAsync(imageUrl, null, outputPath, cancellationToken);
+        return DownloadAndSaveImageAsync(imageUrl, null, outputPath, 0, cancellationToken);
     }
 
     /// <summary>
     ///     Downloads an image and saves it as PNG, falling back to a second URL (for example a
     ///     provider-hosted thumbnail) when the primary URL cannot be downloaded.
     /// </summary>
+    /// <param name="imageUrl">The URL of the image to download.</param>
+    /// <param name="fallbackImageUrl">An optional second URL tried when the primary download fails.</param>
+    /// <param name="outputPath">The path where the PNG image will be saved.</param>
+    /// <param name="minWidth">Minimum accepted image width in pixels; narrower images are rejected. 0 disables the check.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>True if the download and save was successful, false otherwise.</returns>
     public static Task<bool> DownloadAndSaveImageAsync(string imageUrl, string? fallbackImageUrl, string outputPath,
-        CancellationToken cancellationToken = default)
+        int minWidth, CancellationToken cancellationToken = default)
     {
-        return DownloadAndSaveImageAsync(imageUrl, fallbackImageUrl, outputPath, HttpClientHelper.Client,
-            cancellationToken);
+        return DownloadAndSaveImageAsync(imageUrl, fallbackImageUrl, outputPath, minWidth,
+            HttpClientHelper.Client, cancellationToken);
     }
 
     internal static async Task<bool> DownloadAndSaveImageAsync(string imageUrl, string? fallbackImageUrl,
         string outputPath, HttpClient httpClient, CancellationToken cancellationToken)
     {
+        return await DownloadAndSaveImageAsync(imageUrl, fallbackImageUrl, outputPath, 0, httpClient,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    internal static async Task<bool> DownloadAndSaveImageAsync(string imageUrl, string? fallbackImageUrl,
+        string outputPath, int minWidth, HttpClient httpClient, CancellationToken cancellationToken)
+    {
         try
         {
-            if (await TryDownloadAndSaveAsync(imageUrl, outputPath, httpClient, cancellationToken).ConfigureAwait(false))
+            if (await TryDownloadAndSaveAsync(imageUrl, outputPath, minWidth, httpClient, cancellationToken)
+                    .ConfigureAwait(false))
                 return true;
 
             if (!string.IsNullOrWhiteSpace(fallbackImageUrl) &&
                 !string.Equals(fallbackImageUrl, imageUrl, StringComparison.OrdinalIgnoreCase))
             {
                 LogService.Warning($"Primary image download failed; trying fallback thumbnail '{fallbackImageUrl}'.");
-                if (await TryDownloadAndSaveAsync(fallbackImageUrl, outputPath, httpClient, cancellationToken)
+                if (await TryDownloadAndSaveAsync(fallbackImageUrl, outputPath, minWidth, httpClient,
+                            cancellationToken)
                         .ConfigureAwait(false))
                     return true;
             }
@@ -69,6 +84,13 @@ public static class ImageSaveService
 
     internal static async Task<bool> TryDownloadAndSaveAsync(string imageUrl, string outputPath, HttpClient httpClient,
         CancellationToken cancellationToken)
+    {
+        return await TryDownloadAndSaveAsync(imageUrl, outputPath, 0, httpClient, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    internal static async Task<bool> TryDownloadAndSaveAsync(string imageUrl, string outputPath, int minWidth,
+        HttpClient httpClient, CancellationToken cancellationToken)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, imageUrl);
         request.Headers.UserAgent.ParseAdd(BrowserUserAgent);
@@ -109,7 +131,8 @@ public static class ImageSaveService
         }
 
         await using var stream = new MemoryStream(bytes);
-        return await ConvertStreamToPngAndSaveAsync(stream, outputPath, cancellationToken).ConfigureAwait(false);
+        return await ConvertStreamToPngAndSaveAsync(stream, outputPath, minWidth, cancellationToken)
+            .ConfigureAwait(false);
     }
 
     /// <summary>
@@ -120,8 +143,23 @@ public static class ImageSaveService
     /// <param name="outputPath">The path where the PNG image will be saved.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     /// <returns>True if conversion was successful, false otherwise.</returns>
-    public static async Task<bool> ConvertStreamToPngAndSaveAsync(Stream inputStream, string outputPath,
+    public static Task<bool> ConvertStreamToPngAndSaveAsync(Stream inputStream, string outputPath,
         CancellationToken cancellationToken = default)
+    {
+        return ConvertStreamToPngAndSaveAsync(inputStream, outputPath, 0, cancellationToken);
+    }
+
+    /// <summary>
+    ///     Converts an image from a source stream to a PNG format at a destination path.
+    ///     Preserves the aspect ratio, dimensions, and transparency using Magick.NET.
+    /// </summary>
+    /// <param name="inputStream">The stream containing the source image data.</param>
+    /// <param name="outputPath">The path where the PNG image will be saved.</param>
+    /// <param name="minWidth">Minimum accepted image width in pixels; narrower images are rejected. 0 disables the check.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>True if conversion was successful, false otherwise.</returns>
+    public static async Task<bool> ConvertStreamToPngAndSaveAsync(Stream inputStream, string outputPath,
+        int minWidth, CancellationToken cancellationToken = default)
     {
         var tempOutputPath = outputPath + ".tmp" + Guid.NewGuid().ToString("N")[..8];
         try
@@ -145,6 +183,13 @@ public static class ImageSaveService
             buffer.Position = 0;
             using (var image = new MagickImage(buffer))
             {
+                if (minWidth > 0 && image.Width < minWidth)
+                {
+                    LogService.Warning(
+                        $"Downloaded image is only {image.Width}x{image.Height}px, below the {minWidth}px minimum width; rejecting '{outputPath}'.");
+                    return false;
+                }
+
                 image.Format = MagickFormat.Png;
                 await image.WriteAsync(tempOutputPath, MagickFormat.Png, cancellationToken);
             }

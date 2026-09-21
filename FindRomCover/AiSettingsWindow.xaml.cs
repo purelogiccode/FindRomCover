@@ -63,6 +63,7 @@ public partial class AiSettingsWindow
             TxtTimeout.Text = _settingsManager.AiTimeoutSeconds.ToString(CultureInfo.InvariantCulture);
             TxtMaxCandidates.Text = _settingsManager.AiMaxCandidates.ToString(CultureInfo.InvariantCulture);
             TxtImageMaxDimension.Text = _settingsManager.AiImageMaxDimension.ToString(CultureInfo.InvariantCulture);
+            TxtMinCoverWidth.Text = _settingsManager.AiMinCoverWidth.ToString(CultureInfo.InvariantCulture);
             TxtCandidateThreshold.Text = _settingsManager.AiCandidateThreshold.ToString(CultureInfo.InvariantCulture);
             TxtAutoSaveThreshold.Text = _settingsManager.AiAutoSaveThreshold.ToString(CultureInfo.InvariantCulture);
             ChkAutoSave.IsChecked = _settingsManager.AiAutoSave;
@@ -169,6 +170,8 @@ public partial class AiSettingsWindow
             _settingsManager.AiMaxCandidates = ParseInt(TxtMaxCandidates.Text, _settingsManager.AiMaxCandidates);
             _settingsManager.AiImageMaxDimension =
                 ParseInt(TxtImageMaxDimension.Text, _settingsManager.AiImageMaxDimension);
+            _settingsManager.AiMinCoverWidth =
+                ParseInt(TxtMinCoverWidth.Text, _settingsManager.AiMinCoverWidth);
             _settingsManager.AiCandidateThreshold =
                 ParseDouble(TxtCandidateThreshold.Text, _settingsManager.AiCandidateThreshold);
             _settingsManager.AiAutoSaveThreshold =

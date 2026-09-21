@@ -61,6 +61,8 @@ public class SettingsManager : INotifyPropertyChanged
 
     private int _aiImageMaxDimension = 512;
 
+    private int _aiMinCoverWidth = 200;
+
     private int _aiMaxCandidates = 6;
 
     private string _aiModel = string.Empty;
@@ -492,6 +494,19 @@ public class SettingsManager : INotifyPropertyChanged
         }
     }
 
+    public int AiMinCoverWidth
+    {
+        get => _aiMinCoverWidth;
+        set
+        {
+            value = Math.Clamp(value, 0, 2048);
+            if (_aiMinCoverWidth == value) return;
+
+            _aiMinCoverWidth = value;
+            OnPropertyChanged(nameof(AiMinCoverWidth));
+        }
+    }
+
     public double AiCandidateThreshold
     {
         get => _aiCandidateThreshold;
@@ -793,6 +808,7 @@ public class SettingsManager : INotifyPropertyChanged
         AiTimeoutSeconds = data.AiTimeoutSeconds;
         AiMaxCandidates = data.AiMaxCandidates;
         AiImageMaxDimension = data.AiImageMaxDimension;
+        AiMinCoverWidth = data.AiMinCoverWidth;
         AiCandidateThreshold = data.AiCandidateThreshold;
         AiAutoSaveThreshold = data.AiAutoSaveThreshold;
         AiAutoSave = data.AiAutoSave;
@@ -830,6 +846,7 @@ public class SettingsManager : INotifyPropertyChanged
         AiTimeoutSeconds = GetInt(values, nameof(AiTimeoutSeconds), AiTimeoutSeconds);
         AiMaxCandidates = GetInt(values, nameof(AiMaxCandidates), AiMaxCandidates);
         AiImageMaxDimension = GetInt(values, nameof(AiImageMaxDimension), AiImageMaxDimension);
+        AiMinCoverWidth = GetInt(values, nameof(AiMinCoverWidth), AiMinCoverWidth);
         AiCandidateThreshold = GetDouble(values, nameof(AiCandidateThreshold), AiCandidateThreshold);
         AiAutoSaveThreshold = GetDouble(values, nameof(AiAutoSaveThreshold), AiAutoSaveThreshold);
         AiAutoSave = GetBool(values, nameof(AiAutoSave), AiAutoSave);
@@ -1122,6 +1139,7 @@ public class SettingsManager : INotifyPropertyChanged
             [nameof(AiTimeoutSeconds)] = AiTimeoutSeconds.ToString(CultureInfo.InvariantCulture),
             [nameof(AiMaxCandidates)] = AiMaxCandidates.ToString(CultureInfo.InvariantCulture),
             [nameof(AiImageMaxDimension)] = AiImageMaxDimension.ToString(CultureInfo.InvariantCulture),
+            [nameof(AiMinCoverWidth)] = AiMinCoverWidth.ToString(CultureInfo.InvariantCulture),
             [nameof(AiCandidateThreshold)] = AiCandidateThreshold.ToString(CultureInfo.InvariantCulture),
             [nameof(AiAutoSaveThreshold)] = AiAutoSaveThreshold.ToString(CultureInfo.InvariantCulture),
             [nameof(AiAutoSave)] = AiAutoSave.ToString(CultureInfo.InvariantCulture),
@@ -1166,6 +1184,7 @@ public class SettingsManager : INotifyPropertyChanged
         _aiTimeoutSeconds = 90;
         _aiMaxCandidates = 6;
         _aiImageMaxDimension = 512;
+        _aiMinCoverWidth = 200;
         _aiAutoSaveThreshold = 80;
         _aiCandidateThreshold = 70;
         _aiAutoSave = false;

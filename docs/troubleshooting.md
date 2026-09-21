@@ -50,7 +50,7 @@ Open `Settings > API Settings...` and enter a Google API key. The Local Files an
 Some image hosts answer automated requests with an HTTP 200 status but send an HTML block page instead of image data. FindRomCover detects this before converting:
 
 1. The download is skipped with a log warning naming the host, the returned Content-Type, and the start of the payload.
-2. When a provider thumbnail is available (Google API results, AI Batch Fill), it is tried automatically.
+2. When a provider thumbnail is available (Google API results, AI Batch Fill), it is tried automatically — but it is only saved if it meets the **Min cover width** setting (default 200 px); undersized thumbnails are rejected and the candidate is skipped.
 3. Otherwise the candidate is skipped and the next one is tried.
 
 This is a host-side block, not an application bug — try another result, another search tab, or a different model run. Entries mentioning `no decode delegate` for the same reason are logged as warnings, not errors.
