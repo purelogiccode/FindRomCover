@@ -15,6 +15,7 @@ namespace FindRomCover.Tests.Services.Ai;
 public class AiBatchFillServiceTests : IDisposable
 {
     private readonly string _testDir;
+    private readonly List<IDisposable> _disposables = new();
 
     public AiBatchFillServiceTests()
     {
@@ -24,6 +25,16 @@ public class AiBatchFillServiceTests : IDisposable
 
     public void Dispose()
     {
+        foreach (var disposable in _disposables)
+            try
+            {
+                disposable.Dispose();
+            }
+            catch
+            {
+                /* best effort */
+            }
+
         try
         {
             Directory.Delete(_testDir, true);
@@ -249,6 +260,78 @@ public class AiBatchFillServiceTests : IDisposable
 
         candidates.Should().HaveCount(1);
         candidates[0].ImageName.Should().Be("super mario bros cover");
+    }
+
+    [Fact]
+    public async Task RunAsyncShouldNotFailWhenModelDeclinesLocalPick()
+    {
+        var settings = CreateSettings();
+        CreateImage("super mario bros cover.png");
+        using var ai = CreateAiService(settings, PickResponse(-1, 0.0));
+        var service = new AiBatchFillService(settings, ai);
+
+        var results = await service.RunAsync(
+            [new MissingImageItem("Super Mario Bros", "Super Mario Bros")],
+            _testDir,
+            false,
+            null,
+            null,
+            CancellationToken.None);
+
+        results[0].Outcome.Should().Be(AiBatchOutcome.SkippedLowConfidence);
+        File.Exists(Path.Combine(_testDir, "Super Mario Bros.png")).Should().BeFalse();
+    }
+
+    [Fact]
+    public void IsUsablePickShouldAcceptConfidentInRangePick()
+    {
+        var service = CreateService();
+        var pick = new AiPickResult { BestIndex = 1, Confidence = 0.95 };
+
+        service.IsUsablePick(pick, 3).Should().BeTrue();
+    }
+
+    [Fact]
+    public void IsUsablePickShouldRejectDeclinedPick()
+    {
+        var service = CreateService();
+        var pick = new AiPickResult { BestIndex = -1, Confidence = 0.0 };
+
+        service.IsUsablePick(pick, 3).Should().BeFalse();
+    }
+
+    [Fact]
+    public void IsUsablePickShouldRejectOutOfRangeIndex()
+    {
+        var service = CreateService();
+        var pick = new AiPickResult { BestIndex = 5, Confidence = 0.95 };
+
+        service.IsUsablePick(pick, 3).Should().BeFalse();
+    }
+
+    [Fact]
+    public void IsUsablePickShouldRejectNullPick()
+    {
+        var service = CreateService();
+
+        service.IsUsablePick(null, 3).Should().BeFalse();
+    }
+
+    [Fact]
+    public void IsUsablePickShouldRejectLowConfidencePick()
+    {
+        var service = CreateService();
+        var pick = new AiPickResult { BestIndex = 0, Confidence = 0.5 };
+
+        service.IsUsablePick(pick, 3).Should().BeFalse();
+    }
+
+    private AiBatchFillService CreateService()
+    {
+        var settings = CreateSettings();
+        var ai = CreateAiService(settings, PickResponse(0, 0.95));
+        _disposables.Add(ai);
+        return new AiBatchFillService(settings, ai);
     }
 
     private static SettingsManager CreateSettings()

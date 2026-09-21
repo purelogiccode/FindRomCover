@@ -100,7 +100,7 @@ public sealed class AiBatchFillService
             pick = await _aiAssist.PickBestAsync(item.RomName, item.SearchName, images, cancellationToken)
                 .ConfigureAwait(false);
 
-            if (IsConfident(pick) && images[pick!.BestIndex].ImagePath is { } localPath)
+            if (IsUsablePick(pick, images.Count) && images[pick!.BestIndex].ImagePath is { } localPath)
             {
                 _preRegisterExpectedFile?.Invoke(targetPath);
                 var saveResult = await ImageProcessor.ConvertAndSaveImageAsync(localPath, targetPath, cancellationToken)
@@ -154,8 +154,8 @@ public sealed class AiBatchFillService
         var apiPick = await _aiAssist.PickBestForApiAsync(item.RomName, item.SearchName, apiResults, cancellationToken)
             .ConfigureAwait(false);
 
-        var pickedApiImage = apiResults[apiPick!.BestIndex];
-        if (IsConfident(apiPick) && pickedApiImage.ImagePath is { } imageUrl)
+        var pickedApiImage = IsUsablePick(apiPick, apiResults.Count) ? apiResults[apiPick!.BestIndex] : null;
+        if (pickedApiImage != null && IsConfident(apiPick) && pickedApiImage.ImagePath is { } imageUrl)
         {
             _preRegisterExpectedFile?.Invoke(targetPath);
             var saved = await ImageSaveService
@@ -165,8 +165,9 @@ public sealed class AiBatchFillService
             if (saved)
             {
                 _queryHistory.Remove(targetPath);
-                return new AiBatchItemResult(item.RomName, item.SearchName, AiBatchOutcome.FilledFromApi,
-                    $"AI pick '{pickedApiImage.ImageName}' ({apiPick.Confidence:P0}).", targetPath);
+                if (apiPick != null)
+                    return new AiBatchItemResult(item.RomName, item.SearchName, AiBatchOutcome.FilledFromApi,
+                        $"AI pick '{pickedApiImage.ImageName}' ({apiPick.Confidence:P0}).", targetPath);
             }
 
             return new AiBatchItemResult(item.RomName, item.SearchName, AiBatchOutcome.Failed,
@@ -183,6 +184,11 @@ public sealed class AiBatchFillService
     private bool IsConfident(AiPickResult? pick)
     {
         return pick is { HasPick: true } && pick.Confidence * 100 >= _settings.AiAutoSaveThreshold;
+    }
+
+    internal bool IsUsablePick(AiPickResult? pick, int candidateCount)
+    {
+        return pick != null && pick.BestIndex >= 0 && pick.BestIndex < candidateCount && IsConfident(pick);
     }
 
     private static string BuildApiQuery(string searchName, string? extraQuery)

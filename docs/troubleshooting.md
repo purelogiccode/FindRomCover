@@ -45,6 +45,16 @@ Open `Settings > API Settings...` and enter a Google API key. The Local Files an
 3. Confirm a game is selected; the watcher renames new images to the selected game.
 4. Check the log for `ImageFolderWatcher` or conversion errors.
 
+## "Image could not be downloaded" or non-image responses
+
+Some image hosts answer automated requests with an HTTP 200 status but send an HTML block page instead of image data. FindRomCover detects this before converting:
+
+1. The download is skipped with a log warning naming the host, the returned Content-Type, and the start of the payload.
+2. When a provider thumbnail is available (Google API results, AI Batch Fill), it is tried automatically.
+3. Otherwise the candidate is skipped and the next one is tried.
+
+This is a host-side block, not an application bug — try another result, another search tab, or a different model run. Entries mentioning `no decode delegate` for the same reason are logged as warnings, not errors.
+
 ## Missing or corrupted MAME data (`mame.dat`)
 
 `mame.dat` ships with the application and is copied to the output folder on build.

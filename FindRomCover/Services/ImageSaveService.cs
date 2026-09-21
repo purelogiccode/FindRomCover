@@ -1,5 +1,6 @@
 using System.IO;
 using System.Net.Http;
+using System.Text;
 using ImageMagick;
 
 namespace FindRomCover.Services;
@@ -83,7 +84,31 @@ public static class ImageSaveService
             return false;
         }
 
-        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+        var contentType = response.Content.Headers.ContentType?.MediaType;
+        if (!string.IsNullOrEmpty(contentType) &&
+            !contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase) &&
+            !contentType.Equals("application/octet-stream", StringComparison.OrdinalIgnoreCase))
+        {
+            LogService.Warning(
+                $"Image download for '{imageUrl}' returned Content-Type '{contentType}' instead of image data; the host may be blocking automated requests.");
+            return false;
+        }
+
+        var bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
+        if (bytes.Length == 0)
+        {
+            LogService.Warning($"Image download for '{imageUrl}' returned an empty response body.");
+            return false;
+        }
+
+        if (!LooksLikeImageData(bytes))
+        {
+            LogService.Warning(
+                $"Image download for '{imageUrl}' returned {bytes.Length} bytes of non-image data (Content-Type '{contentType ?? "unknown"}'); the host may be blocking automated requests. Payload starts with: {PreviewPayload(bytes)}");
+            return false;
+        }
+
+        await using var stream = new MemoryStream(bytes);
         return await ConvertStreamToPngAndSaveAsync(stream, outputPath, cancellationToken).ConfigureAwait(false);
     }
 
@@ -107,7 +132,18 @@ public static class ImageSaveService
             var destDir = Path.GetDirectoryName(outputPath);
             if (!string.IsNullOrEmpty(destDir) && !Directory.Exists(destDir)) Directory.CreateDirectory(destDir);
 
-            using (var image = new MagickImage(inputStream))
+            await using var buffer = new MemoryStream();
+            await inputStream.CopyToAsync(buffer, cancellationToken).ConfigureAwait(false);
+            var bytes = buffer.ToArray();
+            if (!LooksLikeImageData(bytes))
+            {
+                LogService.Warning(
+                    $"Stream does not contain recognized image data ({bytes.Length} bytes); skipping conversion to '{outputPath}'.");
+                return false;
+            }
+
+            buffer.Position = 0;
+            using (var image = new MagickImage(buffer))
             {
                 image.Format = MagickFormat.Png;
                 await image.WriteAsync(tempOutputPath, MagickFormat.Png, cancellationToken);
@@ -117,6 +153,11 @@ public static class ImageSaveService
             LogService.Information($"Successfully saved image from stream to '{outputPath}'.");
 
             return true;
+        }
+        catch (MagickMissingDelegateErrorException ex)
+        {
+            LogService.Warning(ex, "Downloaded payload could not be decoded as an image.");
+            return false;
         }
         catch (Exception ex)
         {
@@ -137,5 +178,50 @@ public static class ImageSaveService
                     LogService.Warning(cleanupEx, $"Failed to clean up temporary file '{tempOutputPath}'.");
                 }
         }
+    }
+
+    internal static bool LooksLikeImageData(byte[] bytes)
+    {
+        if (bytes.Length < 4) return false;
+
+        if (bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47) return true;
+        if (bytes[0] == 0xFF && (bytes[1] == 0xD8 || bytes[1] == 0x0A)) return true;
+        if (bytes[0] == 0x47 && bytes[1] == 0x49 && bytes[2] == 0x46) return true;
+        if (bytes[0] == 0x42 && bytes[1] == 0x4D) return true;
+        if (bytes[0] == 0x49 && bytes[1] == 0x49 && bytes[2] == 0x2A && bytes[3] == 0x00) return true;
+        if (bytes[0] == 0x4D && bytes[1] == 0x4D && bytes[2] == 0x00 && bytes[3] == 0x2A) return true;
+        if (bytes[0] == 0x00 && bytes[1] == 0x00 && bytes[2] == 0x01 && bytes[3] == 0x00) return true;
+
+        if (bytes.Length >= 12)
+        {
+            if (bytes[0] == 0x52 && bytes[1] == 0x49 && bytes[2] == 0x46 && bytes[3] == 0x46 &&
+                bytes[8] == 0x57 && bytes[9] == 0x45 && bytes[10] == 0x42 && bytes[11] == 0x50) return true;
+            if (bytes[4] == 0x66 && bytes[5] == 0x74 && bytes[6] == 0x79 && bytes[7] == 0x70) return true;
+            if (bytes[0] == 0x00 && bytes[1] == 0x00 && bytes[2] == 0x00 && bytes[3] == 0x0C &&
+                bytes[4] == 0x4A && bytes[5] == 0x58 && bytes[6] == 0x4C && bytes[7] == 0x20) return true;
+        }
+
+        return IsSvg(bytes);
+    }
+
+    private static bool IsSvg(byte[] bytes)
+    {
+        var offset = bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF ? 3 : 0;
+        var length = Math.Min(bytes.Length - offset, 1024);
+        var text = Encoding.ASCII.GetString(bytes, offset, length).TrimStart();
+        return text.StartsWith("<svg", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string PreviewPayload(byte[] bytes)
+    {
+        var length = Math.Min(bytes.Length, 160);
+        var builder = new StringBuilder(length);
+        for (var i = 0; i < length; i++)
+        {
+            var c = (char)bytes[i];
+            builder.Append(char.IsControl(c) ? '.' : c);
+        }
+
+        return builder.ToString();
     }
 }
