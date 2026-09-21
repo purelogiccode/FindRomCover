@@ -26,7 +26,7 @@ The key is the full target cover path, matched case-insensitively.
 | File | `%LocalAppData%\FindRomCover\QueryHistory.dat` |
 | Format | SQLite database |
 | Retention | 180 days |
-| Maximum entries | 10,000 (oldest entries are trimmed automatically) |
+| Maximum entries | 100,000 (oldest entries are trimmed automatically) |
 | Table | `QueryHistory(TargetPath, QueriedUtc, Outcome)` |
 
 The database uses non-pooled connections, so the file is never locked and can be backed up or inspected with any SQLite tool.

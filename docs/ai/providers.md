@@ -88,6 +88,19 @@ Use a custom provider when you have a proxy, gateway, or self-hosted server:
 
 Enter the **Base URL** and **Model** manually. The API key is optional — some self-hosted servers ignore it.
 
+### OpenCode Zen
+
+[OpenCode Zen](https://opencode.ai/docs/zen/) is an OpenAI-compatible gateway from the OpenCode team. It currently offers MiMo-V2.5 Free, a multimodal model that accepts image input:
+
+| Setting | Value |
+|---------|-------|
+| Provider | Custom (OpenAI-compatible) |
+| Base URL | `https://opencode.ai/zen/v1` |
+| API Key | Zen key from [opencode.ai/auth](https://opencode.ai/auth) |
+| Model | `mimo-v2.5-free` |
+
+See [Recommended Models](recommended-models.md) for cost notes and caveats.
+
 ## The model picker
 
 Click **Test / Load Models** to:

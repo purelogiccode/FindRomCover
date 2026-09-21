@@ -15,7 +15,7 @@ Prices are USD per million tokens (input / output). FindRomCover's current OpenR
 | 2 | `openai/gpt-5-nano` | $0.05 | $0.40 | 400k | structured outputs + `response_format` | Most reliable JSON parsing; smallest GPT-5 variant |
 | 3 | `google/gemma-3-4b-it` | $0.05 | $0.10 | 131k | structured outputs | Cheapest output tokens; small but genuinely multimodal |
 | 4 | `google/gemma-3-12b-it` | $0.05 | $0.15 | 131k | structured outputs | Same input price as 4B with better quality |
-| 5 | `amazon/nova-lite-v1` | $0.06 | $0.24 | 300k | prompt-only JSON | Solid low-cost multimodal; 5k max output tokens |
+| 5 | `amazon/nova-lite-v1` | $0.06 | $0.24 | 300k | prompt-only JSON | **Proven for cover picking** — very reliable in real batch runs; solid low-cost multimodal; 5k max output tokens |
 
 Estimated cost per 1,000 cover picks (assuming ~6 images ≈ 6k prompt tokens + ~200 completion tokens):
 
@@ -44,6 +44,24 @@ Estimated cost per 1,000 cover picks (assuming ~6 images ≈ 6k prompt tokens + 
 
 OpenRouter free tier is rate-limited (~50 requests/day without credits, ~1,000/day after a one-time $10 credit purchase) and can be flaky — fine for trying AI Assist, not for bulk runs.
 
+## OpenCode Zen (free MiMo-V2.5)
+
+[OpenCode Zen](https://opencode.ai/docs/zen/) is the OpenCode team's AI gateway. It is OpenAI-compatible and currently offers **MiMo-V2.5 Free** (`mimo-v2.5-free`) at no cost for a limited time. MiMo-V2.5 accepts image input, so it works with FindRomCover.
+
+| Setting | Value |
+|---------|-------|
+| Provider | **Custom (OpenAI-compatible)** |
+| Base URL | `https://opencode.ai/zen/v1` |
+| API Key | Your Zen key from [opencode.ai/auth](https://opencode.ai/auth) |
+| Model | `mimo-v2.5-free` |
+
+Notes:
+
+- Free for a limited time; Zen states that data from MiMo-V2.5 Free may be used to improve the model while it is free.
+- Zen's model metadata may not report image modality, so the picker's **Vision-capable only** filter can hide it — uncheck the filter or type the model ID directly.
+- Zen also serves paid vision models, for example `deepseek-v4-flash-vision-exp` ($0.14 / $0.28 per M tokens).
+- In OpenCode itself the model is referenced as `opencode/mimo-v2.5-free`; FindRomCover uses the raw model ID `mimo-v2.5-free`.
+
 ## Caveats
 
 - `:batch` variants are cheaper but asynchronous and do not work with FindRomCover's synchronous client.
@@ -53,3 +71,5 @@ OpenRouter free tier is rate-limited (~50 requests/day without credits, ~1,000/d
 ## How to use
 
 In **AI Settings → Provider: OpenRouter**, paste the model ID into the Model box (the picker's filter can find it; all listed models are flagged vision-capable) and click **Test / Load Models**.
+
+For **OpenCode Zen**, choose Provider: **Custom (OpenAI-compatible)**, set the Base URL to `https://opencode.ai/zen/v1`, paste your Zen key, and enter `mimo-v2.5-free` as the model.

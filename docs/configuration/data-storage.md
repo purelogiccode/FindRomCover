@@ -9,7 +9,7 @@ Default location: `%LocalAppData%\FindRomCover` (typically `C:\Users\<you>\AppDa
 | File | Format | Purpose | Retention |
 |------|--------|---------|-----------|
 | `Settings.dat` | SQLite | All settings, including encrypted API keys | Until deleted |
-| `QueryHistory.dat` | SQLite | Covers already queried with AI Assist | 180 days, max 10,000 entries |
+| `QueryHistory.dat` | SQLite | Covers already queried with AI Assist | 180 days, max 100,000 entries |
 | `ai-cache.json` | JSON | Cached AI verdicts | 30 days, max 2,000 entries |
 | `ai-models.json` | JSON | Cached model lists per provider and base URL | 7 days |
 | `settings.dat.legacy` | Encrypted legacy file | Backup of the pre-SQLite settings file | Until deleted |
@@ -73,7 +73,7 @@ CREATE TABLE QueryHistory (
 );
 ```
 
-Entries older than 180 days are removed, and the table is trimmed to 10,000 rows when it grows beyond that. See [Query History](../ai/query-history.md).
+Entries older than 180 days are removed, and the table is trimmed to 100,000 rows when it grows beyond that. See [Query History](../ai/query-history.md).
 
 ## Caches
 
