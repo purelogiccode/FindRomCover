@@ -50,7 +50,7 @@ public partial class AiBatchWindow
             : $"{_items.Count} missing cover(s) available ({alreadyQueried} already queried).";
     }
 
-    public event Action<string>? ItemFilled;
+    public event Action<string>? ItemResolved;
 
     private async void BtnStart_Click(object sender, RoutedEventArgs e)
     {
@@ -128,8 +128,9 @@ public partial class AiBatchWindow
         LstResults.Items.Add($"{result.RomName}: {result.Outcome} — {result.Message}");
         if (LstResults.Items.Count > 0) LstResults.ScrollIntoView(LstResults.Items[^1]);
 
-        if (result.Outcome is AiBatchOutcome.FilledFromLocal or AiBatchOutcome.FilledFromApi)
-            ItemFilled?.Invoke(result.RomName);
+        if (result.Outcome is AiBatchOutcome.FilledFromLocal or AiBatchOutcome.FilledFromApi
+            or AiBatchOutcome.SkippedAlreadyExists)
+            ItemResolved?.Invoke(result.RomName);
     }
 
     private void ShowSummary(List<AiBatchItemResult> results)

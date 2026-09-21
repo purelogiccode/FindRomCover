@@ -5,15 +5,37 @@ using Xunit;
 namespace FindRomCover.Tests.Managers;
 
 [Collection("SettingsManager")]
-public class SettingsManagerPropertyTests
+public class SettingsManagerPropertyTests : IDisposable
 {
+    private readonly string _settingsDirectory;
+
+    public SettingsManagerPropertyTests()
+    {
+        _settingsDirectory = Path.Combine(Path.GetTempPath(), $"SettingsManagerPropertyTests_{Guid.NewGuid():N}");
+        Directory.CreateDirectory(_settingsDirectory);
+    }
+
+    public void Dispose()
+    {
+        try
+        {
+            Directory.Delete(_settingsDirectory, true);
+        }
+        catch
+        {
+            /* best effort */
+        }
+
+        GC.SuppressFinalize(this);
+    }
+
     [Theory]
     [InlineData(50)]
     [InlineData(300)]
     [InlineData(2000)]
     public void ImageWidthSetWithinRangeShouldUpdateValue(int value)
     {
-        var settings = new SettingsManager
+        var settings = new SettingsManager(_settingsDirectory)
         {
             ImageWidth = value
         };
@@ -29,7 +51,7 @@ public class SettingsManagerPropertyTests
     [InlineData(5000, 2000)]
     public void ImageWidthSetOutsideRangeShouldBeClamped(int input, int expected)
     {
-        var settings = new SettingsManager
+        var settings = new SettingsManager(_settingsDirectory)
         {
             ImageWidth = input
         };
@@ -43,7 +65,7 @@ public class SettingsManagerPropertyTests
     [InlineData(2000)]
     public void ImageHeightSetWithinRangeShouldUpdateValue(int value)
     {
-        var settings = new SettingsManager
+        var settings = new SettingsManager(_settingsDirectory)
         {
             ImageHeight = value
         };
@@ -59,7 +81,7 @@ public class SettingsManagerPropertyTests
     [InlineData(5000, 2000)]
     public void ImageHeightSetOutsideRangeShouldBeClamped(int input, int expected)
     {
-        var settings = new SettingsManager
+        var settings = new SettingsManager(_settingsDirectory)
         {
             ImageHeight = input
         };
@@ -73,7 +95,7 @@ public class SettingsManagerPropertyTests
     [InlineData(1000)]
     public void MaxImagesToLoadSetWithinRangeShouldUpdateValue(int value)
     {
-        var settings = new SettingsManager
+        var settings = new SettingsManager(_settingsDirectory)
         {
             MaxImagesToLoad = value
         };
@@ -87,7 +109,7 @@ public class SettingsManagerPropertyTests
     [InlineData(1001, 1000)]
     public void MaxImagesToLoadSetOutsideRangeShouldBeClamped(int input, int expected)
     {
-        var settings = new SettingsManager
+        var settings = new SettingsManager(_settingsDirectory)
         {
             MaxImagesToLoad = input
         };
@@ -101,7 +123,7 @@ public class SettingsManagerPropertyTests
     [InlineData(20)]
     public void ImageLoaderMaxRetriesSetWithinRangeShouldUpdateValue(int value)
     {
-        var settings = new SettingsManager
+        var settings = new SettingsManager(_settingsDirectory)
         {
             ImageLoaderMaxRetries = value
         };
@@ -114,7 +136,7 @@ public class SettingsManagerPropertyTests
     [InlineData(21, 20)]
     public void ImageLoaderMaxRetriesSetOutsideRangeShouldBeClamped(int input, int expected)
     {
-        var settings = new SettingsManager
+        var settings = new SettingsManager(_settingsDirectory)
         {
             ImageLoaderMaxRetries = input
         };
@@ -128,7 +150,7 @@ public class SettingsManagerPropertyTests
     [InlineData(10000)]
     public void ImageLoaderRetryDelayMillisecondsSetWithinRangeShouldUpdateValue(int value)
     {
-        var settings = new SettingsManager
+        var settings = new SettingsManager(_settingsDirectory)
         {
             ImageLoaderRetryDelayMilliseconds = value
         };
@@ -141,7 +163,7 @@ public class SettingsManagerPropertyTests
     [InlineData(10001, 10000)]
     public void ImageLoaderRetryDelayMillisecondsSetOutsideRangeShouldBeClamped(int input, int expected)
     {
-        var settings = new SettingsManager
+        var settings = new SettingsManager(_settingsDirectory)
         {
             ImageLoaderRetryDelayMilliseconds = input
         };
@@ -155,7 +177,7 @@ public class SettingsManagerPropertyTests
     [InlineData(300)]
     public void ApiTimeoutSecondsSetWithinRangeShouldUpdateValue(int value)
     {
-        var settings = new SettingsManager
+        var settings = new SettingsManager(_settingsDirectory)
         {
             ApiTimeoutSeconds = value
         };
@@ -169,7 +191,7 @@ public class SettingsManagerPropertyTests
     [InlineData(301, 300)]
     public void ApiTimeoutSecondsSetOutsideRangeShouldBeClamped(int input, int expected)
     {
-        var settings = new SettingsManager
+        var settings = new SettingsManager(_settingsDirectory)
         {
             ApiTimeoutSeconds = input
         };
@@ -180,7 +202,7 @@ public class SettingsManagerPropertyTests
     [Fact]
     public void LastImageFolderShouldDefaultToEmpty()
     {
-        var settings = new SettingsManager();
+        var settings = new SettingsManager(_settingsDirectory);
 
         settings.LastImageFolder.Should().BeEmpty();
     }
@@ -188,7 +210,7 @@ public class SettingsManagerPropertyTests
     [Fact]
     public void LastImageFolderShouldBeSettable()
     {
-        var settings = new SettingsManager
+        var settings = new SettingsManager(_settingsDirectory)
         {
             LastImageFolder = @"C:\Images"
         };
@@ -199,7 +221,7 @@ public class SettingsManagerPropertyTests
     [Fact]
     public void SelectedSimilarityAlgorithmShouldHaveDefaultValue()
     {
-        var settings = new SettingsManager();
+        var settings = new SettingsManager(_settingsDirectory);
 
         settings.SelectedSimilarityAlgorithm.Should().Be("Jaro-Winkler Distance");
     }
@@ -207,7 +229,7 @@ public class SettingsManagerPropertyTests
     [Fact]
     public void SelectedSimilarityAlgorithmShouldBeSettable()
     {
-        var settings = new SettingsManager
+        var settings = new SettingsManager(_settingsDirectory)
         {
             SelectedSimilarityAlgorithm = "Levenshtein Distance"
         };
@@ -218,7 +240,7 @@ public class SettingsManagerPropertyTests
     [Fact]
     public void SimilarityThresholdShouldHaveDefaultValue()
     {
-        var settings = new SettingsManager();
+        var settings = new SettingsManager(_settingsDirectory);
 
         settings.SimilarityThreshold.Should().Be(70);
     }
@@ -226,7 +248,7 @@ public class SettingsManagerPropertyTests
     [Fact]
     public void SimilarityThresholdShouldBeSettable()
     {
-        var settings = new SettingsManager
+        var settings = new SettingsManager(_settingsDirectory)
         {
             SimilarityThreshold = 85.5
         };
@@ -237,7 +259,7 @@ public class SettingsManagerPropertyTests
     [Fact]
     public void SimilarityThresholdShouldBeClampedTo0()
     {
-        var settings = new SettingsManager
+        var settings = new SettingsManager(_settingsDirectory)
         {
             SimilarityThreshold = -10
         };
@@ -248,7 +270,7 @@ public class SettingsManagerPropertyTests
     [Fact]
     public void SimilarityThresholdShouldBeClampedTo100()
     {
-        var settings = new SettingsManager
+        var settings = new SettingsManager(_settingsDirectory)
         {
             SimilarityThreshold = 150
         };
@@ -261,7 +283,7 @@ public class SettingsManagerPropertyTests
     [InlineData("Dark")]
     public void BaseThemeShouldAcceptValidValues(string theme)
     {
-        var settings = new SettingsManager
+        var settings = new SettingsManager(_settingsDirectory)
         {
             BaseTheme = theme
         };
@@ -272,7 +294,7 @@ public class SettingsManagerPropertyTests
     [Fact]
     public void BaseThemeWithInvalidValueShouldDefaultToDark()
     {
-        var settings = new SettingsManager
+        var settings = new SettingsManager(_settingsDirectory)
         {
             BaseTheme = "InvalidTheme"
         };
@@ -283,7 +305,7 @@ public class SettingsManagerPropertyTests
     [Fact]
     public void BaseThemeWithEmptyShouldDefaultToDark()
     {
-        var settings = new SettingsManager
+        var settings = new SettingsManager(_settingsDirectory)
         {
             BaseTheme = ""
         };
@@ -298,7 +320,7 @@ public class SettingsManagerPropertyTests
     [InlineData("Purple")]
     public void AccentColorShouldAcceptValidValues(string color)
     {
-        var settings = new SettingsManager
+        var settings = new SettingsManager(_settingsDirectory)
         {
             AccentColor = color
         };
@@ -309,7 +331,7 @@ public class SettingsManagerPropertyTests
     [Fact]
     public void AccentColorWithInvalidValueShouldDefaultToBlue()
     {
-        var settings = new SettingsManager
+        var settings = new SettingsManager(_settingsDirectory)
         {
             AccentColor = "InvalidColor"
         };
@@ -320,7 +342,7 @@ public class SettingsManagerPropertyTests
     [Fact]
     public void AccentColorWithEmptyShouldDefaultToBlue()
     {
-        var settings = new SettingsManager
+        var settings = new SettingsManager(_settingsDirectory)
         {
             AccentColor = ""
         };
@@ -331,7 +353,7 @@ public class SettingsManagerPropertyTests
     [Fact]
     public void UseMameDescriptionsShouldWork()
     {
-        var settings = new SettingsManager
+        var settings = new SettingsManager(_settingsDirectory)
         {
             UseMameDescriptions = true
         };
@@ -342,7 +364,7 @@ public class SettingsManagerPropertyTests
     [Fact]
     public void ImageWidthAndHeightShouldBeSetIndependently()
     {
-        var settings = new SettingsManager
+        var settings = new SettingsManager(_settingsDirectory)
         {
             ImageWidth = 500,
             ImageHeight = 400

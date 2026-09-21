@@ -1,3 +1,4 @@
+using System.Net;
 using FindRomCover.Services;
 using FluentAssertions;
 using ImageMagick;
@@ -76,5 +77,84 @@ public class ImageSaveServiceTests : IDisposable
         var result = await ImageSaveService.ConvertStreamToPngAndSaveAsync(stream, outputPath);
 
         result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task DownloadAndSaveImageAsyncShouldSaveImageAndSendBrowserHeaders()
+    {
+        var outputPath = Path.Combine(_testOutputDir, "downloaded.png");
+        var capturedUserAgent = string.Empty;
+        var capturedAccept = string.Empty;
+        using var client = new HttpClient(new StubHttpMessageHandler(request =>
+        {
+            capturedUserAgent = request.Headers.UserAgent.ToString();
+            capturedAccept = string.Join(",", request.Headers.Accept.Select(static a => a.MediaType));
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(CreatePngBytes()) };
+        }));
+
+        var result = await ImageSaveService.DownloadAndSaveImageAsync(
+            "https://example.test/cover.png", null, outputPath, client, CancellationToken.None);
+
+        result.Should().BeTrue();
+        File.Exists(outputPath).Should().BeTrue();
+        capturedUserAgent.Should().NotBeNullOrWhiteSpace();
+        capturedAccept.Should().Contain("image/");
+    }
+
+    [Fact]
+    public async Task DownloadAndSaveImageAsyncShouldUseFallbackWhenPrimaryIsForbidden()
+    {
+        var outputPath = Path.Combine(_testOutputDir, "fallback.png");
+        var requestedUris = new List<string>();
+        using var client = new HttpClient(new StubHttpMessageHandler(request =>
+        {
+            requestedUris.Add(request.RequestUri!.AbsoluteUri);
+            return request.RequestUri!.AbsoluteUri.Contains("primary", StringComparison.OrdinalIgnoreCase)
+                ? new HttpResponseMessage(HttpStatusCode.Forbidden)
+                : new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(CreatePngBytes()) };
+        }));
+
+        var result = await ImageSaveService.DownloadAndSaveImageAsync(
+            "https://example.test/primary.png", "https://example.test/fallback-thumbnail.png", outputPath, client,
+            CancellationToken.None);
+
+        result.Should().BeTrue();
+        requestedUris.Should().HaveCount(2);
+        File.Exists(outputPath).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task DownloadAndSaveImageAsyncShouldReturnFalseWhenBothUrlsFail()
+    {
+        var outputPath = Path.Combine(_testOutputDir, "failed.png");
+        using var client = new HttpClient(new StubHttpMessageHandler(_ =>
+            new HttpResponseMessage(HttpStatusCode.Forbidden)));
+
+        var result = await ImageSaveService.DownloadAndSaveImageAsync(
+            "https://example.test/primary.png", "https://example.test/fallback.png", outputPath, client,
+            CancellationToken.None);
+
+        result.Should().BeFalse();
+        File.Exists(outputPath).Should().BeFalse();
+    }
+
+    private static byte[] CreatePngBytes()
+    {
+        using var image = new MagickImage(MagickColors.Green, 8, 8);
+        image.Format = MagickFormat.Png;
+        return image.ToByteArray();
+    }
+
+    private sealed class StubHttpMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> responder)
+        : HttpMessageHandler
+    {
+        private readonly Func<HttpRequestMessage, HttpResponseMessage> _responder = responder;
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            return Task.FromResult(_responder(request));
+        }
     }
 }

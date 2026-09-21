@@ -37,6 +37,7 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
     private ImageFolderWatcher? _imageFolderWatcher;
     private bool _isExiting;
     private CancellationTokenSource? _loadMissingCts;
+    private Task? _loadMissingTask;
     private Dictionary<string, string>? _mameLookup;
     private string _selectedRomFileName = string.Empty;
     private SystemTrayIcon? _systemTrayIcon;
@@ -870,7 +871,9 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
                 return;
             }
 
-            var filledCount = 0;
+            if (_loadMissingTask is { } pendingScan) await pendingScan;
+
+            var resolvedCount = 0;
             var window = new AiBatchWindow(
                 Settings,
                 MissingImages.ToList(),
@@ -881,13 +884,13 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
                 Owner = this
             };
 
-            void OnItemFilled(string romName)
+            void OnItemResolved(string romName)
             {
-                filledCount++;
+                resolvedCount++;
                 RemoveMissingItemByName(romName);
             }
 
-            window.ItemFilled += OnItemFilled;
+            window.ItemResolved += OnItemResolved;
             _aiBatchRunning = true;
             try
             {
@@ -896,14 +899,13 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
             finally
             {
                 _aiBatchRunning = false;
-                window.ItemFilled -= OnItemFilled;
+                window.ItemResolved -= OnItemResolved;
             }
 
-            if (filledCount > 0)
-            {
-                StatusMessage.Text = $"AI batch fill saved {filledCount} cover(s).";
-                await RefreshMissingImagesListAsync();
-            }
+            if (resolvedCount > 0)
+                StatusMessage.Text = $"AI batch fill resolved {resolvedCount} cover(s).";
+
+            await RefreshMissingImagesListAsync();
         }
         catch (Exception ex)
         {
@@ -933,9 +935,11 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
 
         var cts = new CancellationTokenSource();
         _loadMissingCts = cts;
+        var task = LoadMissingImagesListAsync(cts.Token);
+        _loadMissingTask = task;
         try
         {
-            await LoadMissingImagesListAsync(cts.Token);
+            await task;
         }
         catch (OperationCanceledException)
         {
@@ -947,6 +951,7 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         finally
         {
             if (_loadMissingCts == cts) _loadMissingCts = null;
+            if (ReferenceEquals(_loadMissingTask, task)) _loadMissingTask = null;
             cts.Dispose();
         }
     }
@@ -1004,8 +1009,7 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
                         await Task.Yield();
                     }
 
-                    if (FindCorrespondingImage(romName, imageFolderPath) == null)
-                    {
+                    if (CoverFileResolver.FindCover(imageFolderPath, romName) == null)                    {
                         if (Settings.UseMameDescriptions && _mameLookup != null &&
                             _mameLookup.TryGetValue(romName, out var description) && !string.IsNullOrEmpty(description))
                             missing.Add((romName, description));
@@ -1047,17 +1051,6 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         {
             IsCheckingMissing = false;
         }
-    }
-
-    private static string? FindCorrespondingImage(string fileNameWithoutExtension, string imageFolderPath)
-    {
-        foreach (var ext in new[] { ".png", ".jpg", ".jpeg" })
-        {
-            var imagePath = Path.Combine(imageFolderPath, fileNameWithoutExtension + ext);
-            if (File.Exists(imagePath)) return imagePath;
-        }
-
-        return null;
     }
 
     private void RemoveSelectedItem(int? index = null)

@@ -6,7 +6,7 @@ namespace FindRomCover.Services.Ai;
 
 public sealed class AiQueryHistory
 {
-    private const int MaxEntries = 10000;
+    private const int MaxEntries = 100_000;
     private static readonly TimeSpan DefaultTtl = TimeSpan.FromDays(180);
 
     private readonly string _filePath;

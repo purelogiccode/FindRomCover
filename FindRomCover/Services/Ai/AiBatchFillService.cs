@@ -72,9 +72,10 @@ public sealed class AiBatchFillService
         CancellationToken cancellationToken)
     {
         var targetPath = Path.Combine(imageFolderPath, SearchQueryHelper.SanitizeFileName(item.RomName) + ".png");
-        if (File.Exists(targetPath))
+        var existingCoverPath = CoverFileResolver.FindCover(imageFolderPath, item.RomName);
+        if (existingCoverPath != null)
             return new AiBatchItemResult(item.RomName, item.SearchName, AiBatchOutcome.SkippedAlreadyExists,
-                "Cover already exists.", targetPath);
+                "Cover already exists.", existingCoverPath);
 
         if (skipPreviouslyQueried && _queryHistory.WasQueried(targetPath))
             return new AiBatchItemResult(item.RomName, item.SearchName, AiBatchOutcome.SkippedAlreadyQueried,
@@ -153,17 +154,19 @@ public sealed class AiBatchFillService
         var apiPick = await _aiAssist.PickBestForApiAsync(item.RomName, item.SearchName, apiResults, cancellationToken)
             .ConfigureAwait(false);
 
-        if (IsConfident(apiPick) && apiResults[apiPick!.BestIndex].ImagePath is { } imageUrl)
+        var pickedApiImage = apiResults[apiPick!.BestIndex];
+        if (IsConfident(apiPick) && pickedApiImage.ImagePath is { } imageUrl)
         {
             _preRegisterExpectedFile?.Invoke(targetPath);
-            var saved = await ImageSaveService.DownloadAndSaveImageAsync(imageUrl, targetPath, cancellationToken)
+            var saved = await ImageSaveService
+                .DownloadAndSaveImageAsync(imageUrl, pickedApiImage.ThumbnailUrl, targetPath, cancellationToken)
                 .ConfigureAwait(false);
 
             if (saved)
             {
                 _queryHistory.Remove(targetPath);
                 return new AiBatchItemResult(item.RomName, item.SearchName, AiBatchOutcome.FilledFromApi,
-                    $"AI pick '{apiResults[apiPick.BestIndex].ImageName}' ({apiPick.Confidence:P0}).", targetPath);
+                    $"AI pick '{pickedApiImage.ImageName}' ({apiPick.Confidence:P0}).", targetPath);
             }
 
             return new AiBatchItemResult(item.RomName, item.SearchName, AiBatchOutcome.Failed,

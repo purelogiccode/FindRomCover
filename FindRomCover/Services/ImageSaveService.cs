@@ -1,10 +1,16 @@
 using System.IO;
+using System.Net.Http;
 using ImageMagick;
 
 namespace FindRomCover.Services;
 
 public static class ImageSaveService
 {
+    private const string BrowserUserAgent =
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 FindRomCover/3.2";
+
+    private const string ImageAcceptHeader = "image/avif,image/webp,image/apng,image/*,*/*;q=0.8";
+
     /// <summary>
     ///     Downloads an image from the given URL and saves it as a PNG file at the specified path.
     /// </summary>
@@ -12,20 +18,42 @@ public static class ImageSaveService
     /// <param name="outputPath">The path where the PNG image will be saved.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     /// <returns>True if the download and save was successful, false otherwise.</returns>
-    public static async Task<bool> DownloadAndSaveImageAsync(string imageUrl, string outputPath,
+    public static Task<bool> DownloadAndSaveImageAsync(string imageUrl, string outputPath,
         CancellationToken cancellationToken = default)
+    {
+        return DownloadAndSaveImageAsync(imageUrl, null, outputPath, cancellationToken);
+    }
+
+    /// <summary>
+    ///     Downloads an image and saves it as PNG, falling back to a second URL (for example a
+    ///     provider-hosted thumbnail) when the primary URL cannot be downloaded.
+    /// </summary>
+    public static Task<bool> DownloadAndSaveImageAsync(string imageUrl, string? fallbackImageUrl, string outputPath,
+        CancellationToken cancellationToken = default)
+    {
+        return DownloadAndSaveImageAsync(imageUrl, fallbackImageUrl, outputPath, HttpClientHelper.Client,
+            cancellationToken);
+    }
+
+    internal static async Task<bool> DownloadAndSaveImageAsync(string imageUrl, string? fallbackImageUrl,
+        string outputPath, HttpClient httpClient, CancellationToken cancellationToken)
     {
         try
         {
-            using var response = await HttpClientHelper.Client.GetAsync(imageUrl, cancellationToken);
-            if (!response.IsSuccessStatusCode)
+            if (await TryDownloadAndSaveAsync(imageUrl, outputPath, httpClient, cancellationToken).ConfigureAwait(false))
+                return true;
+
+            if (!string.IsNullOrWhiteSpace(fallbackImageUrl) &&
+                !string.Equals(fallbackImageUrl, imageUrl, StringComparison.OrdinalIgnoreCase))
             {
-                LogService.Debug($"Failed to download image. HTTP Status: {response.StatusCode}");
-                return false;
+                LogService.Warning($"Primary image download failed; trying fallback thumbnail '{fallbackImageUrl}'.");
+                if (await TryDownloadAndSaveAsync(fallbackImageUrl, outputPath, httpClient, cancellationToken)
+                        .ConfigureAwait(false))
+                    return true;
             }
 
-            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-            return await ConvertStreamToPngAndSaveAsync(stream, outputPath, cancellationToken);
+            LogService.Warning($"Could not download image '{imageUrl}'.");
+            return false;
         }
         catch (OperationCanceledException)
         {
@@ -36,6 +64,27 @@ public static class ImageSaveService
             LogService.Error(ex, "Error downloading and saving image.");
             return false;
         }
+    }
+
+    internal static async Task<bool> TryDownloadAndSaveAsync(string imageUrl, string outputPath, HttpClient httpClient,
+        CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, imageUrl);
+        request.Headers.UserAgent.ParseAdd(BrowserUserAgent);
+        request.Headers.Accept.ParseAdd(ImageAcceptHeader);
+
+        using var response = await httpClient
+            .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            LogService.Warning(
+                $"Image download returned {(int)response.StatusCode} ({response.StatusCode}) for '{imageUrl}'.");
+            return false;
+        }
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+        return await ConvertStreamToPngAndSaveAsync(stream, outputPath, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>

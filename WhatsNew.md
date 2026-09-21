@@ -15,6 +15,8 @@
 - **No duplicate queries**: missing covers that were already queried (manually or by batch fill) are remembered across sessions in the SQLite database `QueryHistory.dat`, so the AI is not asked twice for the same cover. Batch Fill skips them, and the history can be reviewed and cleared in AI Settings.
 - Images are downscaled before upload (default 512px) and verdicts are cached for 30 days to keep API usage low.
 - **Fixed empty AI responses**: reasoning models (GPT-5 Nano, Qwen3.7 Flash, Gemini thinking models) could spend the entire 400-token output limit on internal reasoning and return no text; the limit is now 4,096 tokens, and a clear error explains the cause if a model still runs out.
+- **More reliable batch downloads**: images are requested with browser-like headers, and when a source blocks the full-size Google API image, the provider-hosted thumbnail is used as a fallback instead of failing.
+- **Accurate already-filled detection**: cover detection now recognizes every supported image format and sanitized filenames, so the missing list no longer keeps games whose covers are already on disk; Batch Fill reports them once and removes them, and the list refreshes after every run.
 
 ## Under the Hood
 

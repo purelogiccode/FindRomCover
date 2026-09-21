@@ -116,6 +116,51 @@ public class AiBatchFillServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task RunAsyncShouldSkipWhenCoverExistsWithDifferentExtension()
+    {
+        var settings = CreateSettings();
+        using (var image = new MagickImage(MagickColors.Red, 64, 64))
+        {
+            image.Format = MagickFormat.Jpeg;
+            image.Write(Path.Combine(_testDir, "Super Mario Bros.jpg"));
+        }
+
+        using var ai = CreateAiService(settings, PickResponse(0, 0.95));
+        var service = new AiBatchFillService(settings, ai);
+
+        var results = await service.RunAsync(
+            [new MissingImageItem("Super Mario Bros", "Super Mario Bros")],
+            _testDir,
+            false,
+            null,
+            null,
+            CancellationToken.None);
+
+        results[0].Outcome.Should().Be(AiBatchOutcome.SkippedAlreadyExists);
+    }
+
+    [Fact]
+    public async Task RunAsyncShouldSkipWhenCoverExistsUnderSanitizedName()
+    {
+        var settings = CreateSettings();
+        CreateImage("Dragon Quest III - Soshite Densetsu e. (Japan).png");
+
+        using var ai = CreateAiService(settings, PickResponse(0, 0.95));
+        var service = new AiBatchFillService(settings, ai);
+
+        var results = await service.RunAsync(
+            [new MissingImageItem("Dragon Quest III - Soshite Densetsu e... (Japan)",
+                "Dragon Quest III - Soshite Densetsu e... (Japan)")],
+            _testDir,
+            false,
+            null,
+            null,
+            CancellationToken.None);
+
+        results[0].Outcome.Should().Be(AiBatchOutcome.SkippedAlreadyExists);
+    }
+
+    [Fact]
     public async Task RunAsyncShouldSkipItemsAlreadyQueried()
     {
         var settings = CreateSettings();
