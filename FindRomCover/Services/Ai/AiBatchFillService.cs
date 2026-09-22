@@ -165,6 +165,14 @@ public sealed class AiBatchFillService
 
             if (saved)
             {
+                if (!await IsVerifiedAsync(item.RomName, targetPath, cancellationToken).ConfigureAwait(false))
+                {
+                    TryDelete(targetPath);
+                    _queryHistory.MarkQueried(targetPath, "api-verification-rejected");
+                    return new AiBatchItemResult(item.RomName, item.SearchName, AiBatchOutcome.SkippedLowConfidence,
+                        "AI verification rejected the downloaded image.", targetPath);
+                }
+
                 _queryHistory.Remove(targetPath);
                 if (apiPick != null)
                     return new AiBatchItemResult(item.RomName, item.SearchName, AiBatchOutcome.FilledFromApi,
@@ -180,6 +188,39 @@ public sealed class AiBatchFillService
 
         return new AiBatchItemResult(item.RomName, item.SearchName, AiBatchOutcome.SkippedLowConfidence,
             "AI found no confident match.", targetPath);
+    }
+
+    private async Task<bool> IsVerifiedAsync(string romName, string imagePath, CancellationToken cancellationToken)
+    {
+        if (!_settings.AiAssistEnabled || !_settings.AiVerifyOnSave) return true;
+
+        try
+        {
+            var result = await _aiAssist.VerifyAsync(romName, romName, imagePath, cancellationToken)
+                .ConfigureAwait(false);
+            return result is null || result.IsMatch;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            LogService.Warning(ex, "AI batch fill: verification failed; proceeding without verification.");
+            return true;
+        }
+    }
+
+    private static void TryDelete(string path)
+    {
+        try
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+        catch (Exception ex)
+        {
+            LogService.Warning(ex, $"AI batch fill: could not remove unverified image '{path}'.");
+        }
     }
 
     private bool IsConfident(AiPickResult? pick)

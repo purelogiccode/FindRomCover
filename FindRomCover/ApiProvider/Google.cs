@@ -151,8 +151,12 @@ public static class Google
             throw new InvalidOperationException(
                 $"Failed to parse {ProviderName} API response. The service might be experiencing issues.", ex);
         }
-        catch (TaskCanceledException ex) when (ex.InnerException is TimeoutException)
+        catch (TaskCanceledException ex) when (!cancellationToken.IsCancellationRequested)
         {
+            // Either the linked CTS (ApiTimeoutSeconds) fired first, or HttpClient's own
+            // internal timeout fired. In both cases the outer caller's token is NOT
+            // cancelled, so this is a timeout — map it to the friendly message instead
+            // of letting the raw TaskCanceledException escape.
             LogService.Error(ex, $"{ProviderName} API request timed out");
             throw new InvalidOperationException($"{ProviderName} API request timed out. Please try again.", ex);
         }

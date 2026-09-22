@@ -13,7 +13,9 @@ public static class ImageProcessor
 
         try
         {
-            var tempFiles = Directory.GetFiles(directoryPath, "*.tmp");
+            // Matches both temp naming schemes: local saves use "*.tmp" and downloads
+            // use "<output>.tmp<8 hex chars>".
+            var tempFiles = Directory.GetFiles(directoryPath, "*.tmp*");
             foreach (var tempFile in tempFiles)
                 try
                 {
@@ -77,41 +79,9 @@ public static class ImageProcessor
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (File.Exists(targetPath))
-            try
-            {
-                File.Delete(targetPath);
-            }
-            catch (IOException ex)
-            {
-                return new ImageSaveResult(false,
-                    $"The file '{Path.GetFileName(targetPath)}' is in use by another process.",
-                    "File in Use",
-                    MessageBoxImage.Error,
-                    ex,
-                    $"User cancelled retry for file in use: {targetPath}");
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                return new ImageSaveResult(false,
-                    $"Access denied to file: {targetPath}\n\nTry running as administrator.",
-                    "Permission Error",
-                    MessageBoxImage.Error,
-                    ex,
-                    $"Access denied: {targetPath}");
-            }
-            catch (Exception ex)
-            {
-                return new ImageSaveResult(false,
-                    $"Error deleting file: {ex.Message}",
-                    "Error",
-                    MessageBoxImage.Error,
-                    ex,
-                    $"Error deleting file: {targetPath}");
-            }
-
-        cancellationToken.ThrowIfCancellationRequested();
-
+        // Do NOT delete an existing target here: the conversion writes to a temp file
+        // and only then replaces the target (see WriteImageWithRetryAsync), so a failed
+        // conversion (corrupt source, OOM, locked file) never destroys the previous cover.
         return await ProcessImageAsync(sourcePath, targetPath, cancellationToken);
     }
 

@@ -14,10 +14,33 @@ public sealed class AiVerdictCache
     private readonly TimeSpan _ttl;
     private Dictionary<string, CacheEntry>? _entries;
 
+    private static readonly Lock SharedLock = new();
+    private static readonly Dictionary<string, AiVerdictCache> SharedInstances = new(StringComparer.Ordinal);
+
     public AiVerdictCache(string? filePath = null, TimeSpan? ttl = null)
     {
         _filePath = string.IsNullOrWhiteSpace(filePath) ? DefaultFilePath : filePath;
         _ttl = ttl ?? DefaultTtl;
+    }
+
+    /// <summary>
+    ///     Returns the single process-wide instance for the given file path so that
+    ///     concurrent writers (main window, batch window) never read-modify-write over
+    ///     each other.
+    /// </summary>
+    public static AiVerdictCache GetShared(string? filePath = null, TimeSpan? ttl = null)
+    {
+        var path = string.IsNullOrWhiteSpace(filePath) ? DefaultFilePath : filePath;
+        lock (SharedLock)
+        {
+            if (!SharedInstances.TryGetValue(path, out var cache))
+            {
+                cache = new AiVerdictCache(path, ttl);
+                SharedInstances[path] = cache;
+            }
+
+            return cache;
+        }
     }
 
     public static string DefaultFilePath => Path.Combine(

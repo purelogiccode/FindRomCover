@@ -40,7 +40,7 @@
                     ToolTip="Click to save this image as cover art">
                 <StackPanel Width="{Binding ThumbnailWidth}">
                     <Image Width="{Binding ThumbnailWidth}" Height="{Binding ThumbnailHeight}"
-                           Source="{Binding ImagePath}" />
+                           Source="{Binding DisplayImage, FallbackValue={x:Null}}" />
                     <TextBlock HorizontalAlignment="Center" Text="{Binding ImageName}" FontWeight="Bold"
                                Margin="0,5,0,0" TextTrimming="CharacterEllipsis" />
                     <TextBlock HorizontalAlignment="Center" Text="{Binding ImageFileSize}" />

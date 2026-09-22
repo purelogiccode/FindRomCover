@@ -73,7 +73,7 @@ public static class ImageLoader
                 : settings?.ImageLoaderRetryDelayMilliseconds ?? DefaultRetryDelayMilliseconds;
 
             return (
-                Math.Max(0, resolvedMaxRetries),
+                Math.Max(1, resolvedMaxRetries),
                 Math.Max(0, resolvedRetryDelay));
         }
         catch

@@ -18,14 +18,11 @@ public static class ErrorLogger
     internal static volatile bool IsDisposed;
     internal static readonly Lock DisposeLock = new();
 
-    internal static readonly string ApiLogFilePath =
-        Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ApiLogError.txt");
+    internal static readonly string ApiLogFilePath = AppDataPaths.LogFilePath("ApiLogError.txt");
 
-    internal static readonly string UserLogFilePath =
-        Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "UserLogError.txt");
+    internal static readonly string UserLogFilePath = AppDataPaths.LogFilePath("UserLogError.txt");
 
-    internal static readonly string InternalLogFilePath =
-        Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "InternalLog.txt");
+    internal static readonly string InternalLogFilePath = AppDataPaths.LogFilePath("InternalLog.txt");
 
     private static readonly SemaphoreSlim LogFileLock = new(1, 1);
     private static readonly SemaphoreSlim InternalLogSemaphore = new(1, 1);
@@ -56,45 +53,50 @@ public static class ErrorLogger
         var bugReport = BugReportModel.FromException(ex, contextMessage);
         var currentErrorMessage = bugReport.ToString();
 
-        var lockAcquired = false;
+        // Append to the log files first, while holding the lock only for the local
+        // writes. The network send runs OUTSIDE the lock so that a burst of errors
+        // does not serialize behind a slow (up to 30 s) API call.
         try
         {
+            AppDataPaths.EnsureBaseDirectory();
+
             await LogFileLock.WaitAsync();
-            lockAcquired = true;
-
-            if (IsDisposed) return;
-
-            await File.AppendAllTextAsync(UserLogFilePath, currentErrorMessage);
-            await File.AppendAllTextAsync(ApiLogFilePath, currentErrorMessage);
-
-            var sendSuccess = false;
             try
             {
-                sendSuccess = await SendLogToApiAsync(bugReport, apiTimeoutSeconds);
-            }
-            catch (Exception loggingEx)
-            {
-                _ = WriteInternalLogAsync("Failed to send log to API.", loggingEx);
-            }
+                if (IsDisposed) return;
 
-            if (sendSuccess)
-                try
-                {
-                    if (File.Exists(ApiLogFilePath)) await File.WriteAllTextAsync(ApiLogFilePath, string.Empty);
-                }
-                catch (Exception loggingEx)
-                {
-                    _ = WriteInternalLogAsync("Failed to clear API log file.", loggingEx);
-                }
+                await File.AppendAllTextAsync(UserLogFilePath, currentErrorMessage);
+                await File.AppendAllTextAsync(ApiLogFilePath, currentErrorMessage);
+            }
+            finally
+            {
+                LogFileLock.Release();
+            }
         }
         catch (Exception loggingEx)
         {
             _ = WriteInternalLogAsync("Failed to write log files.", loggingEx);
         }
-        finally
+
+        var sendSuccess = false;
+        try
         {
-            if (lockAcquired) LogFileLock.Release();
+            sendSuccess = await SendLogToApiAsync(bugReport, apiTimeoutSeconds);
         }
+        catch (Exception loggingEx)
+        {
+            _ = WriteInternalLogAsync("Failed to send log to API.", loggingEx);
+        }
+
+        if (sendSuccess)
+            try
+            {
+                if (File.Exists(ApiLogFilePath)) await File.WriteAllTextAsync(ApiLogFilePath, string.Empty);
+            }
+            catch (Exception loggingEx)
+            {
+                _ = WriteInternalLogAsync("Failed to clear API log file.", loggingEx);
+            }
     }
 
     private static int ResolveApiTimeoutSeconds(int apiTimeoutSeconds)

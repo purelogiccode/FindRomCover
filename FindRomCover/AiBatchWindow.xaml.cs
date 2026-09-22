@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Globalization;
 using System.IO;
 using System.Windows;
@@ -36,6 +37,8 @@ public partial class AiBatchWindow
         _imageFolderPath = imageFolderPath;
         _preRegisterExpectedFile = preRegisterExpectedFile;
         _extraQuery = extraQuery;
+
+        Closing += AiBatchWindow_Closing;
 
         var hasGoogleKey = !string.IsNullOrWhiteSpace(settings.GoogleKey);
         ChkUseApiFallback.IsChecked = hasGoogleKey;
@@ -164,6 +167,14 @@ public partial class AiBatchWindow
         if (_running) return;
 
         Close();
+    }
+
+    private void AiBatchWindow_Closing(object? sender, CancelEventArgs e)
+    {
+        // Closing the window (X button, Alt+F4) while a batch is running must stop the
+        // batch — otherwise downloads/saves keep running against a dead window.
+        if (_running)
+            _cts?.Cancel();
     }
 
     private string TargetPathFor(MissingImageItem item)

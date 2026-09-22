@@ -971,12 +971,12 @@ public class SettingsManager : INotifyPropertyChanged
             var legacyData = new SettingsData
             {
                 SimilarityThreshold = double.TryParse(
-                    root.Element("ThumbnailSize")?.Value,
+                    root.Element("SimilarityThreshold")?.Value,
                     NumberStyles.Any,
                     CultureInfo.InvariantCulture,
                     out var parsedThreshold)
                     ? parsedThreshold
-                    : 300,
+                    : double.Parse(AppConstants.Messages.DefaultSimilarityThreshold, CultureInfo.InvariantCulture),
                 SimilarityAlgorithm = AppConstants.Algorithms.JaroWinkler,
                 BaseTheme = root.Element("BaseTheme")?.Value ?? "Light",
                 AccentColor = root.Element("AccentColor")?.Value ?? "Blue",

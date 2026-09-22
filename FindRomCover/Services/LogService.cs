@@ -1,6 +1,5 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
-using System.IO;
 using System.Text.Json;
 using System.Windows;
 using FindRomCover.Models;
@@ -11,6 +10,8 @@ namespace FindRomCover.Services;
 
 public static class LogService
 {
+    public const string WatcherErrorPropertyName = "WatcherError";
+
     private static ILogger _logger = new SilentLogger();
     private static readonly ObservableCollection<LogEntry> LogMessages = new();
     private static readonly Lock Lock = new();
@@ -29,7 +30,8 @@ public static class LogService
         {
             if (_initialized) return;
 
-            var logFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "app.log");
+            AppDataPaths.EnsureBaseDirectory();
+            var logFilePath = AppDataPaths.LogFilePath("app.log");
 
             _logger = new LoggerConfiguration()
                 .MinimumLevel.Debug()
@@ -93,6 +95,18 @@ public static class LogService
     public static void Error(Exception ex, string message)
     {
         _logger.Error(ex, message);
+    }
+
+    /// <summary>
+    ///     Logs an error raised while processing a user file in the image-folder watcher
+    ///     (corrupt image, locked file, dropped file, ...). These are environmental
+    ///     per-file failures, not application bugs — the <see cref="BugReportSink"/>
+    ///     suppresses automatic bug reports for events marked with
+    ///     <see cref="WatcherErrorPropertyName"/>.
+    /// </summary>
+    public static void ErrorWatcher(Exception ex, string message)
+    {
+        _logger.ForContext(WatcherErrorPropertyName, true).Error(ex, message);
     }
 
     public static void Fatal(string message)

@@ -7,7 +7,9 @@ namespace FindRomCover.Services;
 
 public static class ImageSaveService
 {
-    private const string BrowserUserAgent =
+    private const int MaxDownloadBytes = 50 * 1024 * 1024;
+
+    internal const string BrowserUserAgent =
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 FindRomCover/3.2";
 
     private const string ImageAcceptHeader = "image/avif,image/webp,image/apng,image/*,*/*;q=0.8";
@@ -116,7 +118,24 @@ public static class ImageSaveService
             return false;
         }
 
-        var bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
+        var contentLength = response.Content.Headers.ContentLength;
+        if (contentLength is > MaxDownloadBytes)
+        {
+            LogService.Warning(
+                $"Image download for '{imageUrl}' reports {contentLength} bytes, exceeding the {MaxDownloadBytes}-byte limit; rejected.");
+            return false;
+        }
+
+        await using var contentStream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+        var bytes = await ReadAllBytesBoundedAsync(contentStream, MaxDownloadBytes, cancellationToken)
+            .ConfigureAwait(false);
+        if (bytes == null)
+        {
+            LogService.Warning(
+                $"Image download for '{imageUrl}' exceeded the {MaxDownloadBytes}-byte limit; rejected.");
+            return false;
+        }
+
         if (bytes.Length == 0)
         {
             LogService.Warning($"Image download for '{imageUrl}' returned an empty response body.");
@@ -170,9 +189,15 @@ public static class ImageSaveService
             var destDir = Path.GetDirectoryName(outputPath);
             if (!string.IsNullOrEmpty(destDir) && !Directory.Exists(destDir)) Directory.CreateDirectory(destDir);
 
-            await using var buffer = new MemoryStream();
-            await inputStream.CopyToAsync(buffer, cancellationToken).ConfigureAwait(false);
-            var bytes = buffer.ToArray();
+            var bytes = await ReadAllBytesBoundedAsync(inputStream, MaxDownloadBytes, cancellationToken)
+                .ConfigureAwait(false);
+            if (bytes == null)
+            {
+                LogService.Warning(
+                    $"Stream exceeds the {MaxDownloadBytes}-byte limit; skipping conversion to '{outputPath}'.");
+                return false;
+            }
+
             if (!LooksLikeImageData(bytes))
             {
                 LogService.Warning(
@@ -180,8 +205,8 @@ public static class ImageSaveService
                 return false;
             }
 
-            buffer.Position = 0;
-            using (var image = new MagickImage(buffer))
+            using var imageStream = new MemoryStream(bytes);
+            using (var image = new MagickImage(imageStream))
             {
                 if (minWidth > 0 && image.Width < minWidth)
                 {
@@ -223,6 +248,25 @@ public static class ImageSaveService
                     LogService.Warning(cleanupEx, $"Failed to clean up temporary file '{tempOutputPath}'.");
                 }
         }
+    }
+
+    /// <summary>
+    ///     Reads the stream fully but aborts (returns null) once <paramref name="maxBytes"/>
+    ///     is exceeded, so a hostile or broken server can never OOM the process.
+    /// </summary>
+    private static async Task<byte[]?> ReadAllBytesBoundedAsync(Stream stream, int maxBytes,
+        CancellationToken cancellationToken)
+    {
+        await using var buffer = new MemoryStream();
+        var chunk = new byte[81920];
+        int read;
+        while ((read = await stream.ReadAsync(chunk, cancellationToken).ConfigureAwait(false)) > 0)
+        {
+            buffer.Write(chunk, 0, read);
+            if (buffer.Length > maxBytes) return null;
+        }
+
+        return buffer.ToArray();
     }
 
     internal static bool LooksLikeImageData(byte[] bytes)

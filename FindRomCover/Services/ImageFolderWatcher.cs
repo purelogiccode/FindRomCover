@@ -24,6 +24,7 @@ public sealed class ImageFolderWatcher : IDisposable
     private string? _watchedFolderPath;
     private int _consecutiveErrorCount;
     private DateTime _lastErrorUtc = DateTime.MinValue;
+    private bool _gaveUp;
 
     private const int MaxConsecutiveRestarts = 5;
     private static readonly TimeSpan RestartCooldown = TimeSpan.FromMinutes(1);
@@ -57,6 +58,22 @@ public sealed class ImageFolderWatcher : IDisposable
             lock (_restartLock)
             {
                 return _watchedFolderPath;
+            }
+        }
+    }
+
+    /// <summary>
+    ///     True while the watcher is active and has not given up on automatic restarts.
+    ///     After a give-up the underlying watcher is stopped so callers can detect the
+    ///     dead state and revive it (e.g. by re-selecting the folder).
+    /// </summary>
+    public bool IsWatching
+    {
+        get
+        {
+            lock (_restartLock)
+            {
+                return _watcher != null && !_gaveUp;
             }
         }
     }
@@ -182,6 +199,7 @@ public sealed class ImageFolderWatcher : IDisposable
             {
                 _watchedFolderPath = folderPath;
                 _consecutiveErrorCount = 0;
+                _gaveUp = false;
             }
 
             LogService.Information($"ImageFolderWatcher: started watching '{folderPath}'");
@@ -299,6 +317,7 @@ public sealed class ImageFolderWatcher : IDisposable
     {
         string? folderPath;
         CancellationToken token;
+        var gaveUp = false;
         lock (_restartLock)
         {
             if (_disposed) return;
@@ -312,12 +331,24 @@ public sealed class ImageFolderWatcher : IDisposable
 
             if (_consecutiveErrorCount > MaxConsecutiveRestarts)
             {
+                _gaveUp = true;
+                gaveUp = true;
                 LogService.Warning(
                     $"ImageFolderWatcher: giving up automatic restart after {_consecutiveErrorCount - 1} attempts for '{_watchedFolderPath}' — automatic detection disabled until the folder is re-selected");
-                return;
+                folderPath = _watchedFolderPath;
             }
+            else
+            {
+                folderPath = _watchedFolderPath;
+            }
+        }
 
-            folderPath = _watchedFolderPath;
+        if (gaveUp)
+        {
+            // Drop the broken watcher so IsWatching reports false and a re-selection
+            // of the same folder can revive it. Do not clear the path intent.
+            StopCore(clearWatchedPath: false);
+            return;
         }
 
         if (string.IsNullOrEmpty(folderPath)) return;
@@ -573,17 +604,11 @@ public sealed class ImageFolderWatcher : IDisposable
                     {
                         if (File.Exists(renamedPath))
                         {
+                            // Never delete an existing (possibly good) cover. Rename the
+                            // dropped file to a free name instead.
                             LogService.Debug(
-                                $"ImageFolderWatcher: target '{Path.GetFileName(renamedPath)}' already exists, deleting it first");
-                            try
-                            {
-                                File.Delete(renamedPath);
-                            }
-                            catch (Exception ex)
-                            {
-                                LogService.Error(ex,
-                                    $"ImageFolderWatcher: failed to delete existing target '{renamedPath}'");
-                            }
+                                $"ImageFolderWatcher: target '{Path.GetFileName(renamedPath)}' already exists — renaming to a free name instead of deleting it");
+                            renamedPath = GetFreeRenameTargetPath(renamedPath);
                         }
 
                         var renamed = await MoveFileWithRetryAsync(filePath, renamedPath);
@@ -642,7 +667,7 @@ public sealed class ImageFolderWatcher : IDisposable
             }
             catch (Exception ex)
             {
-                LogService.Error(ex, $"Error processing new image in folder: {filePath}");
+                LogService.ErrorWatcher(ex, $"Error processing new image in folder: {filePath}");
             }
             finally
             {
@@ -666,7 +691,7 @@ public sealed class ImageFolderWatcher : IDisposable
         }
         catch (Exception ex)
         {
-            LogService.Error(ex, "Error processing new image in folder.");
+            LogService.ErrorWatcher(ex, "Error processing new image in folder.");
         }
     }
 
@@ -720,6 +745,23 @@ public sealed class ImageFolderWatcher : IDisposable
         }
     }
 
+    private static string GetFreeRenameTargetPath(string preferredPath)
+    {
+        if (!File.Exists(preferredPath)) return preferredPath;
+
+        var directory = Path.GetDirectoryName(preferredPath) ?? ".";
+        var fileName = Path.GetFileNameWithoutExtension(preferredPath);
+        var extension = Path.GetExtension(preferredPath);
+
+        for (var i = 1; i < 1000; i++)
+        {
+            var candidate = Path.Combine(directory, $"{fileName} ({i}){extension}");
+            if (!File.Exists(candidate)) return candidate;
+        }
+
+        return preferredPath;
+    }
+
     private static async Task<bool> MoveFileWithRetryAsync(string sourcePath, string targetPath)
     {
         const int maxRetries = 5;
@@ -749,7 +791,7 @@ public sealed class ImageFolderWatcher : IDisposable
             }
             catch (Exception ex)
             {
-                LogService.Error(ex,
+                LogService.ErrorWatcher(ex,
                     $"MoveFileWithRetryAsync: attempt {attempt} failed for '{sourcePath}' -> '{targetPath}'");
                 if (attempt >= maxRetries) return false;
 
@@ -780,7 +822,7 @@ public sealed class ImageFolderWatcher : IDisposable
             catch (Exception ex)
             {
                 lastError = ex.Message;
-                LogService.Error(ex, $"Failed to convert image to PNG: {sourcePath}");
+                LogService.ErrorWatcher(ex, $"Failed to convert image to PNG: {sourcePath}");
                 if (attempt < maxRetries)
                 {
                     LogService.Debug($"ImageFolderWatcher: convert retry {attempt}/{maxRetries} for '{sourcePath}'");

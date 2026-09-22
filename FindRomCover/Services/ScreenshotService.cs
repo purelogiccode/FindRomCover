@@ -9,7 +9,7 @@ namespace FindRomCover.Services;
 public static class ScreenshotService
 {
     private const int DwmwaExtendedFrameBounds = 9;
-    private static readonly string ScreenshotFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Screenshot");
+    private static readonly string ScreenshotFolder = Path.Combine(AppDataPaths.BaseDirectory, "Screenshot");
 
     [DllImport("user32.dll")]
     private static extern IntPtr GetForegroundWindow();

@@ -36,7 +36,7 @@ public partial class AiSettingsWindow
 
     private string ModelCacheKey => $"{SelectedProvider}|{TxtBaseUrl.Text.Trim().ToLowerInvariant()}";
 
-    private AiVerdictCache ModelCache => _modelCache ??= new AiVerdictCache(
+    private AiVerdictCache ModelCache => _modelCache ??= AiVerdictCache.GetShared(
         Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "FindRomCover",

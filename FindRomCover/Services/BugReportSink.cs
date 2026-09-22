@@ -26,7 +26,7 @@ public class BugReportSink : ILogEventSink
             var contextMessage = FormatMessage(logEvent);
             var ex = logEvent.Exception;
 
-            if (IsTransientWatcherError(ex, contextMessage))
+            if (IsTransientWatcherError(logEvent, ex, contextMessage))
                 return;
 
             if (ex == null && logEvent.Level >= LogEventLevel.Error) ex = new InvalidOperationException(contextMessage);
@@ -58,13 +58,20 @@ public class BugReportSink : ILogEventSink
     }
 
     /// <summary>
-    /// FileSystemWatcher infrastructure failures (buffer overflow, access denied,
-    /// drive disconnected, AV lock, ...) are environmental — not application bugs.
-    /// Suppress them so they never create automatic bug reports (see issue #66867:
-    /// Win32Exception (5) "Accesso negato" from ImageFolderWatcher).
+    ///     FileSystemWatcher infrastructure failures (buffer overflow, access denied,
+    ///     drive disconnected, AV lock, ...) are environmental — not application bugs.
+    ///     Suppress them so they never create automatic bug reports (see issue #66867:
+    ///     Win32Exception (5) "Accesso negato" from ImageFolderWatcher).
     /// </summary>
-    private static bool IsTransientWatcherError(Exception? ex, string contextMessage)
+    private static bool IsTransientWatcherError(LogEvent logEvent, Exception? ex, string contextMessage)
     {
+        // Structured marker: per-file watcher processing failures (corrupt image,
+        // locked file, dropped file) are marked by LogService.ErrorWatcher and must
+        // never file bug reports — independent of message wording.
+        if (logEvent.Properties.TryGetValue(LogService.WatcherErrorPropertyName, out var property) &&
+            property is ScalarValue { Value: bool isWatcherError } && isWatcherError)
+            return true;
+
         if (string.IsNullOrEmpty(contextMessage))
             return false;
 

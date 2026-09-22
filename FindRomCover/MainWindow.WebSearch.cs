@@ -1,8 +1,10 @@
 using System.Globalization;
 using System.IO;
+using System.Net.Http;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
+using System.Windows.Media.Imaging;
 using FindRomCover.ApiProvider;
 using FindRomCover.Models;
 using FindRomCover.Services;
@@ -100,12 +102,14 @@ public partial class MainWindow
     {
         try
         {
-            var apiSearchQuery = $"\"{searchQuery.Replace("\"", "")}\"";
-
+            // searchQuery is already built by TriggerActiveTabSearch as
+            // "\"cleaned name\" extra terms" — pass it through unchanged. Re-quoting
+            // the whole string would fold the extra terms into the exact phrase
+            // (mirrors AiBatchFillService.BuildApiQuery).
             List<ImageData> coverImageUrls;
             try
             {
-                coverImageUrls = await FetchImagesWithRetryAsync(apiSearchQuery, token);
+                coverImageUrls = await FetchImagesWithRetryAsync(searchQuery, token);
             }
             catch (InvalidOperationException ex) when (ex.Message.Contains("API Key is not set",
                                                            StringComparison.OrdinalIgnoreCase))
@@ -152,6 +156,7 @@ public partial class MainWindow
                         result.ThumbnailWidth = thumbnailSize;
                         result.ThumbnailHeight = thumbnailSize;
                         PanelImages.Add(result);
+                        LoadApiThumbnailAsync(result);
                     }
 
                 IsSearching = false;
@@ -216,27 +221,113 @@ public partial class MainWindow
             var result = await ImageSaveService.DownloadAndSaveImageAsync(imageData.ImagePath,
                 imageData.ThumbnailUrl, newFileName, Settings.AiMinCoverWidth);
 
-            if (result)
-            {
-                App.AudioService.PlayClickSound();
-                RemoveSelectedItem();
-                PanelImages.Clear();
-                UpdateMissingCount();
-            }
-            else
+            if (!result)
             {
                 MessageBox.Show(
                     "The image could not be downloaded. The server may have blocked the request or the image is no longer available.\n\nPlease try a different image.",
                     "Download Failed",
                     MessageBoxButton.OK,
                     MessageBoxImage.Warning);
+                return;
             }
+
+            var verification = await TryVerifyImageAsync(_selectedRomFileName, newFileName);
+            if (verification is { IsMatch: false })
+            {
+                var choice = MessageBox.Show(
+                    $"AI thinks this image is not a cover for '{_selectedRomFileName}'.\n\n" +
+                    $"{verification.Reason}\n\nKeep the downloaded file anyway?",
+                    "AI Verification", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+
+                if (choice != MessageBoxResult.Yes)
+                {
+                    try
+                    {
+                        if (File.Exists(newFileName)) File.Delete(newFileName);
+                    }
+                    catch (Exception deleteEx)
+                    {
+                        LogService.Warning(deleteEx, $"Could not remove unverified image '{newFileName}'.");
+                    }
+
+                    return;
+                }
+            }
+
+            App.AudioService.PlayClickSound();
+            RemoveMissingItemByName(_selectedRomFileName);
+            PanelImages.Clear();
+            UpdateMissingCount();
         }
         catch (Exception ex)
         {
             MessageBox.Show($"Error saving image: {ex.Message}", "Error", MessageBoxButton.OK,
                 MessageBoxImage.Error);
             LogService.Error(ex, "Error saving API image");
+        }
+    }
+
+    /// <summary>
+    ///     Downloads the remote thumbnail with the app's HttpClient (browser user-agent,
+    ///     bounded timeout) and shows it via <see cref="ImageData.ImageSource"/>. WPF never
+    ///     touches the raw remote URL directly, so hosts that block no-User-Agent requests
+    ///     still display thumbnails and the UI thread is not blocked by network I/O.
+    /// </summary>
+    private static void LoadApiThumbnailAsync(ImageData imageData)
+    {
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var url = string.IsNullOrWhiteSpace(imageData.ThumbnailUrl)
+                    ? imageData.ImagePath
+                    : imageData.ThumbnailUrl;
+                if (string.IsNullOrWhiteSpace(url)) return;
+
+                using var request = new HttpRequestMessage(HttpMethod.Get, url);
+                request.Headers.UserAgent.ParseAdd(ImageSaveService.BrowserUserAgent);
+
+                using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+                using var response = await HttpClientHelper.Client.SendAsync(request, timeoutCts.Token);
+                if (!response.IsSuccessStatusCode) return;
+
+                var bytes = await response.Content.ReadAsByteArrayAsync(timeoutCts.Token);
+                if (bytes.Length == 0) return;
+
+                var bitmap = await Task.Run(() => DecodeThumbnail(bytes));
+                if (bitmap == null) return;
+
+                await Application.Current.Dispatcher.InvokeAsync(() => { imageData.ImageSource = bitmap; });
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (Exception ex)
+            {
+                LogService.Debug($"API thumbnail load failed for '{imageData.ImagePath}': {ex.Message}");
+            }
+        });
+    }
+
+    private static BitmapImage? DecodeThumbnail(byte[] bytes)
+    {
+        try
+        {
+            using var stream = new MemoryStream(bytes);
+            var bitmap = new BitmapImage();
+            bitmap.BeginInit();
+            bitmap.CacheOption = BitmapCacheOption.OnLoad;
+            bitmap.StreamSource = stream;
+            bitmap.EndInit();
+
+            if (bitmap.CanFreeze) bitmap.Freeze();
+
+            return bitmap;
+        }
+        catch (Exception ex)
+        {
+            LogService.Debug($"API thumbnail decode failed: {ex.Message}");
+            return null;
         }
     }
 
@@ -292,13 +383,16 @@ public partial class MainWindow
                 return;
             }
 
-            MarkAiQuery(selectedItem);
-
             if (!result.HasPick || result.BestIndex < 0 || result.BestIndex >= candidates.Count)
             {
                 StatusMessage.Text = $"AI found no genuine cover among the API results. {result.Reason}".Trim();
                 return;
             }
+
+            // Only record the query when the model actually found a pick. Recording
+            // declined runs would make the batch skip this ROM for 180 days even
+            // though nothing was ever found.
+            MarkAiQuery(selectedItem);
 
             foreach (var image in candidates) image.AiBadge = string.Empty;
 

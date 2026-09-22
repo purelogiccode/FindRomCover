@@ -51,7 +51,20 @@ public class ImageData : INotifyPropertyChanged
 
     public double SimilarityScore { get; init; }
 
-    public BitmapImage? ImageSource { get; init; }
+    private BitmapImage? _imageSource;
+
+    public BitmapImage? ImageSource
+    {
+        get => _imageSource;
+        set
+        {
+            if (ReferenceEquals(_imageSource, value)) return;
+
+            _imageSource = value;
+            OnPropertyChanged(nameof(ImageSource));
+            OnPropertyChanged(nameof(DisplayImage));
+        }
+    }
 
     public BitmapImage DisplayImage => ImageSource ?? BrokenImageLazy.Value;
 

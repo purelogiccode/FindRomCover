@@ -201,14 +201,9 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         _loadMissingCts?.Cancel();
         _aiAssistCts?.Cancel();
 
-        try
-        {
-            _findSimilarTask?.Wait(TimeSpan.FromSeconds(2));
-        }
-        catch
-        {
-            /* ignored - task was cancelled */
-        }
+        // NOTE: never block the UI thread on the search/scan tasks here — they post
+        // continuations back to this dispatcher. Cancellation is requested above and
+        // SettleBackgroundTasksAsync (invoked from OnClosed) awaits them off-thread.
 
         _findSimilarCts?.Dispose();
         _findSimilarCts = null;
@@ -1049,7 +1044,10 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         }
         finally
         {
-            IsCheckingMissing = false;
+            // Only the current run may clear the flag — a stale run that was cancelled
+            // by a newer scan must not stop the new run's spinner.
+            if (_loadMissingCts is null || cancellationToken.Equals(_loadMissingCts.Token))
+                IsCheckingMissing = false;
         }
     }
 
@@ -1510,7 +1508,10 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
 
     private void StartImageFolderWatcher(string? folderPath)
     {
-        if (string.Equals(_watchedFolderPath, folderPath, StringComparison.OrdinalIgnoreCase))
+        var samePath = string.Equals(_watchedFolderPath, folderPath, StringComparison.OrdinalIgnoreCase);
+        var watcherAlive = _imageFolderWatcher is { IsWatching: true };
+
+        if (samePath && watcherAlive)
             return;
 
         _watchedFolderPath = folderPath;
@@ -1676,6 +1677,35 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
     protected override void OnClosed(EventArgs e)
     {
         Dispose();
+        _ = SettleBackgroundTasksAsync();
         base.OnClosed(e);
+    }
+
+    /// <summary>
+    ///     Awaits the cancelled search/scan tasks after the window closes so they do not
+    ///     keep running against disposed state. Never blocks the UI thread; each task is
+    ///     bounded by a timeout.
+    /// </summary>
+    private async Task SettleBackgroundTasksAsync()
+    {
+        var timeout = Task.Delay(TimeSpan.FromSeconds(5));
+
+        try
+        {
+            if (_findSimilarTask != null) await Task.WhenAny(_findSimilarTask, timeout);
+        }
+        catch
+        {
+            /* ignored - task was cancelled */
+        }
+
+        try
+        {
+            if (_loadMissingTask != null) await Task.WhenAny(_loadMissingTask, timeout);
+        }
+        catch
+        {
+            /* ignored - task was cancelled */
+        }
     }
 }

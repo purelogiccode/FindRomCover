@@ -35,6 +35,10 @@ public partial class MainWindow
 
             if (LstMissingImages.SelectedItem is not MissingImageItem selectedItem)
             {
+                // No ROM selected anymore — the watcher must not rename a future dropped
+                // file onto the previously selected (possibly already filled) ROM.
+                _imageFolderWatcher?.PendingRenameTarget = null;
+
                 SimilarImages.Clear();
                 PanelImages.Clear();
                 LblLocalSearchQuery.Content = null;
@@ -148,8 +152,9 @@ public partial class MainWindow
             _findSimilarCts = null;
         }
 
-        _findSimilarCts = new CancellationTokenSource();
-        var cancellationToken = _findSimilarCts.Token;
+        var cts = new CancellationTokenSource();
+        _findSimilarCts = cts;
+        var cancellationToken = cts.Token;
 
         IsFindingSimilar = true;
 
@@ -245,7 +250,10 @@ public partial class MainWindow
         }
         finally
         {
-            IsFindingSimilar = false;
+            // Only the current run may clear the flag — a stale run that was
+            // superseded by a newer selection must not stop the new run's spinner.
+            if (ReferenceEquals(_findSimilarCts, cts))
+                IsFindingSimilar = false;
         }
     }
 
@@ -311,13 +319,16 @@ public partial class MainWindow
                 return;
             }
 
-            MarkAiQuery(selectedItem);
-
             if (!result.HasPick || result.BestIndex < 0 || result.BestIndex >= candidates.Count)
             {
                 StatusMessage.Text = $"AI found no genuine cover among the candidates. {result.Reason}".Trim();
                 return;
             }
+
+            // Only record the query when the model actually found a pick. Recording
+            // declined runs would make the batch skip this ROM for 180 days even
+            // though nothing was ever found.
+            MarkAiQuery(selectedItem);
 
             foreach (var image in candidates) image.AiBadge = string.Empty;
 
@@ -407,7 +418,7 @@ public partial class MainWindow
             if (result.Success)
             {
                 App.AudioService.PlayClickSound();
-                RemoveSelectedItem();
+                RemoveMissingItemByName(_selectedRomFileName);
                 SimilarImages.Clear();
                 UpdateMissingCount();
             }

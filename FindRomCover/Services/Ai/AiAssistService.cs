@@ -26,7 +26,7 @@ public sealed class AiAssistService : IDisposable
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _client = client ?? new OpenAiCompatibleVisionClient();
-        _cache = cache ?? new AiVerdictCache();
+        _cache = cache ?? AiVerdictCache.GetShared();
         _imageHttpClient = imageHttpClient ?? HttpClientHelper.Client;
     }
 
