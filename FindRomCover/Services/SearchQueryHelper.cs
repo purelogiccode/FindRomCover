@@ -9,6 +9,13 @@ internal static partial class SearchQueryHelper
     // e.g., (USA), (Europe), (Japan), (Brazil), (En,Ja), [!], (Rev A), (v1.1), (Unl), (Mega Drive 4)
     private static readonly Regex TagPattern = MyRegex();
 
+    private static readonly HashSet<string> ReservedDeviceNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "CON", "PRN", "AUX", "NUL",
+        "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+        "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
+    };
+
     internal static string CleanSearchQuery(string fileName)
     {
         var cleanedName = TagPattern.Replace(fileName, "").Trim();
@@ -35,7 +42,14 @@ internal static partial class SearchQueryHelper
 
         sanitized = sanitized.Trim().TrimEnd('.');
 
-        return string.IsNullOrWhiteSpace(sanitized) ? "unnamed" : sanitized;
+        if (string.IsNullOrWhiteSpace(sanitized))
+            return "unnamed";
+
+        var baseName = sanitized.Split('.', 2)[0];
+        if (ReservedDeviceNames.Contains(baseName))
+            sanitized = "_" + sanitized;
+
+        return sanitized;
     }
 
     [GeneratedRegex(@"\s*(\(.*?\)|\[.*?\]|\{.*?\})", RegexOptions.None | RegexOptions.ExplicitCapture, 500)]

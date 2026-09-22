@@ -274,7 +274,7 @@ public static class ImageSaveService
         if (bytes.Length < 4) return false;
 
         if (bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47) return true;
-        if (bytes[0] == 0xFF && (bytes[1] == 0xD8 || bytes[1] == 0x0A)) return true;
+        if (bytes[0] == 0xFF && bytes[1] == 0xD8) return true;
         if (bytes[0] == 0x47 && bytes[1] == 0x49 && bytes[2] == 0x46) return true;
         if (bytes[0] == 0x42 && bytes[1] == 0x4D) return true;
         if (bytes[0] == 0x49 && bytes[1] == 0x49 && bytes[2] == 0x2A && bytes[3] == 0x00) return true;

@@ -41,9 +41,14 @@ public sealed class AiAssistService : IDisposable
         if (!IsEnabled || candidates.Count == 0) return null;
 
         var options = _settings.GetAiVisionOptions();
-        var filtered = candidates
-            .Where(candidate => candidate.SimilarityScore >= options.CandidateThreshold)
-            .ToList();
+        var filtered = new List<ImageData>();
+        var originalIndices = new List<int>();
+        for (var i = 0; i < candidates.Count; i++)
+            if (candidates[i].SimilarityScore >= options.CandidateThreshold)
+            {
+                filtered.Add(candidates[i]);
+                originalIndices.Add(i);
+            }
 
         if (filtered.Count == 0)
         {
@@ -54,6 +59,11 @@ public sealed class AiAssistService : IDisposable
 
         var inputs = PrepareLocalCandidates(filtered, options.MaxCandidates, options.ImageMaxDimension);
         if (inputs.Count == 0) return null;
+
+        // SourceIndex from PrepareLocalCandidates points into the threshold-filtered
+        // list; remap it so BestIndex always indexes the caller's original list.
+        for (var i = 0; i < inputs.Count; i++)
+            inputs[i] = inputs[i] with { SourceIndex = originalIndices[inputs[i].SourceIndex] };
 
         return await PickBestCoreAsync(romName, searchName, inputs, options, AiPickKind.Local, cancellationToken)
             .ConfigureAwait(false);

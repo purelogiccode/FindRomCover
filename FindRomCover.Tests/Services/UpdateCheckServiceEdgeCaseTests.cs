@@ -70,11 +70,11 @@ public class UpdateCheckServiceEdgeCaseTests
     }
 
     [Fact]
-    public void ParseReleaseResponseWithEmptyJsonShouldThrow()
+    public void ParseReleaseResponseWithEmptyJsonShouldNotIndicateUpdate()
     {
-        var act = static () => UpdateCheckService.ParseReleaseResponse("{}", new Version("1.0.0"));
+        var result = UpdateCheckService.ParseReleaseResponse("{}", new Version("1.0.0"));
 
-        act.Should().Throw<KeyNotFoundException>();
+        result.IsUpdateAvailable.Should().BeFalse();
     }
 
     [Fact]

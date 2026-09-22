@@ -23,9 +23,12 @@ public sealed class SystemTrayIcon : IDisposable
 
         if (_notifyIcon != null)
         {
+            var contextMenu = _notifyIcon.ContextMenuStrip;
+            _notifyIcon.ContextMenuStrip = null;
             _notifyIcon.Visible = false;
             _notifyIcon.Dispose();
             _notifyIcon = null;
+            contextMenu?.Dispose();
         }
     }
 

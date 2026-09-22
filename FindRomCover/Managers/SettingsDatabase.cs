@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.IO;
 using FindRomCover.Services;
 using Microsoft.Data.Sqlite;
@@ -6,14 +7,32 @@ namespace FindRomCover.Managers;
 
 public sealed class SettingsDatabase
 {
+    private static readonly ConcurrentDictionary<string, Lock> FileLocks = new(StringComparer.OrdinalIgnoreCase);
+
     private readonly string _filePath;
-    private readonly Lock _lock = new();
+    private readonly Lock _lock;
 
     public SettingsDatabase(string filePath)
     {
         _filePath = string.IsNullOrWhiteSpace(filePath)
             ? throw new ArgumentException("A settings database path is required.", nameof(filePath))
             : filePath;
+        _lock = GetFileLock(_filePath);
+    }
+
+    private static Lock GetFileLock(string filePath)
+    {
+        string key;
+        try
+        {
+            key = Path.GetFullPath(filePath);
+        }
+        catch (Exception)
+        {
+            key = filePath;
+        }
+
+        return FileLocks.GetOrAdd(key, static _ => new Lock());
     }
 
     public Dictionary<string, string> LoadAll()

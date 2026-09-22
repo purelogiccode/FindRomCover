@@ -75,12 +75,16 @@ public static class UpdateCheckService
         using var doc = JsonDocument.Parse(json);
         var root = doc.RootElement;
 
-        var tagName = root.GetProperty("tag_name").GetString();
-        if (string.IsNullOrEmpty(tagName))
+        if (root.ValueKind != JsonValueKind.Object ||
+            !root.TryGetProperty("tag_name", out var tagNameElement) ||
+            tagNameElement.ValueKind != JsonValueKind.String ||
+            string.IsNullOrEmpty(tagNameElement.GetString()))
         {
             LogService.Warning("GitHub release has no tag_name.");
             return new UpdateInfo { IsUpdateAvailable = false };
         }
+
+        var tagName = tagNameElement.GetString()!;
 
         var latestVersion = ParseVersion(tagName);
         if (latestVersion == null)

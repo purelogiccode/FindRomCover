@@ -49,7 +49,7 @@ public static class ScreenshotService
 
             if (!Directory.Exists(ScreenshotFolder)) Directory.CreateDirectory(ScreenshotFolder);
 
-            var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss", CultureInfo.InvariantCulture);
+            var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss_fff", CultureInfo.InvariantCulture);
             var filePath = Path.Combine(ScreenshotFolder, $"Screenshot_{timestamp}.png");
 
             using var bitmap = new Bitmap(width, height);

@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.IO;
 using Microsoft.Data.Sqlite;
@@ -8,15 +9,32 @@ public sealed class AiQueryHistory
 {
     private const int MaxEntries = 100_000;
     private static readonly TimeSpan DefaultTtl = TimeSpan.FromDays(180);
+    private static readonly ConcurrentDictionary<string, Lock> FileLocks = new(StringComparer.OrdinalIgnoreCase);
 
     private readonly string _filePath;
-    private readonly Lock _lock = new();
+    private readonly Lock _lock;
     private readonly TimeSpan _ttl;
 
     public AiQueryHistory(string? filePath = null, TimeSpan? ttl = null)
     {
         _filePath = string.IsNullOrWhiteSpace(filePath) ? DefaultFilePath : filePath;
         _ttl = ttl ?? DefaultTtl;
+        _lock = GetFileLock(_filePath);
+    }
+
+    private static Lock GetFileLock(string filePath)
+    {
+        string key;
+        try
+        {
+            key = Path.GetFullPath(filePath);
+        }
+        catch (Exception)
+        {
+            key = filePath;
+        }
+
+        return FileLocks.GetOrAdd(key, static _ => new Lock());
     }
 
     public static string DefaultFilePath => Path.Combine(

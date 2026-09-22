@@ -1598,7 +1598,8 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         try
         {
             _aiAssistService ??= new AiAssistService(Settings);
-            var result = await _aiAssistService.VerifyAsync(romName, romName, filePath, cancellationToken);
+            var result = await _aiAssistService.VerifyAsync(romName, ResolveSearchName(romName), filePath,
+                cancellationToken);
 
             if (result is null || result.IsMatch) return true;
 
@@ -1621,13 +1622,23 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         try
         {
             _aiAssistService ??= new AiAssistService(Settings);
-            return await _aiAssistService.VerifyAsync(romName, romName, imagePath, CancellationToken.None);
+            return await _aiAssistService.VerifyAsync(romName, ResolveSearchName(romName), imagePath,
+                CancellationToken.None);
         }
         catch (Exception ex)
         {
             LogService.Warning(ex, "AI verification failed; proceeding without verification.");
             return null;
         }
+    }
+
+    private string ResolveSearchName(string romName)
+    {
+        if (!Settings.UseMameDescriptions || _mameLookup is not { Count: > 0 }) return romName;
+
+        return _mameLookup.TryGetValue(romName, out var description) && !string.IsNullOrEmpty(description)
+            ? description
+            : romName;
     }
 
     private void SearchTabControl_SelectionChanged(object sender, SelectionChangedEventArgs e)

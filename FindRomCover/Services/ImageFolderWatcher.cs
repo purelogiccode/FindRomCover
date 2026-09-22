@@ -540,7 +540,12 @@ public sealed class ImageFolderWatcher : IDisposable
                 // Clean up old dedupe entries after 60 seconds (must outlast any in-lock wait)
                 ScheduleDedupeCleanup(filePath);
 
-                await WaitForFileReadyAsync(filePath);
+                if (!await WaitForFileReadyAsync(filePath))
+                {
+                    LogService.Warning(
+                        $"ImageFolderWatcher: '{Path.GetFileName(filePath)}' is not accessible — skipping processing");
+                    return;
+                }
 
                 if (!File.Exists(filePath))
                 {
@@ -695,7 +700,7 @@ public sealed class ImageFolderWatcher : IDisposable
         }
     }
 
-    private static async Task WaitForFileReadyAsync(string filePath)
+    private static async Task<bool> WaitForFileReadyAsync(string filePath)
     {
         const int maxWaitMs = 10000;
         const int pollIntervalMs = 250;
@@ -716,7 +721,7 @@ public sealed class ImageFolderWatcher : IDisposable
                     {
                         stableCount++;
                         if (stableCount >= stableChecksRequired)
-                            return;
+                            return true;
                     }
                     else
                     {
@@ -737,12 +742,14 @@ public sealed class ImageFolderWatcher : IDisposable
             }
             catch (UnauthorizedAccessException)
             {
-                return;
+                return false;
             }
 
             await Task.Delay(pollIntervalMs);
             elapsed += pollIntervalMs;
         }
+
+        return true;
     }
 
     private static string GetFreeRenameTargetPath(string preferredPath)
