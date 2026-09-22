@@ -55,7 +55,8 @@ public sealed class AiAssistService : IDisposable
         var inputs = PrepareLocalCandidates(filtered, options.MaxCandidates, options.ImageMaxDimension);
         if (inputs.Count == 0) return null;
 
-        return await PickBestCoreAsync(romName, searchName, inputs, options, cancellationToken).ConfigureAwait(false);
+        return await PickBestCoreAsync(romName, searchName, inputs, options, AiPickKind.Local, cancellationToken)
+            .ConfigureAwait(false);
     }
 
     public async Task<AiPickResult?> PickBestForApiAsync(
@@ -77,7 +78,8 @@ public sealed class AiAssistService : IDisposable
 
         if (inputs.Count == 0) return null;
 
-        return await PickBestCoreAsync(romName, searchName, inputs, options, cancellationToken).ConfigureAwait(false);
+        return await PickBestCoreAsync(romName, searchName, inputs, options, AiPickKind.ApiFallback, cancellationToken)
+            .ConfigureAwait(false);
     }
 
     public async Task<AiVerificationResult?> VerifyAsync(
@@ -247,9 +249,11 @@ public sealed class AiAssistService : IDisposable
         string searchName,
         List<VisionImageInput> inputs,
         AiVisionOptions options,
+        AiPickKind kind,
         CancellationToken cancellationToken)
     {
-        var cacheKey = BuildCacheKey("pick", options, romName, searchName, inputs);
+        var cacheKind = kind == AiPickKind.ApiFallback ? "pick-api" : "pick";
+        var cacheKey = BuildCacheKey(cacheKind, options, romName, searchName, inputs);
         if (_cache.TryGet<AiPickResult>(cacheKey, out var cached) && cached != null)
         {
             LogService.Debug("AI assist: using cached pick verdict.");
@@ -263,7 +267,7 @@ public sealed class AiAssistService : IDisposable
             try
             {
                 var result = await client
-                    .PickBestAsync(options, romName, searchName, inputs, cancellationToken)
+                    .PickBestAsync(options, romName, searchName, inputs, cancellationToken, kind)
                     .ConfigureAwait(false);
 
                 var mapped = new AiPickResult

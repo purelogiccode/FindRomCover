@@ -23,6 +23,14 @@ public abstract class VisionModelClientBase : IVisionModelClient
         "If no candidate is genuine cover art for that exact game, use -1. " +
         "Reply with ONLY a JSON object: {\"bestIndex\": <int>, \"confidence\": <0.0-1.0>, \"reason\": \"<short reason>\"}.";
 
+    private const string ApiFallbackPickSystemPrompt =
+        "You are a retro video game cover-art expert. You receive a game title and numbered candidate images. " +
+        "Choose the candidate that is the official cover or box art for that exact game. " +
+        "Prefer a game cover or an in-game screenshot over a photo of the physical game cartridge, cart, or disc. " +
+        "If no cover art is present, an in-game screenshot is acceptable. " +
+        "If no candidate is cover art or a screenshot for that exact game, use -1. " +
+        "Reply with ONLY a JSON object: {\"bestIndex\": <int>, \"confidence\": <0.0-1.0>, \"reason\": \"<short reason>\"}.";
+
     private const string VerifySystemPrompt =
         "You are a retro video game cover-art expert. Decide whether the image is cover art for the given game. " +
         "Reply with ONLY a JSON object: {\"match\": <true|false>, \"confidence\": <0.0-1.0>, \"reason\": \"<short reason>\"}.";
@@ -32,14 +40,16 @@ public abstract class VisionModelClientBase : IVisionModelClient
         string romName,
         string searchName,
         IReadOnlyList<VisionImageInput> images,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        AiPickKind kind = AiPickKind.Local)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(images);
         if (images.Count == 0)
             throw new InvalidOperationException("At least one candidate image is required.");
 
-        return SendAsync(options, PickSystemPrompt, BuildPickPrompt(romName, searchName, images), images,
+        var systemPrompt = kind == AiPickKind.ApiFallback ? ApiFallbackPickSystemPrompt : PickSystemPrompt;
+        return SendAsync(options, systemPrompt, BuildPickPrompt(romName, searchName, images), images,
             ParsePickResponse, cancellationToken);
     }
 

@@ -9,7 +9,8 @@ public interface IVisionModelClient : IDisposable
         string romName,
         string searchName,
         IReadOnlyList<VisionImageInput> images,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        AiPickKind kind = AiPickKind.Local);
 
     Task<AiVerificationResult> VerifyAsync(
         AiVisionOptions options,

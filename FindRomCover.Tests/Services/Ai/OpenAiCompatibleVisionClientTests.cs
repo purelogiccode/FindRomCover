@@ -176,6 +176,48 @@ public class OpenAiCompatibleVisionClientTests
     }
 
     [Fact]
+    public async Task PickBestAsyncShouldPreferCoverOrScreenshotOverCartForApiFallback()
+    {
+        var body = await CapturePickRequestBodyAsync(AiPickKind.ApiFallback);
+
+        body.Should().Contain("cartridge");
+        body.Should().Contain("screenshot");
+    }
+
+    [Fact]
+    public async Task PickBestAsyncShouldUseCoverOnlyPromptForLocalCandidates()
+    {
+        var body = await CapturePickRequestBodyAsync(AiPickKind.Local);
+
+        body.Should().Contain("official cover or box art");
+        body.Should().NotContain("cartridge");
+    }
+
+    private static async Task<string> CapturePickRequestBodyAsync(AiPickKind kind)
+    {
+        string? body = null;
+        using var handler = new StubHttpMessageHandler(request =>
+        {
+            body = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    "{\"choices\":[{\"message\":{\"content\":\"{\\\"bestIndex\\\":0,\\\"confidence\\\":0.9,\\\"reason\\\":\\\"cover\\\"}\"}}]}",
+                    Encoding.UTF8,
+                    "application/json")
+            };
+        });
+        using var httpClient = new HttpClient(handler);
+        using var client = new OpenAiCompatibleVisionClient(httpClient);
+
+        await client.PickBestAsync(
+            CreateOptions(), "Super Mario Bros", "Super Mario Bros", CreateImages(), CancellationToken.None, kind);
+
+        body.Should().NotBeNull();
+        return body!;
+    }
+
+    [Fact]
     public void BuildErrorMessageShouldDescribeCommonStatuses()
     {
         OpenAiCompatibleVisionClient
