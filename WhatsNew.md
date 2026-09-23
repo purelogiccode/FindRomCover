@@ -18,6 +18,12 @@
 - **More reliable batch downloads**: images are requested with browser-like headers, and when a source blocks the full-size Google API image, the provider-hosted thumbnail is used as a fallback instead of failing.
 - **Accurate already-filled detection**: cover detection now recognizes every supported image format and sanitized filenames, so the missing list no longer keeps games whose covers are already on disk; Batch Fill reports them once and removes them, and the list refreshes after every run.
 
+## Fixes & Improvements
+
+- **Image download failures no longer trigger bug reports** — a dead or unreachable image host (connection timeout, refused connection, reset) is now logged as a warning and the thumbnail fallback is still tried, instead of aborting the download and filing an automatic bug report ([#67379](https://github.com/purelogiccode/FindRomCover/issues/67379), [#67382](https://github.com/purelogiccode/FindRomCover/issues/67382), [#67383](https://github.com/purelogiccode/FindRomCover/issues/67383), [#67432](https://github.com/purelogiccode/FindRomCover/issues/67432)).
+- **"File is being used by another process" when saving covers** — each save attempt now writes to a uniquely named temp file and write failures after all retries return a clear error dialog instead of an unhandled exception, fixing collisions from double-clicks, AI auto-save racing a manual save, and antivirus/sync locks ([#67436](https://github.com/purelogiccode/FindRomCover/issues/67436), [#67437](https://github.com/purelogiccode/FindRomCover/issues/67437), [#67438](https://github.com/purelogiccode/FindRomCover/issues/67438)).
+- **Save failure details in the UI** — when a cover cannot be saved, the dialog and log now include the real reason (locked file, permissions) instead of a generic "Failed to save the image." message.
+
 ## Under the Hood
 
 - New `IVisionModelClient` abstraction with native Anthropic Messages API and Gemini `generateContent` adapters; OpenAI, GLM, local and custom OpenAI-compatible endpoints share one adapter, while custom Anthropic-compatible endpoints reuse the Anthropic adapter. Shared prompts, JSON parsing, timeouts and friendly error messages.

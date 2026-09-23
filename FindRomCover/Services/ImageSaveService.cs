@@ -94,64 +94,105 @@ public static class ImageSaveService
     internal static async Task<bool> TryDownloadAndSaveAsync(string imageUrl, string outputPath, int minWidth,
         HttpClient httpClient, CancellationToken cancellationToken)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Get, imageUrl);
-        request.Headers.UserAgent.ParseAdd(BrowserUserAgent);
-        request.Headers.Accept.ParseAdd(ImageAcceptHeader);
-
-        using var response = await httpClient
-            .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
-
-        if (!response.IsSuccessStatusCode)
+        // Network-level failures (dead host, refused connection, reset, timeout,
+        // malformed URL from search results) are environmental — return false so
+        // the caller can try the fallback URL and so they never reach the
+        // Error-level BugReportSink (issues #67379, #67382, #67383, #67432).
+        try
         {
-            LogService.Warning(
-                $"Image download returned {(int)response.StatusCode} ({response.StatusCode}) for '{imageUrl}'.");
+            if (!Uri.TryCreate(imageUrl, UriKind.Absolute, out var uri) ||
+                (!string.Equals(uri.Scheme, Uri.UriSchemeHttp, StringComparison.Ordinal) &&
+                 !string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.Ordinal)))
+            {
+                LogService.Warning($"Image download URL is not an absolute http(s) URI: '{imageUrl}'.");
+                return false;
+            }
+
+            using var request = new HttpRequestMessage(HttpMethod.Get, imageUrl);
+            request.Headers.UserAgent.ParseAdd(BrowserUserAgent);
+            request.Headers.Accept.ParseAdd(ImageAcceptHeader);
+
+            using var response = await httpClient
+                .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                LogService.Warning(
+                    $"Image download returned {(int)response.StatusCode} ({response.StatusCode}) for '{imageUrl}'.");
+                return false;
+            }
+
+            var contentType = response.Content.Headers.ContentType?.MediaType;
+            if (!string.IsNullOrEmpty(contentType) &&
+                !contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase) &&
+                !contentType.Equals("application/octet-stream", StringComparison.OrdinalIgnoreCase))
+            {
+                LogService.Warning(
+                    $"Image download for '{imageUrl}' returned Content-Type '{contentType}' instead of image data; the host may be blocking automated requests.");
+                return false;
+            }
+
+            var contentLength = response.Content.Headers.ContentLength;
+            if (contentLength is > MaxDownloadBytes)
+            {
+                LogService.Warning(
+                    $"Image download for '{imageUrl}' reports {contentLength} bytes, exceeding the {MaxDownloadBytes}-byte limit; rejected.");
+                return false;
+            }
+
+            await using var contentStream =
+                await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+            var bytes = await ReadAllBytesBoundedAsync(contentStream, MaxDownloadBytes, cancellationToken)
+                .ConfigureAwait(false);
+            if (bytes == null)
+            {
+                LogService.Warning(
+                    $"Image download for '{imageUrl}' exceeded the {MaxDownloadBytes}-byte limit; rejected.");
+                return false;
+            }
+
+            if (bytes.Length == 0)
+            {
+                LogService.Warning($"Image download for '{imageUrl}' returned an empty response body.");
+                return false;
+            }
+
+            if (!LooksLikeImageData(bytes))
+            {
+                LogService.Warning(
+                    $"Image download for '{imageUrl}' returned {bytes.Length} bytes of non-image data (Content-Type '{contentType ?? "unknown"}'); the host may be blocking automated requests. Payload starts with: {PreviewPayload(bytes)}");
+                return false;
+            }
+
+            await using var stream = new MemoryStream(bytes);
+            return await ConvertStreamToPngAndSaveAsync(stream, outputPath, minWidth, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (OperationCanceledException ex)
+        {
+            // HttpClient.Timeout fires with a token the caller never cancelled.
+            LogService.Warning(ex, $"Image download timed out for '{imageUrl}'.");
             return false;
         }
-
-        var contentType = response.Content.Headers.ContentType?.MediaType;
-        if (!string.IsNullOrEmpty(contentType) &&
-            !contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase) &&
-            !contentType.Equals("application/octet-stream", StringComparison.OrdinalIgnoreCase))
+        catch (HttpRequestException ex)
         {
-            LogService.Warning(
-                $"Image download for '{imageUrl}' returned Content-Type '{contentType}' instead of image data; the host may be blocking automated requests.");
+            LogService.Warning(ex, $"Image download failed for '{imageUrl}'.");
             return false;
         }
-
-        var contentLength = response.Content.Headers.ContentLength;
-        if (contentLength is > MaxDownloadBytes)
+        catch (IOException ex)
         {
-            LogService.Warning(
-                $"Image download for '{imageUrl}' reports {contentLength} bytes, exceeding the {MaxDownloadBytes}-byte limit; rejected.");
+            LogService.Warning(ex, $"Image download aborted for '{imageUrl}'.");
             return false;
         }
-
-        await using var contentStream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-        var bytes = await ReadAllBytesBoundedAsync(contentStream, MaxDownloadBytes, cancellationToken)
-            .ConfigureAwait(false);
-        if (bytes == null)
+        catch (FormatException ex)
         {
-            LogService.Warning(
-                $"Image download for '{imageUrl}' exceeded the {MaxDownloadBytes}-byte limit; rejected.");
+            LogService.Warning(ex, $"Image download URL is not valid: '{imageUrl}'.");
             return false;
         }
-
-        if (bytes.Length == 0)
-        {
-            LogService.Warning($"Image download for '{imageUrl}' returned an empty response body.");
-            return false;
-        }
-
-        if (!LooksLikeImageData(bytes))
-        {
-            LogService.Warning(
-                $"Image download for '{imageUrl}' returned {bytes.Length} bytes of non-image data (Content-Type '{contentType ?? "unknown"}'); the host may be blocking automated requests. Payload starts with: {PreviewPayload(bytes)}");
-            return false;
-        }
-
-        await using var stream = new MemoryStream(bytes);
-        return await ConvertStreamToPngAndSaveAsync(stream, outputPath, minWidth, cancellationToken)
-            .ConfigureAwait(false);
     }
 
     /// <summary>

@@ -13,8 +13,8 @@ public static class ImageProcessor
 
         try
         {
-            // Matches both temp naming schemes: local saves use "*.tmp" and downloads
-            // use "<output>.tmp<8 hex chars>".
+            // Matches both temp naming schemes: the legacy "*.tmp" files and the
+            // current "<output>.tmp<8 hex chars>" names used by local saves and downloads.
             var tempFiles = Directory.GetFiles(directoryPath, "*.tmp*");
             foreach (var tempFile in tempFiles)
                 try
@@ -115,6 +115,17 @@ public static class ImageProcessor
                 ex,
                 $"Magick.NET error: {sourcePath}");
         }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Locked/corrupt source file is environmental — return a failure result
+            // instead of letting the exception reach the UI error handler.
+            return new ImageSaveResult(false,
+                $"Cannot access image file: {ex.Message}",
+                "File Access Error",
+                MessageBoxImage.Error,
+                ex,
+                $"File access error: {sourcePath}");
+        }
     }
 
     private static async Task<ImageSaveResult> WriteImageWithRetryAsync(MagickImage magickImage, string targetPath,
@@ -123,7 +134,7 @@ public static class ImageProcessor
         const int maxRetries = 5;
         const int baseDelayMs = 100;
         Exception? lastException = null;
-        var tempPath = targetPath + ".tmp";
+        string? tempPath = null;
 
         try
         {
@@ -131,22 +142,14 @@ public static class ImageProcessor
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
+                // Unique temp name per attempt: concurrent conversions of the same
+                // target (double-click, AI auto-save racing a manual save) and
+                // transient locks from AV/sync tools on a previous temp file must
+                // never collide (issues #67436, #67437, #67438).
+                tempPath = targetPath + ".tmp" + Guid.NewGuid().ToString("N")[..8];
+
                 try
                 {
-                    if (File.Exists(tempPath))
-                        try
-                        {
-                            File.Delete(tempPath);
-                        }
-                        catch (IOException)
-                        {
-                            // Temp file may be locked; will be retried
-                        }
-                        catch (UnauthorizedAccessException)
-                        {
-                            // Permission issue on temp file; will be retried
-                        }
-
                     await magickImage.WriteAsync(tempPath, magickImage.Format, cancellationToken);
 
                     if (!File.Exists(tempPath)) throw new IOException("Failed to write temporary file");
@@ -166,28 +169,16 @@ public static class ImageProcessor
                 {
                     throw;
                 }
-                catch (IOException ex) when (attempt < maxRetries)
+                catch (Exception ex)
                 {
+                    // Catch on EVERY attempt, including the last: falling out of the
+                    // loop must reach the friendly failure result below instead of
+                    // letting the raw exception escape to the UI error handler.
                     lastException = ex;
-                    var delay = baseDelayMs * Math.Pow(2, attempt - 1);
-                    await Task.Delay((int)delay, cancellationToken);
-                }
-                catch (UnauthorizedAccessException ex) when (attempt < maxRetries)
-                {
-                    lastException = ex;
-                    var delay = baseDelayMs * Math.Pow(2, attempt - 1);
-                    await Task.Delay((int)delay, cancellationToken);
-                }
-                catch (MagickException ex) when (attempt < maxRetries &&
-                                                 ex.Message.Contains("WriteBlob", StringComparison.OrdinalIgnoreCase))
-                {
-                    lastException = ex;
-                    var delay = baseDelayMs * Math.Pow(2, attempt - 1);
-                    await Task.Delay((int)delay, cancellationToken);
-                }
-                catch (Exception ex) when (attempt < maxRetries)
-                {
-                    lastException = ex;
+                    TryDeleteTempFile(tempPath);
+
+                    if (attempt >= maxRetries) break;
+
                     var delay = baseDelayMs * Math.Pow(2, attempt - 1);
                     await Task.Delay((int)delay, cancellationToken);
                 }
@@ -195,19 +186,7 @@ public static class ImageProcessor
         }
         finally
         {
-            if (File.Exists(tempPath))
-                try
-                {
-                    File.Delete(tempPath);
-                }
-                catch (IOException)
-                {
-                    // Best effort cleanup
-                }
-                catch (UnauthorizedAccessException)
-                {
-                    // Best effort cleanup
-                }
+            TryDeleteTempFile(tempPath);
         }
 
         var errorMessage =
@@ -221,6 +200,26 @@ public static class ImageProcessor
             MessageBoxImage.Error,
             lastException ?? new IOException("Write failed after all retries"),
             $"WriteBlob failed after {maxRetries} retries for: {sourcePath}");
+    }
+
+    private static void TryDeleteTempFile(string? tempPath)
+    {
+        if (tempPath == null)
+            return;
+
+        try
+        {
+            if (File.Exists(tempPath))
+                File.Delete(tempPath);
+        }
+        catch (IOException)
+        {
+            // Best effort cleanup
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // Best effort cleanup
+        }
     }
 
     internal static MagickReadSettings GetMagickReadSettings(string filePath)

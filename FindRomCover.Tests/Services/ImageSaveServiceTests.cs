@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
@@ -292,6 +293,92 @@ public class ImageSaveServiceTests : IDisposable
 
         result.Should().BeFalse();
         File.Exists(outputPath).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task DownloadAndSaveImageAsyncShouldUseFallbackWhenPrimaryThrowsConnectionError()
+    {
+        var outputPath = Path.Combine(_testOutputDir, "conn_fail_fallback.png");
+        var requestedUris = new List<string>();
+        using var client = new HttpClient(new StubHttpMessageHandler(request =>
+        {
+            requestedUris.Add(request.RequestUri!.AbsoluteUri);
+            if (request.RequestUri!.AbsoluteUri.Contains("primary", StringComparison.OrdinalIgnoreCase))
+                throw new HttpRequestException(
+                    "A connection attempt failed because the connected party did not properly respond after a period of time.");
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(CreatePngBytes()) };
+        }));
+
+        var result = await ImageSaveService.DownloadAndSaveImageAsync(
+            "https://example.test/primary.png", "https://example.test/fallback.png", outputPath, client,
+            CancellationToken.None);
+
+        result.Should().BeTrue();
+        requestedUris.Should().HaveCount(2);
+        File.Exists(outputPath).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task DownloadAndSaveImageAsyncShouldReturnFalseWhenConnectionFailsOnBothUrls()
+    {
+        var outputPath = Path.Combine(_testOutputDir, "conn_fail_both.png");
+        using var client = new HttpClient(new StubHttpMessageHandler(_ =>
+            throw new HttpRequestException("Connection refused")));
+
+        var result = await ImageSaveService.DownloadAndSaveImageAsync(
+            "https://example.test/primary.png", "https://example.test/fallback.png", outputPath, client,
+            CancellationToken.None);
+
+        result.Should().BeFalse();
+        File.Exists(outputPath).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task DownloadAndSaveImageAsyncShouldReturnFalseOnTimeout()
+    {
+        var outputPath = Path.Combine(_testOutputDir, "timeout.png");
+        using var client = new HttpClient(new StubHttpMessageHandler(_ =>
+            throw new TaskCanceledException("The request was canceled due to the configured HttpClient.Timeout")));
+
+        var result = await ImageSaveService.DownloadAndSaveImageAsync(
+            "https://example.test/slow.png", null, outputPath, client, CancellationToken.None);
+
+        result.Should().BeFalse();
+        File.Exists(outputPath).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task DownloadAndSaveImageAsyncShouldReturnFalseForNonHttpUrl()
+    {
+        var outputPath = Path.Combine(_testOutputDir, "file_url.png");
+        var requested = false;
+        using var client = new HttpClient(new StubHttpMessageHandler(_ =>
+        {
+            requested = true;
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(CreatePngBytes()) };
+        }));
+
+        var result = await ImageSaveService.DownloadAndSaveImageAsync(
+            "file:///C:/covers/cover.png", null, outputPath, client, CancellationToken.None);
+
+        result.Should().BeFalse();
+        requested.Should().BeFalse();
+    }
+
+    [Fact]
+    [SuppressMessage("ReSharper", "AccessToDisposedClosure")]
+    public async Task DownloadAndSaveImageAsyncShouldPropagateCallerCancellation()
+    {
+        var outputPath = Path.Combine(_testOutputDir, "cancelled.png");
+        using var client = new HttpClient(new StubHttpMessageHandler(_ =>
+            new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(CreatePngBytes()) }));
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+
+        var act = () => ImageSaveService.DownloadAndSaveImageAsync(
+            "https://example.test/cancel.png", null, outputPath, client, cts.Token);
+
+        await act.Should().ThrowAsync<OperationCanceledException>();
     }
 
     private static byte[] CreatePngBytes(int width = 8, int height = 8)

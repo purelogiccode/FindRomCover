@@ -249,6 +249,49 @@ public class ImageProcessorTests : IDisposable
     }
 
     [Fact]
+    public async Task ConvertAndSaveImageAsyncWithLockedTargetShouldReturnFailureNotThrow()
+    {
+        var sourcePath = CreateTestImage("locked_target_src.png");
+        var targetPath = Path.Combine(_testDir, "locked_target.png");
+        using (var existing = new MagickImage(MagickColors.Green, 50, 50))
+        {
+            existing.Format = MagickFormat.Png;
+            existing.Write(targetPath);
+        }
+
+        // Hold the target open without a delete share so File.Move cannot replace it,
+        // reproducing the locked-file scenario from issues #67436/#67437/#67438.
+        // ReSharper disable once UnusedVariable
+        await using (var lockStream = new FileStream(targetPath, FileMode.Open, FileAccess.Read, FileShare.Read))
+        {
+            var result = await ImageProcessor.ConvertAndSaveImageAsync(sourcePath, targetPath, CancellationToken.None);
+
+            result.Success.Should().BeFalse();
+            result.ErrorMessage.Should().Contain("Failed to save image after");
+            result.Exception.Should().NotBeNull();
+        }
+
+        Directory.GetFiles(_testDir, "locked_target.png.tmp*").Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ConvertAndSaveImageAsyncShouldSucceedWhenCalledConcurrentlyForSameTarget()
+    {
+        var sourcePath = CreateTestImage("concurrent_src.png");
+        var targetPath = Path.Combine(_testDir, "concurrent_target.png");
+
+        var results = await Task.WhenAll(
+            ImageProcessor.ConvertAndSaveImageAsync(sourcePath, targetPath, CancellationToken.None),
+            ImageProcessor.ConvertAndSaveImageAsync(sourcePath, targetPath, CancellationToken.None),
+            ImageProcessor.ConvertAndSaveImageAsync(sourcePath, targetPath, CancellationToken.None),
+            ImageProcessor.ConvertAndSaveImageAsync(sourcePath, targetPath, CancellationToken.None));
+
+        results.Should().OnlyContain(r => r.Success);
+        File.Exists(targetPath).Should().BeTrue();
+        Directory.GetFiles(_testDir, "concurrent_target.png.tmp*").Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task ConvertAndSaveImageAsyncShouldCreateOutputDirectoryWhenMissing()
     {
         // ImageProcessor doesn't create directories - it checks write permission on existing dir

@@ -50,7 +50,7 @@ Coverage highlights:
 - **Similarity** — all three algorithms, edge cases such as empty strings, and n-gram indexing.
 - **Services** — image processing and saving, query cleaning, URL generation, update checks, logging, and error reporting.
 
-The suite currently contains **799 tests**, all expected to pass.
+The suite currently contains **843 tests**, all expected to pass.
 
 ## Test isolation
 

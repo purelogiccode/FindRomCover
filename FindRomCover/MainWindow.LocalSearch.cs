@@ -424,7 +424,10 @@ public partial class MainWindow
             }
             else
             {
-                MessageBox.Show("Failed to save the image.", "Save Failed", MessageBoxButton.OK, MessageBoxImage.Error);
+                var detail = result.ErrorMessage ?? "Failed to save the image.";
+                LogService.Warning(
+                    $"UseImage: could not save '{newFileName}' from '{imagePath}': {result.LogContext ?? detail}");
+                MessageBox.Show(detail, "Save Failed", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
         catch (Exception ex)
