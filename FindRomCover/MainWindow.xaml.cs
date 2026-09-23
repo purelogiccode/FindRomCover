@@ -915,7 +915,16 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
 
         if (index < 0) return;
 
+        var wasSelected = index == LstMissingImages.SelectedIndex;
         MissingImages.RemoveAt(index);
+
+        if (MissingImages.Count > 0 && (wasSelected || LstMissingImages.SelectedItem == null))
+        {
+            var newIndex = Math.Min(index, MissingImages.Count - 1);
+            LstMissingImages.SelectedIndex = newIndex;
+            LstMissingImages.ScrollIntoView(MissingImages[newIndex]);
+        }
+
         UpdateMissingCount();
     }
 
