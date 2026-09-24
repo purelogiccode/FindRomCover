@@ -2,6 +2,17 @@
 
 Complete version history for FindRomCover. Download links for each release are available on the [Releases](https://github.com/purelogiccode/FindRomCover/releases) page.
 
+## 3.2.1 — 2026-09-24
+
+### Improvements
+
+- **New default OpenRouter model** — the OpenRouter provider now defaults to `google/gemma-4-26b-a4b-it`, which follows the cover/box-art instructions more reliably than the previous default. Existing installations keep their configured model; the new default applies to fresh setups and whenever the Model field is left empty.
+
+### Downloads
+
+- `release_3.2.1_win-x64.zip`
+- `release_3.2.1_win-arm64.zip`
+
 ## 3.2.0 — 2026-09-24
 
 ### AI Vision Assist (New)

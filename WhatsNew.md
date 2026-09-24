@@ -1,3 +1,16 @@
+# FindRomCover 3.2.1 — What's New
+
+- **New default OpenRouter model** — the OpenRouter provider now defaults to `google/gemma-4-26b-a4b-it`, which follows the cover/box-art instructions more reliably than the previous default. Existing installations keep their configured model; the new default applies to fresh setups and whenever the Model field is left empty.
+
+## Download
+
+- `release_3.2.1_win-x64.zip` — Windows x64
+- `release_3.2.1_win-arm64.zip` — Windows ARM64
+
+Both builds are framework-dependent and require the [.NET 10.0 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0). Extract and run `FindRomCover.exe`.
+
+---
+
 # FindRomCover 3.2.0 — What's New
 
 ## AI Vision Assist (New)
