@@ -70,7 +70,7 @@ Then copy the contents of `wiki-out` into a clone of the wiki repository and pus
 
 Releases are currently produced manually:
 
-1. Update the version in `FindRomCover/FindRomCover.csproj` (`AssemblyVersion` and `FileVersion`).
+1. Update the version in `FindRomCover/FindRomCover.csproj` (`Version`, `AssemblyVersion`, and `FileVersion`) and in `FindRomCover.Tests/FindRomCover.Tests.csproj` (`AssemblyVersion` and `FileVersion`).
 2. Update `README.md`, `WhatsNew.md`, and `docs/release-notes.md`.
 3. Build and test locally, then push to `master` and confirm CI is green.
 4. Publish for both architectures:

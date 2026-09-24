@@ -18,6 +18,8 @@ Complete version history for FindRomCover. Download links for each release are a
 - **AI candidate similarity threshold**: the filename matcher pre-filters candidates; only local images whose filename similarity is at or above the configured value (default 70%) are sent to the AI.
 - **No duplicate queries**: covers already queried are remembered across sessions in the SQLite database `QueryHistory.dat`; Batch Fill skips them, and the history can be reviewed and cleared in AI Settings.
 - Images are downscaled before upload (default 512px) and verdicts are cached for 30 days.
+- **Minimum cover size** — downloads narrower than the configured **Min cover width** (default 200px) are rejected, so tiny thumbnails never become covers.
+- **Cover-first API picks** — when ranking Google API results, the model is told to prefer real cover art or an in-game screenshot over a photo of a physical cartridge, cart, or disc.
 - **Fixed empty AI responses**: reasoning models could spend the entire 400-token output limit on internal reasoning and return no text; the limit is now 4,096 tokens, and a clear error explains the cause if a model still runs out.
 - **More reliable batch downloads**: images are requested with browser-like headers, and when a source blocks the full-size Google API image, the provider-hosted thumbnail is used as a fallback instead of failing.
 - **Accurate already-filled detection**: cover detection now recognizes every supported image format and sanitized filenames, so the missing list no longer keeps games whose covers are already on disk; Batch Fill reports them once and removes them, and the list refreshes after every run.
@@ -28,6 +30,8 @@ Complete version history for FindRomCover. Download links for each release are a
 - **Image download failures no longer trigger bug reports** — a dead or unreachable image host (connection timeout, refused connection, reset) is now logged as a warning and the thumbnail fallback is still tried, instead of aborting the download and filing an automatic bug report.
 - **"File is being used by another process" when saving covers** — each save attempt now writes to a uniquely named temp file and write failures after all retries return a clear error dialog instead of an unhandled exception, fixing collisions from double-clicks, AI auto-save racing a manual save, and antivirus/sync locks.
 - **Save failure details in the UI** — when a cover cannot be saved, the dialog and log now include the real reason (locked file, permissions) instead of a generic "Failed to save the image." message.
+- **Watched folders recover automatically** — a folder that becomes temporarily unreadable (permissions, disconnected drive, antivirus) is logged as a warning, the watcher retries with backoff, and it no longer files automatic bug reports.
+- **Missing-list selection is kept** — removing an item keeps the selection on the nearest entry instead of resetting to the top.
 - **Anthropic and Gemini providers now actually work** — the provider adapters were never selected at runtime, so those requests went to an OpenAI-compatible endpoint and failed. Picks and verification now use the correct native adapter per provider.
 - **Covers are protected from accidental replacement** — Google API downloads are verified before they replace an existing cover, the folder watcher no longer overwrites an existing PNG, and startup cleanup only removes the app's own temp files instead of any file containing `.tmp`.
 - **Picks never land on the wrong game** — verification, saving, and missing-list removal use the ROM that was selected when the action started, even if the selection changes while the AI is still working.
@@ -41,6 +45,8 @@ Complete version history for FindRomCover. Download links for each release are a
 - New `IVisionModelClient` abstraction with native Anthropic Messages API and Gemini `generateContent` adapters; OpenAI, GLM, local, and custom OpenAI-compatible endpoints share one adapter, while custom Anthropic-compatible endpoints reuse the Anthropic adapter.
 - **Settings moved to SQLite**: all settings (including encrypted API keys) now live in `%LocalAppData%\FindRomCover\Settings.dat`. The old encrypted `settings.dat` is migrated automatically on first start and kept as `settings.dat.legacy`.
 - **Full documentation**: a professional documentation site (GitHub Pages) and a synchronized GitHub wiki with side navigation, including release notes and recommended AI models. CI publishes both.
+- **Dependency updates**: Magick.NET, NAudio, Microsoft.Extensions.DependencyInjection, the Roslyn/Meziantou analyzers and the .NET test SDK were updated.
+- **Log writes are serialized**: the error logger clears and appends under one lock, so entries cannot be lost or truncated during concurrent reporting.
 - AI request failures are logged as warnings and never trigger the automatic bug-report pipeline.
 - Version bumped to **3.2.0** (not released yet).
 - GitHub Actions CI now builds and tests every push and pull request on Windows.

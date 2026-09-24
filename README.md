@@ -5,7 +5,7 @@
 # FindRomCover
 
 A powerful Windows desktop application designed to help you automatically find and download missing cover art for your retro gaming ROM collection.
-It supports **Local Similarity Search** across your existing image folder, plus **Google Web Image Search**, **Bing Web Image Search**, and the **Google Custom Search API** to fetch high-quality game cover images.
+It supports **Local Similarity Search** across your existing image folder, plus **Google Web Image Search**, **Bing Web Image Search**, and the **Google Custom Search API** to fetch high-quality game cover images. Version **3.2** adds an optional **AI Vision Assist** that looks at the candidates and picks the best cover for you.
 
 ![Main Window](screenshot.png)
 
@@ -15,6 +15,7 @@ It supports **Local Similarity Search** across your existing image folder, plus 
 
 - **Documentation site**: [purelogiccode.github.io/FindRomCover](https://purelogiccode.github.io/FindRomCover/)
 - **Wiki**: [github.com/purelogiccode/FindRomCover/wiki](https://github.com/purelogiccode/FindRomCover/wiki)
+- **What's New in 3.2**: [WhatsNew.md](WhatsNew.md)
 - **Source**: [`docs/`](docs/) — built with MkDocs Material and synced to the wiki by CI
 - **Recommended AI models**: [RecommendedModels.md](RecommendedModels.md)
 
@@ -25,6 +26,7 @@ It supports **Local Similarity Search** across your existing image folder, plus 
 - **Batch Processing**: Scan entire ROM directories to identify missing covers.
 - **Multiple Sources**:
     - **Local Similarity Search**: Matches ROM filenames against images already in your local image folder using configurable similarity algorithms (Jaccard Similarity, Jaro-Winkler Distance, or Levenshtein Distance) with an adjustable match threshold (10-90%).
+    - **Ignore Bracketed Text in Matching**: On by default; ignores text inside `()`, `[]`, and `{}` when comparing names, so `Game (USA) [En]` matches a cover named `Game`. Toggle it from the main menu.
     - **Google Web Image Search**: Uses an embedded browser (WebView2) to display Google image search results.
     - **Bing Web Image Search**: Uses an embedded browser (WebView2) to display Bing image search results.
     - **Google Custom Search API**: Fetches image results directly via API (requires an API key).
@@ -35,6 +37,8 @@ It supports **Local Similarity Search** across your existing image folder, plus 
 - **Automatic Image Conversion**: Automatically converts downloaded images (JPG, BMP, GIF, TIFF, WebP, AVIF, HEIC, HEIF, JXL, JP2, ICO, SVG) to PNG format using Magick.NET (ImageMagick). Also, automatically converts newly saved images in the image folder to PNG.
 - **Automatic File Rename & Match**: A built-in `FileSystemWatcher` monitors the image folder and automatically renames any newly saved image to match the currently selected missing ROM's filename, then converts it to PNG and removes the entry from the missing covers list — so images saved from the embedded browser are matched hands-free.
 - **AI Vision Assist**: Connect a vision-capable model (OpenRouter, OpenAI, Anthropic, Gemini or GLM cloud, a local Ollama/LM Studio server, or a custom OpenAI/Anthropic-compatible endpoint) to actually *look* at candidate images and pick the correct cover. Works on Local Files and Google API results, can auto-save above a confidence threshold, verify images before renaming or saving, and batch-fill the entire missing list.
+- **AI Batch Fill**: Processes the whole missing-covers list — local candidates first, optional Google API fallback — with live progress, cancel, per-item results, and a query history that avoids asking the AI twice.
+- **Safe Cover Saves**: The folder watcher never overwrites an existing cover, and Google API downloads are verified before a file is replaced.
 - **Detailed Logging**: Built-in log viewer for troubleshooting and rolling `app<yyyyMMdd>.log` files in `%LocalAppData%\FindRomCover` using Serilog.
 - **Sound Feedback**: Optional audio feedback for user actions using NAudio.
 - **Command-line Arguments**: Start the application with pre-set ROM and Image folders for quick scanning.
@@ -154,6 +158,16 @@ Switch between "Local Files", "Google Web", "Bing Web", and "Google API" using t
 Configure how local image names are matched to your ROMs:
 - **Set Similarity Algorithm** - Choose between Jaccard Similarity, Jaro-Winkler Distance, and Levenshtein Distance.
 - **Set Similarity Threshold** - Set the minimum match percentage (10-90%) required to list a local image.
+- **Ignore Bracketed Text in Matching** - Enabled by default; balanced `(...)`, `[...]`, and `{...}` groups are ignored on both sides of the comparison, so `Game (USA) [En]` matches a cover named `Game`. Turn it off to compare the full filenames.
+
+#### AI Batch Fill
+Click **AI Fill Missing Covers...** above the missing covers list to process many games in one run. The window lets you:
+- control the number of items per run (default 25, max 500);
+- enable or disable the Google API fallback (enabled when a Google API key is configured);
+- skip covers that were already queried in previous sessions;
+- watch live per-item results and cancel after the current item.
+
+Covers are saved only when the model's confidence is at or above the **Auto-save threshold** (AI Settings), and each saved cover is removed from the missing list automatically.
 
 #### Thumbnail Size
 Adjust preview sizes for API search results:
@@ -209,6 +223,8 @@ Windows (main window, settings, AI, batch, log, about) live in the project root 
   - `ImageFolderWatcher`: Real-time file system monitoring for automatic image detection
   - `AiAssistService`: Vision-model ranking/verification of cover candidates (OpenRouter, OpenAI, Anthropic, Gemini, GLM or local/custom OpenAI- and Anthropic-compatible servers)
   - `AiBatchFillService`: Batch processing of the missing covers list with optional Google API fallback and query history
+  - `AiQueryHistory`: SQLite-backed memory of already-queried covers (180 days)
+  - `AiVerdictCache`: 30-day cache of AI picks and verification results
   - `SimilarityCalculator`: Local image name matching via Jaccard, Jaro-Winkler, and Levenshtein algorithms
   - `WebSearchService`: URL generation for web searches
   - `SearchQueryHelper`: ROM filename cleaning and sanitization
@@ -251,7 +267,7 @@ Windows (main window, settings, AI, batch, log, about) live in the project root 
 **Images not saving or converting automatically**
 - Ensure the image folder has write permissions.
 - For web searches, remember that you need to manually save images from the embedded browser. The application's `FileSystemWatcher` will then detect the new file, rename it to match the selected ROM, convert it to PNG if needed, and update the missing list.
-- If a file already exists, you'll be prompted to overwrite it.
+- The watcher keeps an existing cover untouched rather than overwriting it; when saving from the Google API tab, the app asks before replacing an existing cover.
 - Check the rolling log file in `%LocalAppData%\FindRomCover` for any errors related to file access or image conversion.
 
 **Missing or Corrupted MAME Data File (`mame.dat`)**
