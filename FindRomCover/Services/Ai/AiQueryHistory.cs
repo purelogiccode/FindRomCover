@@ -64,6 +64,39 @@ public sealed class AiQueryHistory
         }
     }
 
+    /// <summary>
+    ///     Returns the normalized paths of all non-expired entries using a single query.
+    ///     Prefer this over calling <see cref="WasQueried"/> per item for large lists.
+    /// </summary>
+    public HashSet<string> GetQueriedPathSet()
+    {
+        var paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        lock (_lock)
+        {
+            try
+            {
+                using var connection = OpenConnection();
+                using var command = connection.CreateCommand();
+                command.CommandText = "SELECT TargetPath, QueriedUtc FROM QueryHistory";
+
+                using var reader = command.ExecuteReader();
+                while (reader.Read())
+                {
+                    var queriedUtc = ParseTimestamp(reader.GetString(1));
+                    if (queriedUtc != null && DateTimeOffset.UtcNow - queriedUtc.Value <= _ttl)
+                        paths.Add(reader.GetString(0));
+                }
+            }
+            catch (Exception ex)
+            {
+                LogService.Warning(ex, "AI query history could not be read.");
+            }
+        }
+
+        return paths;
+    }
+
     public bool WasQueried(string targetPath)
     {
         var key = NormalizeKey(targetPath);

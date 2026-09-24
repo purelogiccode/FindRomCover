@@ -161,21 +161,28 @@ public partial class AiSettingsWindow
                 return;
             }
 
+            if (!TryParseIntInRange(TxtTimeout.Text, 10, 300, "Request timeout (seconds)", out var timeout) ||
+                !TryParseIntInRange(TxtMaxCandidates.Text, 1, 20, "Max candidates", out var maxCandidates) ||
+                !TryParseIntInRange(TxtImageMaxDimension.Text, 128, 2048, "Image max dimension",
+                    out var imageMaxDimension) ||
+                !TryParseIntInRange(TxtMinCoverWidth.Text, 0, 2048, "Minimum cover width", out var minCoverWidth) ||
+                !TryParseDoubleInRange(TxtCandidateThreshold.Text, 0, 100, "Candidate similarity",
+                    out var candidateThreshold) ||
+                !TryParseDoubleInRange(TxtAutoSaveThreshold.Text, 0, 100, "Auto-save threshold",
+                    out var autoSaveThreshold))
+                return;
+
             _settingsManager.AiAssistEnabled = enabled;
             _settingsManager.AiProvider = provider;
             _settingsManager.AiBaseUrl = baseUrl;
             _settingsManager.AiApiKey = apiKey;
             _settingsManager.AiModel = CmbModel.Text.Trim();
-            _settingsManager.AiTimeoutSeconds = ParseInt(TxtTimeout.Text, _settingsManager.AiTimeoutSeconds);
-            _settingsManager.AiMaxCandidates = ParseInt(TxtMaxCandidates.Text, _settingsManager.AiMaxCandidates);
-            _settingsManager.AiImageMaxDimension =
-                ParseInt(TxtImageMaxDimension.Text, _settingsManager.AiImageMaxDimension);
-            _settingsManager.AiMinCoverWidth =
-                ParseInt(TxtMinCoverWidth.Text, _settingsManager.AiMinCoverWidth);
-            _settingsManager.AiCandidateThreshold =
-                ParseDouble(TxtCandidateThreshold.Text, _settingsManager.AiCandidateThreshold);
-            _settingsManager.AiAutoSaveThreshold =
-                ParseDouble(TxtAutoSaveThreshold.Text, _settingsManager.AiAutoSaveThreshold);
+            _settingsManager.AiTimeoutSeconds = timeout;
+            _settingsManager.AiMaxCandidates = maxCandidates;
+            _settingsManager.AiImageMaxDimension = imageMaxDimension;
+            _settingsManager.AiMinCoverWidth = minCoverWidth;
+            _settingsManager.AiCandidateThreshold = candidateThreshold;
+            _settingsManager.AiAutoSaveThreshold = autoSaveThreshold;
             _settingsManager.AiAutoSave = ChkAutoSave.IsChecked == true;
             _settingsManager.AiAutoRun = ChkAutoRun.IsChecked == true;
             _settingsManager.AiVerifyOnSave = ChkVerifyOnSave.IsChecked == true;
@@ -417,6 +424,30 @@ public partial class AiSettingsWindow
     private static int ParseInt(string text, int fallback)
     {
         return int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value) ? value : fallback;
+    }
+
+    private static bool TryParseIntInRange(string text, int min, int max, string fieldName, out int value)
+    {
+        if (int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out value) &&
+            value >= min && value <= max)
+            return true;
+
+        MessageBox.Show(
+            $"{fieldName} must be a whole number between {min} and {max}.",
+            "Invalid Value", MessageBoxButton.OK, MessageBoxImage.Warning);
+        return false;
+    }
+
+    private static bool TryParseDoubleInRange(string text, double min, double max, string fieldName, out double value)
+    {
+        if (double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value) &&
+            value >= min && value <= max)
+            return true;
+
+        MessageBox.Show(
+            $"{fieldName} must be a number between {min:0} and {max:0}.",
+            "Invalid Value", MessageBoxButton.OK, MessageBoxImage.Warning);
+        return false;
     }
 
     private static double ParseDouble(string text, double fallback)

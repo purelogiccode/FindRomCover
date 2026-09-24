@@ -11,17 +11,20 @@ public sealed class AiBatchFillService
     private readonly AiAssistService _aiAssist;
     private readonly AiQueryHistory _queryHistory;
     private readonly Action<string>? _preRegisterExpectedFile;
+    private readonly Action<string>? _unregisterExpectedFile;
 
     public AiBatchFillService(
         SettingsManager settings,
         AiAssistService aiAssist,
         Action<string>? preRegisterExpectedFile = null,
-        AiQueryHistory? queryHistory = null)
+        AiQueryHistory? queryHistory = null,
+        Action<string>? unregisterExpectedFile = null)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _aiAssist = aiAssist ?? throw new ArgumentNullException(nameof(aiAssist));
         _preRegisterExpectedFile = preRegisterExpectedFile;
         _queryHistory = queryHistory ?? new AiQueryHistory();
+        _unregisterExpectedFile = unregisterExpectedFile;
     }
 
     public async Task<List<AiBatchItemResult>> RunAsync(
@@ -87,7 +90,8 @@ public sealed class AiBatchFillService
                 _settings.AiCandidateThreshold,
                 _settings.SelectedSimilarityAlgorithm,
                 cancellationToken,
-                Math.Max(1, _settings.AiMaxCandidates))
+                Math.Max(1, _settings.AiMaxCandidates),
+                _settings.IgnoreBracketedText)
             .ConfigureAwait(false);
 
         AiPickResult? pick = null;
@@ -113,6 +117,7 @@ public sealed class AiBatchFillService
                         $"AI pick '{images[pick.BestIndex].ImageName}' ({pick.Confidence:P0}).", targetPath);
                 }
 
+                _unregisterExpectedFile?.Invoke(targetPath);
                 return new AiBatchItemResult(item.RomName, item.SearchName, AiBatchOutcome.Failed,
                     saveResult.ErrorMessage ?? "Failed to save image.");
             }
@@ -157,20 +162,43 @@ public sealed class AiBatchFillService
         var pickedApiImage = IsUsablePick(apiPick, apiResults.Count) ? apiResults[apiPick!.BestIndex] : null;
         if (pickedApiImage != null && IsConfident(apiPick) && pickedApiImage.ImagePath is { } imageUrl)
         {
+            // Download to a temporary path first: an existing cover must not be replaced
+            // (or deleted by a verification rejection) until the download is verified.
+            // The ".tmp<hex>" suffix keeps the watcher away and lets startup cleanup
+            // remove the file if the app crashes mid-download.
+            var tempPath = targetPath + ".tmp" + Guid.NewGuid().ToString("N")[..8];
             _preRegisterExpectedFile?.Invoke(targetPath);
             var saved = await ImageSaveService
-                .DownloadAndSaveImageAsync(imageUrl, pickedApiImage.ThumbnailUrl, targetPath,
+                .DownloadAndSaveImageAsync(imageUrl, pickedApiImage.ThumbnailUrl, tempPath,
                     _settings.AiMinCoverWidth, cancellationToken)
                 .ConfigureAwait(false);
 
             if (saved)
             {
-                if (!await IsVerifiedAsync(item.RomName, targetPath, cancellationToken).ConfigureAwait(false))
+                if (!await IsVerifiedAsync(item.RomName, item.SearchName, tempPath, cancellationToken)
+                        .ConfigureAwait(false))
                 {
-                    TryDelete(targetPath);
+                    TryDelete(tempPath);
+                    _unregisterExpectedFile?.Invoke(targetPath);
                     _queryHistory.MarkQueried(targetPath, "api-verification-rejected");
                     return new AiBatchItemResult(item.RomName, item.SearchName, AiBatchOutcome.SkippedLowConfidence,
                         "AI verification rejected the downloaded image.", targetPath);
+                }
+
+                if (File.Exists(targetPath))
+                {
+                    TryDelete(tempPath);
+                    _unregisterExpectedFile?.Invoke(targetPath);
+                    return new AiBatchItemResult(item.RomName, item.SearchName, AiBatchOutcome.SkippedAlreadyExists,
+                        "Cover already exists.", targetPath);
+                }
+
+                if (!await TryMoveIntoPlaceAsync(tempPath, targetPath).ConfigureAwait(false))
+                {
+                    TryDelete(tempPath);
+                    _unregisterExpectedFile?.Invoke(targetPath);
+                    return new AiBatchItemResult(item.RomName, item.SearchName, AiBatchOutcome.Failed,
+                        "The downloaded image could not be saved.", targetPath);
                 }
 
                 _queryHistory.Remove(targetPath);
@@ -179,6 +207,7 @@ public sealed class AiBatchFillService
                         $"AI pick '{pickedApiImage.ImageName}' ({apiPick.Confidence:P0}).", targetPath);
             }
 
+            _unregisterExpectedFile?.Invoke(targetPath);
             return new AiBatchItemResult(item.RomName, item.SearchName, AiBatchOutcome.Failed,
                 "The image could not be downloaded.");
         }
@@ -190,13 +219,14 @@ public sealed class AiBatchFillService
             "AI found no confident match.", targetPath);
     }
 
-    private async Task<bool> IsVerifiedAsync(string romName, string imagePath, CancellationToken cancellationToken)
+    private async Task<bool> IsVerifiedAsync(string romName, string searchName, string imagePath,
+        CancellationToken cancellationToken)
     {
         if (!_settings.AiAssistEnabled || !_settings.AiVerifyOnSave) return true;
 
         try
         {
-            var result = await _aiAssist.VerifyAsync(romName, romName, imagePath, cancellationToken)
+            var result = await _aiAssist.VerifyAsync(romName, searchName, imagePath, cancellationToken)
                 .ConfigureAwait(false);
             return result is null || result.IsMatch;
         }
@@ -209,6 +239,31 @@ public sealed class AiBatchFillService
             LogService.Warning(ex, "AI batch fill: verification failed; proceeding without verification.");
             return true;
         }
+    }
+
+    private static async Task<bool> TryMoveIntoPlaceAsync(string tempPath, string targetPath)
+    {
+        const int maxAttempts = 5;
+
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+            try
+            {
+                File.Move(tempPath, targetPath);
+                return true;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                if (File.Exists(targetPath) || attempt >= maxAttempts)
+                {
+                    LogService.Warning(ex,
+                        $"AI batch fill: could not finalize '{Path.GetFileName(targetPath)}'.");
+                    return false;
+                }
+
+                await Task.Delay(150 * attempt).ConfigureAwait(false);
+            }
+
+        return false;
     }
 
     private static void TryDelete(string path)

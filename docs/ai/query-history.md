@@ -10,10 +10,12 @@ AI requests cost money and time. When a game has no good cover in your local fol
 
 | Event | History effect |
 |-------|----------------|
-| Manual AI pick that finds no local match | Recorded |
+| Manual AI pick that finds a pick | Recorded as `manual` |
+| Manual AI pick that finds no match | Not recorded |
 | Batch item where the model found no confident local match | Recorded as `local-no-match` |
 | Batch item where the model found no confident API match | Recorded as `api-no-match` |
-| Cover successfully saved (manual or batch) | Removed from the history |
+| Cover saved by Batch Fill (local or API) | Removed from the history |
+| Cover saved manually | Not removed — the entry stays until it expires |
 | Failed item (API error, download or save failure) | Not recorded — safe to retry |
 | Item with no candidates at all | Not recorded |
 

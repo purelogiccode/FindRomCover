@@ -29,7 +29,7 @@ OpenRouter exposes modality metadata, so the model picker knows exactly which mo
 2. Select **OpenAI**, paste the key, and click **Test / Load Models**.
 3. Choose a vision-capable model such as `gpt-4o-mini` or `gpt-5-nano`.
 
-The OpenAI adapter uses the shared OpenAI-compatible client and supports `response_format` JSON mode where available.
+The OpenAI adapter uses the shared OpenAI-compatible client. Reasoning models (`o1`, `o3`, `o4`, `gpt-5*`) are called without `temperature` and with `max_completion_tokens`; other models use `temperature` and `max_tokens`. The app always prompts for JSON and parses it from the response text.
 
 ## Anthropic
 

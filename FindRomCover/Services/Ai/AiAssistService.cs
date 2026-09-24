@@ -25,7 +25,7 @@ public sealed class AiAssistService : IDisposable
         HttpClient? imageHttpClient = null)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
-        _client = client ?? new OpenAiCompatibleVisionClient();
+        _client = client;
         _cache = cache ?? AiVerdictCache.GetShared();
         _imageHttpClient = imageHttpClient ?? HttpClientHelper.Client;
     }
@@ -57,7 +57,10 @@ public sealed class AiAssistService : IDisposable
             return null;
         }
 
-        var inputs = PrepareLocalCandidates(filtered, options.MaxCandidates, options.ImageMaxDimension);
+        var inputs = await Task.Run(
+                () => PrepareLocalCandidates(filtered, options.MaxCandidates, options.ImageMaxDimension),
+                cancellationToken)
+            .ConfigureAwait(false);
         if (inputs.Count == 0) return null;
 
         // SourceIndex from PrepareLocalCandidates points into the threshold-filtered
@@ -105,7 +108,14 @@ public sealed class AiAssistService : IDisposable
         PreparedVisionImage prepared;
         try
         {
-            prepared = VisionImagePreparer.Prepare(imagePath, options.ImageMaxDimension);
+            prepared = await Task.Run(
+                    () => VisionImagePreparer.Prepare(imagePath, options.ImageMaxDimension),
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (Exception ex)
         {
@@ -213,45 +223,69 @@ public sealed class AiAssistService : IDisposable
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var url = string.IsNullOrWhiteSpace(candidates[i].ThumbnailUrl)
+            var preferredUrl = string.IsNullOrWhiteSpace(candidates[i].ThumbnailUrl)
                 ? candidates[i].ImagePath
                 : candidates[i].ThumbnailUrl;
+            var fallbackUrl = string.Equals(preferredUrl, candidates[i].ImagePath,
+                StringComparison.OrdinalIgnoreCase)
+                ? null
+                : candidates[i].ImagePath;
 
-            if (string.IsNullOrWhiteSpace(url)) continue;
-
-            try
+            PreparedVisionImage? prepared = null;
+            foreach (var url in new[] { preferredUrl, fallbackUrl })
             {
-                using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                timeoutCts.CancelAfter(TimeSpan.FromSeconds(RemoteImageTimeoutSeconds));
+                if (string.IsNullOrWhiteSpace(url)) continue;
 
-                using var response = await httpClient.GetAsync(url, timeoutCts.Token).ConfigureAwait(false);
-                if (!response.IsSuccessStatusCode)
+                try
                 {
-                    LogService.Debug(
-                        $"AI assist: thumbnail download failed ({(int)response.StatusCode}) for '{url}'.");
-                    continue;
+                    prepared = await TryDownloadPreparedImageAsync(httpClient, url, maxDimension, cancellationToken)
+                        .ConfigureAwait(false);
+                    if (prepared != null) break;
                 }
-
-                var bytes = await response.Content.ReadAsByteArrayAsync(timeoutCts.Token).ConfigureAwait(false);
-                var prepared = VisionImagePreparer.Prepare(bytes, maxDimension);
-
-                var name = string.IsNullOrWhiteSpace(candidates[i].ImageName)
-                    ? Path.GetFileNameWithoutExtension(url) ?? url
-                    : candidates[i].ImageName!;
-
-                inputs.Add(new VisionImageInput(name, prepared, i));
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    LogService.Warning(ex, $"AI assist: could not prepare remote image '{url}'.");
+                }
             }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                LogService.Warning(ex, $"AI assist: could not prepare remote image '{url}'.");
-            }
+
+            if (prepared == null) continue;
+
+            var name = string.IsNullOrWhiteSpace(candidates[i].ImageName)
+                ? Path.GetFileNameWithoutExtension(preferredUrl) ?? preferredUrl ?? "image"
+                : candidates[i].ImageName!;
+
+            inputs.Add(new VisionImageInput(name, prepared, i));
         }
 
         return inputs;
+    }
+
+    private static async Task<PreparedVisionImage?> TryDownloadPreparedImageAsync(
+        HttpClient httpClient,
+        string url,
+        int maxDimension,
+        CancellationToken cancellationToken)
+    {
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeoutCts.CancelAfter(TimeSpan.FromSeconds(RemoteImageTimeoutSeconds));
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, url);
+        request.Headers.UserAgent.ParseAdd(ImageSaveService.BrowserUserAgent);
+        request.Headers.Accept.ParseAdd("image/avif,image/webp,image/apng,image/*,*/*;q=0.8");
+
+        using var response = await httpClient.SendAsync(request, timeoutCts.Token).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+        {
+            LogService.Debug($"AI assist: image download failed ({(int)response.StatusCode}) for '{url}'.");
+            return null;
+        }
+
+        var bytes = await response.Content.ReadAsByteArrayAsync(timeoutCts.Token).ConfigureAwait(false);
+        return VisionImagePreparer.Prepare(bytes, maxDimension);
     }
 
     private async Task<AiPickResult?> PickBestCoreAsync(
@@ -334,7 +368,8 @@ public sealed class AiAssistService : IDisposable
             options.Model,
             romName,
             searchName,
-            string.Join(',', inputs.Select(static i => i.Image.Hash)));
+            string.Join(',', inputs.Select(static i => i.Image.Hash)),
+            string.Join(',', inputs.Select(static i => i.SourceIndex)));
 
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(raw)));
     }

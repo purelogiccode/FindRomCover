@@ -94,6 +94,34 @@ public class ImageProcessorTests : IDisposable
         File.Exists(tmpFile).Should().BeFalse();
     }
 
+    [Theory]
+    [InlineData("file.tmp", true)]
+    [InlineData("file.TMP", true)]
+    [InlineData("target.png.tmp1a2b3c4d", true)]
+    [InlineData("Backup.tmp.png", false)]
+    [InlineData("Mega Man.tmpdata.png", false)]
+    [InlineData("image.png", false)]
+    public void IsOrphanedTempFileNameShouldMatchOnlyAppTempNames(string fileName, bool expected)
+    {
+        ImageProcessor.IsOrphanedTempFileName(fileName).Should().Be(expected);
+    }
+
+    [Fact]
+    public void CleanupOrphanedTempFilesShouldNotDeleteUserFilesContainingTmp()
+    {
+        var dir = Path.Combine(_testDir, "tmpnames");
+        Directory.CreateDirectory(dir);
+        var userFile = Path.Combine(dir, "Backup.tmp.png");
+        var currentTemp = Path.Combine(dir, "target.png.tmp1a2b3c4d");
+        File.WriteAllText(userFile, "user");
+        File.WriteAllText(currentTemp, "temp");
+
+        ImageProcessor.CleanupOrphanedTempFiles(dir);
+
+        File.Exists(userFile).Should().BeTrue();
+        File.Exists(currentTemp).Should().BeFalse();
+    }
+
     [Fact]
     public async Task ConvertAndSaveImageAsyncWithNullTargetPathShouldReturnFailure()
     {

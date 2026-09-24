@@ -72,7 +72,8 @@ public static class ButtonFactory
         double similarityThreshold,
         string similarityAlgorithm,
         CancellationToken cancellationToken,
-        Action<ImageData>? onImageLoaded = null)
+        Action<ImageData>? onImageLoaded = null,
+        bool ignoreBracketedText = false)
     {
         return SimilarityCalculator.CalculateSimilarityAsync(
             selectedRomFileName,
@@ -80,7 +81,8 @@ public static class ButtonFactory
             similarityThreshold,
             similarityAlgorithm,
             cancellationToken,
-            onImageLoaded: onImageLoaded);
+            onImageLoaded: onImageLoaded,
+            ignoreBracketedText: ignoreBracketedText);
     }
 
     public static ContextMenu CreateContextMenu(string imagePath, Action<string?> useImageAction,

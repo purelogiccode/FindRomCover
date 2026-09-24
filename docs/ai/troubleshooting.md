@@ -8,7 +8,7 @@ This page covers problems specific to AI Vision Assist. For general application 
 
 **Status:** Fixed. FindRomCover now allows up to 4,096 output tokens and raises a descriptive error if a model still exhausts its budget, for example:
 
-> The model used its entire output budget on internal reasoning and returned no text. Try a non-reasoning model or increase the output limit.
+> AI model ran out of output tokens before producing an answer. Reasoning models can spend the whole output budget on internal thinking; try a non-reasoning model (for example google/gemma-3-12b-it).
 
 **What to do:**
 

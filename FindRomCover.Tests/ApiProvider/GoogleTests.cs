@@ -107,6 +107,17 @@ public class GoogleTests
         result.Should().Be("Sonic The Hedgehog");
     }
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void FormatImageNameWithMissingTitleShouldReturnEmpty(string? input)
+    {
+        var result = Google.FormatImageName(input!);
+
+        result.Should().BeEmpty();
+    }
+
     [Fact]
     public void MapToImageDataWithValidResultsShouldMapCorrectly()
     {

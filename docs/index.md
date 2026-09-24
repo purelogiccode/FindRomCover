@@ -21,7 +21,7 @@ FindRomCover is a Windows desktop application that scans your ROM folder, detect
 | AI Vision Assist | OpenRouter, OpenAI, Anthropic, Gemini, GLM, local (Ollama/LM Studio), or custom endpoints pick the best cover |
 | AI Batch Fill | Fills the entire missing-covers list automatically with confidence thresholds and query history |
 | Themes | Light and dark base themes with 20+ accent colors |
-| Detailed diagnostics | Built-in log viewer plus rolling `app.log` and `error.log` files |
+| Detailed diagnostics | Built-in log viewer plus a rolling `app<yyyyMMdd>.log` file |
 
 ## How it works
 

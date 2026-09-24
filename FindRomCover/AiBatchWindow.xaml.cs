@@ -18,6 +18,7 @@ public partial class AiBatchWindow
     private readonly string _imageFolderPath;
     private readonly List<MissingImageItem> _items;
     private readonly Action<string>? _preRegisterExpectedFile;
+    private readonly Action<string>? _unregisterExpectedFile;
     private readonly AiQueryHistory _queryHistory = new();
     private readonly SettingsManager _settings;
     private CancellationTokenSource? _cts;
@@ -28,7 +29,8 @@ public partial class AiBatchWindow
         IEnumerable<MissingImageItem> items,
         string imageFolderPath,
         Action<string>? preRegisterExpectedFile = null,
-        string? extraQuery = null)
+        string? extraQuery = null,
+        Action<string>? unregisterExpectedFile = null)
     {
         InitializeComponent();
 
@@ -37,6 +39,7 @@ public partial class AiBatchWindow
         _imageFolderPath = imageFolderPath;
         _preRegisterExpectedFile = preRegisterExpectedFile;
         _extraQuery = extraQuery;
+        _unregisterExpectedFile = unregisterExpectedFile;
 
         Closing += AiBatchWindow_Closing;
 
@@ -47,7 +50,9 @@ public partial class AiBatchWindow
 
         Progress.Maximum = Math.Max(1, _items.Count);
 
-        var alreadyQueried = _items.Count(item => _queryHistory.WasQueried(TargetPathFor(item)));
+        var queriedPaths = _queryHistory.GetQueriedPathSet();
+        var alreadyQueried = _items.Count(item =>
+            queriedPaths.Contains(AiQueryHistory.NormalizeKey(TargetPathFor(item))));
         TxtSummary.Text = alreadyQueried == 0
             ? $"{_items.Count} missing cover(s) available."
             : $"{_items.Count} missing cover(s) available ({alreadyQueried} already queried).";
@@ -85,7 +90,8 @@ public partial class AiBatchWindow
             try
             {
                 using var aiAssist = new AiAssistService(_settings);
-                var service = new AiBatchFillService(_settings, aiAssist, _preRegisterExpectedFile);
+                var service = new AiBatchFillService(_settings, aiAssist, _preRegisterExpectedFile, null,
+                    _unregisterExpectedFile);
                 var progress = new Progress<AiBatchItemResult>(OnItemCompleted);
 
                 var results = await service.RunAsync(
@@ -172,9 +178,15 @@ public partial class AiBatchWindow
     private void AiBatchWindow_Closing(object? sender, CancelEventArgs e)
     {
         // Closing the window (X button, Alt+F4) while a batch is running must stop the
-        // batch — otherwise downloads/saves keep running against a dead window.
-        if (_running)
-            _cts?.Cancel();
+        // batch — otherwise downloads/saves keep running against a dead window. Keep the
+        // window open until the current item finishes so the caller does not rescan
+        // while a cover is still being written.
+        if (!_running) return;
+
+        e.Cancel = true;
+        _cts?.Cancel();
+        BtnClose.IsEnabled = false;
+        TxtSummary.Text = "Canceling after the current item...";
     }
 
     private string TargetPathFor(MissingImageItem item)

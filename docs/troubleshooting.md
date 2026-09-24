@@ -7,7 +7,7 @@ This page covers general problems. For AI-specific issues see [AI Troubleshootin
 | Check | Action |
 |-------|--------|
 | .NET Desktop Runtime | Install the [.NET 10.0 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) |
-| Log file | Read `error.log` next to the executable for the exact failure |
+| Log file | Read the rolling `app<yyyyMMdd>.log` in `%LocalAppData%\FindRomCover` for the exact failure |
 | Corrupt settings | Delete `%LocalAppData%\FindRomCover\Settings.dat` to reset to defaults |
 | Permissions | Move the application to a user-writable folder such as `C:\Tools\FindRomCover` |
 | Antivirus | Some scanners flag single-file .NET executables; allow the file if you trust it |

@@ -106,13 +106,55 @@ public abstract class VisionModelClientBase : IVisionModelClient
 
     internal static string ExtractJsonObject(string content)
     {
-        var start = content.IndexOf('{', StringComparison.Ordinal);
-        var end = content.LastIndexOf('}');
-
-        if (start < 0 || end <= start)
+        if (string.IsNullOrWhiteSpace(content))
             throw new InvalidOperationException("AI response did not contain a JSON object.");
 
-        return content[start..(end + 1)];
+        // Models sometimes wrap the JSON in prose or a markdown fence, and reasoning
+        // models can mention braces (or example JSON) before the real answer. Try every
+        // balanced brace group and return the first one that is valid JSON.
+        for (var start = content.IndexOf('{'); start >= 0; start = content.IndexOf('{', start + 1))
+        {
+            var end = FindMatchingBrace(content, start);
+            if (end < 0) continue;
+
+            var candidate = content[start..(end + 1)];
+            try
+            {
+                using var _ = JsonDocument.Parse(candidate);
+                return candidate;
+            }
+            catch (JsonException)
+            {
+                // Not a JSON object (for example a brace inside prose); keep scanning.
+            }
+        }
+
+        throw new InvalidOperationException("AI response did not contain a JSON object.");
+    }
+
+    private static int FindMatchingBrace(string text, int start)
+    {
+        var depth = 0;
+        var inString = false;
+        var escaped = false;
+
+        for (var i = start; i < text.Length; i++)
+        {
+            var c = text[i];
+            if (inString)
+            {
+                if (escaped) escaped = false;
+                else if (c == '\\') escaped = true;
+                else if (c == '"') inString = false;
+                continue;
+            }
+
+            if (c == '"') inString = true;
+            else if (c == '{') depth++;
+            else if (c == '}' && --depth == 0) return i;
+        }
+
+        return -1;
     }
 
     internal static AiPickResult ParsePickResponse(string content)
@@ -242,10 +284,11 @@ public abstract class VisionModelClientBase : IVisionModelClient
 
             return parse(content);
         }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested)
         {
             throw new InvalidOperationException(
-                $"AI request timed out after {options.TimeoutSeconds} seconds. Check the AI settings or try a smaller model.");
+                $"AI request timed out after {options.TimeoutSeconds} seconds. Check the AI settings or try a smaller model.",
+                ex);
         }
         catch (HttpRequestException ex)
         {

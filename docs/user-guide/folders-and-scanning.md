@@ -13,7 +13,7 @@ Folder paths are validated before scanning. If a path does not exist, a warning 
 ## What the scan does
 
 1. Enumerates every file under the ROM folder whose extension is in the [supported extensions](../configuration/extensions.md) list.
-2. For each ROM file, looks for a cover image with the same base name in the image folder. Recognized image formats include `.png`, `.jpg`, `.jpeg`, `.bmp`, `.gif`, `.tiff`, `.tif`, `.webp`, and `.avif`.
+2. For each ROM file, looks for a cover image with the same base name in the image folder. Recognized image formats include `.png`, `.jpg`, `.jpeg`, `.bmp`, `.gif`, `.tiff`, `.tif`, `.webp`, `.avif`, `.heic`, `.heif`, `.ico`, `.svg`, `.jxl`, and `.jp2`.
 3. Adds every ROM without a matching image to the **Missing Covers** list.
 
 The status bar reports the outcome:

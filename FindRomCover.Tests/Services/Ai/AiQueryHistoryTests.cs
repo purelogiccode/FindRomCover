@@ -52,6 +52,20 @@ public class AiQueryHistoryTests : IDisposable
     }
 
     [Fact]
+    public void GetQueriedPathSetShouldReturnNormalizedEntries()
+    {
+        var history = new AiQueryHistory(_historyPath);
+        history.MarkQueried(_targetPath, "manual");
+        history.MarkQueried(_targetPath + ".second.png", "api-no-match");
+
+        var paths = history.GetQueriedPathSet();
+
+        paths.Should().HaveCount(2);
+        paths.Should().Contain(AiQueryHistory.NormalizeKey(_targetPath));
+        paths.Should().Contain(AiQueryHistory.NormalizeKey(_targetPath + ".second.png"));
+    }
+
+    [Fact]
     public void RemoveShouldForgetEntry()
     {
         var history = new AiQueryHistory(_historyPath);

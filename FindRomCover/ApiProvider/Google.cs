@@ -73,10 +73,13 @@ public static class Google
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         cts.CancelAfter(TimeSpan.FromSeconds(settingsManager.ApiTimeoutSeconds));
 
-        using var response = await HttpClientHelper.Client.GetAsync(requestUrl, cts.Token);
-
         try
         {
+            // GetAsync must stay inside the try: with the default ResponseContentRead
+            // option it buffers the body, so timeouts and connection failures surface
+            // here and must be mapped to the friendly messages below.
+            using var response = await HttpClientHelper.Client.GetAsync(requestUrl, cts.Token);
+
             LogService.Debug($"{logMessagePrefix} Response Status: {response.StatusCode}");
 
             switch (response.StatusCode)
@@ -208,6 +211,8 @@ public static class Google
 
     internal static string FormatImageName(string input)
     {
+        if (string.IsNullOrWhiteSpace(input)) return string.Empty;
+
         if (Uri.IsWellFormedUriString(input, UriKind.Absolute))
             try
             {

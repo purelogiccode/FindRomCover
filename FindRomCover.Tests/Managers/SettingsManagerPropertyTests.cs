@@ -238,6 +238,25 @@ public class SettingsManagerPropertyTests : IDisposable
     }
 
     [Fact]
+    public void IgnoreBracketedTextShouldDefaultToTrue()
+    {
+        var settings = new SettingsManager(_settingsDirectory);
+
+        settings.IgnoreBracketedText.Should().BeTrue();
+    }
+
+    [Fact]
+    public void IgnoreBracketedTextShouldBeSettable()
+    {
+        var settings = new SettingsManager(_settingsDirectory)
+        {
+            IgnoreBracketedText = false
+        };
+
+        settings.IgnoreBracketedText.Should().BeFalse();
+    }
+
+    [Fact]
     public void SimilarityThresholdShouldHaveDefaultValue()
     {
         var settings = new SettingsManager(_settingsDirectory);

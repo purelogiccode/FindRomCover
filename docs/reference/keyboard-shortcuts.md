@@ -9,6 +9,7 @@ FindRomCover keeps the keyboard surface small and predictable.
 | **F5** | Scan the ROM and image folders again (**Check for Missing Images**) |
 | **F8** | Save a screenshot of the active window and show the path in the status bar |
 | **Delete** | Remove the selected entry from the missing covers list (key repeat is suppressed) |
+| **Escape** | Exit the application |
 
 ## Folder boxes
 
@@ -35,12 +36,13 @@ FindRomCover keeps the keyboard surface small and predictable.
 | `Theme > Light` / `Dark` | Switch base theme |
 | `Set Similarity Algorithm` | Choose Jaccard, Jaro-Winkler, or Levenshtein |
 | `Set Similarity Threshold` | Set the local match threshold (10–90%) |
+| `Ignore Bracketed Text in Matching` | Toggle ignoring text inside `()`, `[]`, and `{}` during matching |
 | `Set Thumbnail Size` | Set Google API thumbnail size (100–500 px) |
 | `Settings > Show/Hide Log Window` | Toggle the live log viewer |
 
 ## Notes
 
-- There is no global exit hotkey; use the **Exit** menu item or close the window.
+- **Escape** exits the application; use the **Exit** menu item or close the window if you prefer the mouse.
 - Shortcuts are not configurable.
 - If a shortcut does not respond, click the main window first to ensure it has focus.
 

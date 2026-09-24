@@ -57,7 +57,7 @@ public static class AppConstants
         public const string DefaultGlmModel = "glm-4.5v";
         public const string DefaultLocalModel = "qwen2.5vl:7b";
 
-        public const string PromptVersion = "v1";
+        public const string PromptVersion = "v2";
 
         public static readonly string[] All =
         [

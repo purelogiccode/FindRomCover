@@ -145,6 +145,61 @@ public class OpenAiCompatibleVisionClientTests
     }
 
     [Fact]
+    public void BuildRequestBodyShouldUseReasoningParametersForOpenAiReasoningModels()
+    {
+        var options = CreateOptions() with
+        {
+            Provider = "OpenAI",
+            Model = "gpt-5-nano"
+        };
+
+        var body = OpenAiCompatibleVisionClient.BuildRequestBody(options, "system", "user", CreateImages());
+
+        body.Should().Contain("max_completion_tokens");
+        body.Should().NotContain("max_tokens");
+        body.Should().NotContain("temperature");
+        OpenAiCompatibleVisionClient.IsOpenAiReasoningModel(options).Should().BeTrue();
+    }
+
+    [Fact]
+    public void BuildRequestBodyShouldKeepStandardParametersForNonReasoningModels()
+    {
+        var options = CreateOptions() with
+        {
+            Provider = "OpenAI",
+            Model = "gpt-4o-mini"
+        };
+
+        var body = OpenAiCompatibleVisionClient.BuildRequestBody(options, "system", "user", CreateImages());
+
+        body.Should().Contain("\"max_tokens\"");
+        body.Should().Contain("temperature");
+        OpenAiCompatibleVisionClient.IsOpenAiReasoningModel(options).Should().BeFalse();
+    }
+
+    [Fact]
+    public void ExtractJsonObjectShouldSkipProseAndReasoningBraces()
+    {
+        const string content =
+            "Reasoning: the set {a, b} is not JSON. Answer follows.\n" +
+            "{\"bestIndex\":1,\"confidence\":0.8,\"reason\":\"cover\"}";
+
+        var json = VisionModelClientBase.ExtractJsonObject(content);
+
+        json.Should().Be("{\"bestIndex\":1,\"confidence\":0.8,\"reason\":\"cover\"}");
+    }
+
+    [Fact]
+    public void ExtractJsonObjectShouldSkipBracesInsideStrings()
+    {
+        const string content = "{\"reason\":\"contains } brace\",\"bestIndex\":0}";
+
+        var json = VisionModelClientBase.ExtractJsonObject(content);
+
+        json.Should().Be(content);
+    }
+
+    [Fact]
     public void BuildChatCompletionsUrlShouldAppendPath()
     {
         OpenAiCompatibleVisionClient.BuildChatCompletionsUrl("https://example.test/api/v1/")

@@ -35,12 +35,12 @@ public sealed class SettingsDatabase
         return FileLocks.GetOrAdd(key, static _ => new Lock());
     }
 
-    public Dictionary<string, string> LoadAll()
+    public bool TryLoadAll(out Dictionary<string, string> values)
     {
+        values = new Dictionary<string, string>(StringComparer.Ordinal);
+
         lock (_lock)
         {
-            var values = new Dictionary<string, string>(StringComparer.Ordinal);
-
             try
             {
                 using var connection = OpenConnection();
@@ -50,13 +50,15 @@ public sealed class SettingsDatabase
                 using var reader = command.ExecuteReader();
                 while (reader.Read())
                     values[reader.GetString(0)] = reader.GetString(1);
+
+                return true;
             }
             catch (Exception ex)
             {
                 LogService.Warning(ex, "Settings database could not be read.");
+                values = new Dictionary<string, string>(StringComparer.Ordinal);
+                return false;
             }
-
-            return values;
         }
     }
 

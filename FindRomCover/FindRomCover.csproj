@@ -8,6 +8,7 @@
         <UseWPF>true</UseWPF>
         <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
         <ApplicationIcon>icon\icon.ico</ApplicationIcon>
+        <Version>3.2.0</Version>
         <AssemblyVersion>3.2.0</AssemblyVersion>
         <FileVersion>3.2.0</FileVersion>
         <LangVersion>14</LangVersion>
@@ -66,8 +67,8 @@
         <PackageReference Include="ControlzEx" Version="7.0.4" />
         <PackageReference Include="Magick.NET-Q16-AnyCPU" Version="14.17.1" />
         <PackageReference Include="MahApps.Metro" Version="3.0.0-rc0529" />
-        <PackageReference Include="MessagePack" Version="3.1.9" />
-        <PackageReference Include="Meziantou.Analyzer" Version="3.0.273">
+        <PackageReference Include="MessagePack" Version="3.1.10" />
+        <PackageReference Include="Meziantou.Analyzer" Version="3.0.290">
           <PrivateAssets>all</PrivateAssets>
           <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>

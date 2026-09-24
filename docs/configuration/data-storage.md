@@ -1,6 +1,6 @@
 # Data Storage
 
-FindRomCover keeps configuration and caches in `%LocalAppData%\FindRomCover` and writes logs and its MAME database next to the executable. This page lists every file, what it contains, and how long it is kept.
+FindRomCover keeps configuration, caches, and logs in `%LocalAppData%\FindRomCover`; the MAME database ships next to the executable.
 
 ## Data folder
 
@@ -12,7 +12,12 @@ Default location: `%LocalAppData%\FindRomCover` (typically `C:\Users\<you>\AppDa
 | `QueryHistory.dat` | SQLite | Covers already queried with AI Assist | 180 days, max 100,000 entries |
 | `ai-cache.json` | JSON | Cached AI verdicts | 30 days, max 2,000 entries |
 | `ai-models.json` | JSON | Cached model lists per provider and base URL | 7 days |
+| `app<yyyyMMdd>.log` | Text | Rolling daily application log | 7 days |
+| `ApiLogError.txt` | Text | Error entries sent to the bug-report API | Until deleted |
+| `UserLogError.txt` | Text | Simplified error list for user reference | Until deleted |
+| `InternalLog.txt` | Text | Internal error-logger diagnostics | Until deleted |
 | `settings.dat.legacy` | Encrypted legacy file | Backup of the pre-SQLite settings file | Until deleted |
+| `Settings.dat.corrupt` | Any | Quarantined settings file that could not be read | Until deleted |
 
 ## Application folder
 
@@ -21,11 +26,8 @@ These files live next to `FindRomCover.exe`:
 | File | Purpose |
 |------|---------|
 | `mame.dat` | MAME game database used for descriptions |
-| `app.log` | Rolling application log |
-| `error.log` | Error-level log |
-| `error_user.log` | Simplified error list for user reference |
 | `settings.dat.legacy` | Legacy settings backup after migration (if migrated from the app folder) |
-| `settings.dat.corrupt` | Quarantined settings database that could not be read |
+| `settings.dat.corrupt` | Quarantined legacy settings file that could not be read |
 
 ## Settings database
 

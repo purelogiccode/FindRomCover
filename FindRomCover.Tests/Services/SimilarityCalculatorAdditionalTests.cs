@@ -96,6 +96,16 @@ public class SimilarityCalculatorAdditionalTests
     }
 
     [Fact]
+    public void CalculateLevenshteinSimilarityWithScoreExactlyAtThresholdShouldNotBeRejected()
+    {
+        // "abcdefghij" vs "abcdefghix": 1 edit over 10 chars = exactly 90%.
+        // The max-allowed-distance conversion must not truncate 1.0 down to 0.
+        var result = SimilarityCalculator.CalculateLevenshteinSimilarity("abcdefghij", "abcdefghix", 90);
+
+        result.Should().Be(90);
+    }
+
+    [Fact]
     public void CalculateLevenshteinSimilarityWithWhitespaceStringsShouldWork()
     {
         var result = SimilarityCalculator.CalculateLevenshteinSimilarity("   ", "   ");

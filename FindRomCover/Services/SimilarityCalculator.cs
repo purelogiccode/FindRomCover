@@ -2,6 +2,7 @@ using System.Buffers;
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
+using System.Text;
 using FindRomCover.Managers;
 using FindRomCover.Models;
 
@@ -21,7 +22,8 @@ public static class SimilarityCalculator
         string algorithm,
         CancellationToken cancellationToken,
         int maxImagesToLoad = 0,
-        Action<ImageData>? onImageLoaded = null)
+        Action<ImageData>? onImageLoaded = null,
+        bool ignoreBracketedText = false)
     {
         var result = new SimilarityCalculationResult();
 
@@ -32,6 +34,7 @@ public static class SimilarityCalculator
             imageFolderPath,
             similarityThreshold,
             algorithm,
+            ignoreBracketedText,
             maxImagesToLoad,
             cancellationToken);
 
@@ -106,13 +109,15 @@ public static class SimilarityCalculator
         double similarityThreshold,
         string algorithm,
         CancellationToken cancellationToken,
-        int maxCandidates)
+        int maxCandidates,
+        bool ignoreBracketedText = false)
     {
         var (candidates, errors) = await FindCandidatesCoreAsync(
             selectedFileName,
             imageFolderPath,
             similarityThreshold,
             algorithm,
+            ignoreBracketedText,
             maxCandidates,
             cancellationToken);
 
@@ -128,6 +133,7 @@ public static class SimilarityCalculator
         string imageFolderPath,
         double similarityThreshold,
         string algorithm,
+        bool ignoreBracketedText,
         int maxCandidates,
         CancellationToken cancellationToken)
     {
@@ -135,6 +141,8 @@ public static class SimilarityCalculator
 
         if (string.IsNullOrEmpty(imageFolderPath) || !Directory.Exists(imageFolderPath))
             return ([], processingErrors.ToList());
+
+        if (ignoreBracketedText) selectedFileName = StripAnnotations(selectedFileName);
 
         string[] imageExtensions =
         [
@@ -155,7 +163,7 @@ public static class SimilarityCalculator
         if (allImageFiles.Count > NgramIndexMinFileCount)
         {
             var index = new NgramIndex();
-            index.Build(allImageFiles);
+            index.Build(allImageFiles, ignoreBracketedText ? StripAnnotations : null);
             var candidates = index.GetCandidates(selectedFileName);
 
             if (candidates.Count > 0 && candidates.Count >= allImageFiles.Count * NgramIndexFallbackRatio)
@@ -183,23 +191,26 @@ public static class SimilarityCalculator
                 try
                 {
                     var imageName = Path.GetFileNameWithoutExtension(imageFile);
+                    var comparableImageName = ignoreBracketedText ? StripAnnotations(imageName) : imageName;
 
                     double similarityScore;
                     switch (algorithm)
                     {
                         case AppConstants.Algorithms.Levenshtein:
                             similarityScore =
-                                CalculateLevenshteinSimilarity(selectedFileName, imageName, similarityThreshold);
+                                CalculateLevenshteinSimilarity(selectedFileName, comparableImageName,
+                                    similarityThreshold);
                             break;
                         case AppConstants.Algorithms.Jaccard:
-                            var ngramSize = Math.Min(selectedFileName.Length, imageName.Length) < 2 ? 1 : 2;
+                            var ngramSize =
+                                Math.Min(selectedFileName.Length, comparableImageName.Length) < 2 ? 1 : 2;
                             var queryNgrams = ngramSize == 1
                                 ? jaccardQueryUnigrams ??= GetNgrams(selectedFileName.ToLowerInvariant(), 1)
                                 : jaccardQueryBigrams ??= GetNgrams(selectedFileName.ToLowerInvariant(), 2);
-                            similarityScore = CalculateJaccardIndex(queryNgrams, imageName, ngramSize);
+                            similarityScore = CalculateJaccardIndex(queryNgrams, comparableImageName, ngramSize);
                             break;
                         case AppConstants.Algorithms.JaroWinkler:
-                            similarityScore = CalculateJaroWinklerDistance(selectedFileName, imageName);
+                            similarityScore = CalculateJaroWinklerDistance(selectedFileName, comparableImageName);
                             break;
                         default:
                             var errorMessage = $"Algorithm '{algorithm}' is not implemented.";
@@ -265,6 +276,63 @@ public static class SimilarityCalculator
         }
     }
 
+    /// <summary>
+    ///     Removes bracketed annotations from a filename so that region, language, version, and other
+    ///     metadata tags are ignored during matching. Handles parentheses, square brackets, curly braces,
+    ///     and nested groups of the same type.
+    /// </summary>
+    /// <param name="fileName">The filename to clean.</param>
+    /// <returns>The filename with balanced bracketed groups removed, or the original name when nothing remains.</returns>
+    public static string StripAnnotations(string fileName)
+    {
+        if (string.IsNullOrWhiteSpace(fileName)) return fileName;
+
+        var result = RemoveBalancedBracketGroups(fileName, '(', ')');
+        result = RemoveBalancedBracketGroups(result, '[', ']');
+        result = RemoveBalancedBracketGroups(result, '{', '}');
+        result = result.Trim().TrimEnd('.', '_', ' ');
+
+        return string.IsNullOrWhiteSpace(result) ? fileName : result;
+    }
+
+    private static string RemoveBalancedBracketGroups(string input, char open, char close)
+    {
+        if (input.IndexOf(open) < 0) return input;
+
+        var result = new StringBuilder(input.Length);
+        var i = 0;
+        while (i < input.Length)
+        {
+            if (input[i] == open)
+            {
+                var depth = 1;
+                var j = i + 1;
+                while (j < input.Length && depth > 0)
+                {
+                    if (input[j] == open)
+                        depth++;
+                    else if (input[j] == close) depth--;
+
+                    j++;
+                }
+
+                if (depth == 0)
+                {
+                    // Strip preceding whitespace before the bracket group
+                    while (result.Length > 0 && (result[^1] == ' ' || result[^1] == '\t')) result.Length--;
+
+                    i = j;
+                    continue;
+                }
+            }
+
+            result.Append(input[i]);
+            i++;
+        }
+
+        return result.ToString();
+    }
+
     internal static double CalculateLevenshteinSimilarity(string a, string b, double similarityThreshold = 0)
     {
         a = a.ToLowerInvariant();
@@ -279,9 +347,11 @@ public static class SimilarityCalculator
         var maxLength = Math.Max(lengthA, lengthB);
 
         // similarityThreshold is 0-100 (percentage). Convert to max allowed edit distance.
-        // e.g., threshold=70 means allow up to 30% of the string length as edits.
+        // e.g., threshold=70 means allow up to 30% of the string length as edits. The
+        // epsilon keeps mathematically integral values (for example 10% of 10 chars)
+        // from truncating down and rejecting matches that score exactly at the threshold.
         var maxAllowedDistance = similarityThreshold > 0
-            ? (int)((1.0 - similarityThreshold / 100.0) * maxLength)
+            ? (int)Math.Floor((1.0 - similarityThreshold / 100.0) * maxLength + 1e-9)
             : int.MaxValue;
 
         var previousRow = new int[lengthB + 1];

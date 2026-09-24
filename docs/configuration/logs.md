@@ -17,11 +17,12 @@ The window is the fastest way to understand what the application is doing and wh
 
 | File | Contents |
 |------|----------|
-| `app.log` | Full application log, rolling, 7-day retention |
-| `error.log` | Error-level and above |
-| `error_user.log` | Simplified error list intended for user reference |
+| `app<yyyyMMdd>.log` | Full application log, rolling daily, 7-day retention |
+| `ApiLogError.txt` | Error entries sent to the automatic bug-report API |
+| `UserLogError.txt` | Simplified error list intended for user reference |
+| `InternalLog.txt` | Internal diagnostics from the error logger |
 
-All three are written next to `FindRomCover.exe`.
+All four are written to `%LocalAppData%\FindRomCover` (the same folder as `Settings.dat`), not next to the executable.
 
 ## Severity levels
 
@@ -71,14 +72,14 @@ The timestamp and level tell you when and how serious the problem is; the messag
 
 1. Reproduce the problem.
 2. Open the log window and note the error entries.
-3. Attach `error.log` (or the relevant part of `app.log`) to your GitHub issue.
+3. Attach the rolling `app<yyyyMMdd>.log` (or the relevant part) to your GitHub issue.
 4. Remove any information you do not want to share — logs contain file paths.
 
 ## Troubleshooting logging itself
 
 | Symptom | Solution |
 |---------|----------|
-| No log files | The application folder may not be writable; move FindRomCover to a user-writable folder |
+| No log files | The `%LocalAppData%\FindRomCover` folder could not be created; check permissions for your user profile |
 | Log window is empty | Logging initializes on startup; restart the application |
 | Log grows very large | Files roll over automatically and are kept for 7 days |
 

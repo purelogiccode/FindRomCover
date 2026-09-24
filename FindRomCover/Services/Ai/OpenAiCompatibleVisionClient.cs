@@ -68,19 +68,44 @@ public sealed class OpenAiCompatibleVisionClient : VisionModelClientBase
                 image_url = new { url = "data:image/jpeg;base64," + Convert.ToBase64String(image.Image.JpegBytes) }
             });
 
-        var payload = new
+        var payload = new Dictionary<string, object?>(StringComparer.Ordinal)
         {
-            model = options.Model,
-            temperature = 0.1,
-            max_tokens = 4096,
-            messages = new object[]
+            ["model"] = options.Model,
+            ["messages"] = new object[]
             {
                 new { role = "system", content = systemPrompt },
                 new { role = "user", content = userContent }
             }
         };
 
+        if (IsOpenAiReasoningModel(options))
+        {
+            // OpenAI reasoning models (o-series, gpt-5*) reject "temperature" and
+            // require "max_completion_tokens" instead of "max_tokens".
+            payload["max_completion_tokens"] = 4096;
+        }
+        else
+        {
+            payload["temperature"] = 0.1;
+            payload["max_tokens"] = 4096;
+        }
+
         return JsonSerializer.Serialize(payload);
+    }
+
+    internal static bool IsOpenAiReasoningModel(AiVisionOptions options)
+    {
+        if (options.Provider is not (AppConstants.AiProviders.OpenAi or AppConstants.AiProviders.CustomOpenAi))
+            return false;
+
+        var modelId = (options.Model ?? string.Empty).Trim();
+        var slash = modelId.LastIndexOf('/');
+        if (slash >= 0) modelId = modelId[(slash + 1)..];
+
+        return modelId.StartsWith("o1", StringComparison.OrdinalIgnoreCase) ||
+               modelId.StartsWith("o3", StringComparison.OrdinalIgnoreCase) ||
+               modelId.StartsWith("o4", StringComparison.OrdinalIgnoreCase) ||
+               modelId.StartsWith("gpt-5", StringComparison.OrdinalIgnoreCase);
     }
 
     internal static string BuildChatCompletionsUrl(string baseUrl)

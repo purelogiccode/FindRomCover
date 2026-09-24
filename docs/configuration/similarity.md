@@ -41,17 +41,21 @@ Counts the minimum number of insertions, deletions, and substitutions needed to 
 
 Lower thresholds produce longer result lists. The same threshold pre-filters AI candidates in the main window; AI Settings has a separate **Candidate similarity** value.
 
+## Ignoring bracketed text
+
+`Ignore Bracketed Text in Matching` (enabled by default) removes balanced bracketed groups — `(USA)`, `[En]`, `{Rev 1}`, including nested groups — from both the search name and the image filenames before they are scored. This lets a ROM named `Game (USA) [En]` match a cover simply named `Game`.
+
+Turn the menu item off to score the full filenames exactly as they are.
+
 ## Filename cleaning
 
-Before comparison, FindRomCover cleans the search name:
+The local matcher compares the ROM name (or the MAME description when **Use MAME Descriptions** is on) against every image filename in the folder:
 
-- removes file extensions;
-- strips region and revision tags such as `(USA)`, `(Europe)`, `[!]`;
-- replaces separators (`_`, `-`, `.`) with spaces;
-- collapses repeated whitespace;
-- sanitizes characters that are unsafe in filenames.
+- file extensions are removed from image filenames;
+- text inside `()`, `[]`, and `{}` is ignored when **Ignore Bracketed Text in Matching** is on (the default);
+- names are compared case-insensitively.
 
-The result is used for similarity scoring, web searches, and AI prompts. When `Use MAME Descriptions` is enabled, the MAME description replaces the cleaned filename.
+For web and API searches, the query is built from the cleaned name: bracketed region, revision, and language tags such as `(USA)`, `(Europe)`, and `[!]` are removed. When a cover is saved, `SanitizeFileName` replaces characters that are invalid in filenames.
 
 ## Performance
 

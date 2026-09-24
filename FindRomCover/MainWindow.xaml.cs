@@ -66,6 +66,7 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         UpdateThumbnailSizeMenuChecks();
         UpdateSimilarityAlgorithmChecks();
         UpdateSimilarityThresholdChecks();
+        UpdateIgnoreBracketedTextCheck();
         UpdateAccentColorChecks();
         UpdateBaseThemeMenuChecks();
         UpdateMameDescriptionCheck();
@@ -506,6 +507,9 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
                 case nameof(SettingsManager.SimilarityThreshold):
                     UpdateSimilarityThresholdChecks();
                     break;
+                case nameof(SettingsManager.IgnoreBracketedText):
+                    UpdateIgnoreBracketedTextCheck();
+                    break;
                 case nameof(SettingsManager.UseMameDescriptions):
                     UpdateMameDescriptionCheck();
                     if (_mameLookup is { Count: > 0 })
@@ -609,6 +613,18 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         catch (Exception ex)
         {
             LogService.Error(ex, "Error in UpdateMameDescriptionCheck");
+        }
+    }
+
+    private void UpdateIgnoreBracketedTextCheck()
+    {
+        try
+        {
+            ToggleIgnoreBracketedText.IsChecked = Settings.IgnoreBracketedText;
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "Error in UpdateIgnoreBracketedTextCheck");
         }
     }
 
@@ -737,6 +753,19 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         catch (Exception ex)
         {
             LogService.Error(ex, "Error in ToggleMameDescriptions_Click");
+        }
+    }
+
+    private void ToggleIgnoreBracketedText_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            Settings.IgnoreBracketedText = ToggleIgnoreBracketedText.IsChecked;
+            Settings.SaveSettings();
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "Error in ToggleIgnoreBracketedText_Click");
         }
     }
 
@@ -874,7 +903,8 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
                 MissingImages.ToList(),
                 imageFolderPath,
                 _imageFolderWatcher != null ? _imageFolderWatcher.PreRegisterExpectedFile : null,
-                TxtExtraQuery.Text.Trim())
+                TxtExtraQuery.Text.Trim(),
+                _imageFolderWatcher != null ? _imageFolderWatcher.UnregisterExpectedFile : null)
             {
                 Owner = this
             };
@@ -1555,7 +1585,7 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
 
     private void OnImageFolderImageFound(string fileNameWithoutExtension)
     {
-        Dispatcher.Invoke(() =>
+        _ = Dispatcher.InvokeAsync(() =>
         {
             var index = MissingImages.ToList().FindIndex(m =>
                 string.Equals(m.RomName, fileNameWithoutExtension, StringComparison.OrdinalIgnoreCase));
@@ -1576,7 +1606,7 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
 
     private void OnImageFolderConversionFailed(string filePath, string errorMessage)
     {
-        Dispatcher.Invoke(() =>
+        _ = Dispatcher.InvokeAsync(() =>
         {
             MessageBox.Show(
                 $"Failed to convert image:\n\n{Path.GetFileName(filePath)}\n\n{errorMessage}",
@@ -1588,7 +1618,7 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
 
     private void OnImageFolderVerificationFailed(string filePath, string romName)
     {
-        Dispatcher.Invoke(() =>
+        _ = Dispatcher.InvokeAsync(() =>
         {
             StatusMessage.Text =
                 $"AI thinks '{Path.GetFileName(filePath)}' is not a cover for '{romName}' — rename skipped.";

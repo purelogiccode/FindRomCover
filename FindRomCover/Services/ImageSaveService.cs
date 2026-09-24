@@ -1,5 +1,6 @@
 using System.IO;
 using System.Net.Http;
+using System.Reflection;
 using System.Text;
 using ImageMagick;
 
@@ -9,8 +10,16 @@ public static class ImageSaveService
 {
     private const int MaxDownloadBytes = 50 * 1024 * 1024;
 
-    internal const string BrowserUserAgent =
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 FindRomCover/3.2";
+    internal static readonly string BrowserUserAgent = BuildBrowserUserAgent();
+
+    private static string BuildBrowserUserAgent()
+    {
+        var version = Assembly.GetExecutingAssembly().GetName().Version;
+        var versionText = version == null ? "0.0" : $"{version.Major}.{version.Minor}";
+
+        return "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) " +
+               $"Chrome/131.0.0.0 Safari/537.36 FindRomCover/{versionText}";
+    }
 
     private const string ImageAcceptHeader = "image/avif,image/webp,image/apng,image/*,*/*;q=0.8";
 
@@ -265,9 +274,29 @@ public static class ImageSaveService
 
             return true;
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (MagickMissingDelegateErrorException ex)
         {
             LogService.Warning(ex, "Downloaded payload could not be decoded as an image.");
+            return false;
+        }
+        catch (MagickException ex)
+        {
+            LogService.Warning(ex, $"Downloaded payload could not be converted to PNG for '{outputPath}'.");
+            return false;
+        }
+        catch (IOException ex)
+        {
+            // Locked/unwritable output is environmental — do not file bug reports.
+            LogService.Warning(ex, $"Could not write the converted image to '{outputPath}'.");
+            return false;
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            LogService.Warning(ex, $"Access denied writing the converted image to '{outputPath}'.");
             return false;
         }
         catch (Exception ex)

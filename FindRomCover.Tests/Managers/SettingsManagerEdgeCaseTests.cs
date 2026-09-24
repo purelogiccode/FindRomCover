@@ -199,6 +199,32 @@ public class SettingsManagerEdgeCaseTests : IDisposable
     }
 
     [Fact]
+    public void IgnoreBracketedTextShouldBePersisted()
+    {
+        var settings = new SettingsManager(_settingsDirectory);
+        settings.LoadSettings();
+        settings.IgnoreBracketedText = false;
+        settings.SaveSettings();
+
+        var loaded = new SettingsManager(_settingsDirectory);
+        loaded.LoadSettings();
+
+        loaded.IgnoreBracketedText.Should().BeFalse();
+    }
+
+    [Fact]
+    public void TryLoadAllShouldReportFailureWhenDatabaseCannotBeOpened()
+    {
+        var directoryAsDatabase = Path.Combine(_settingsDirectory, "not-a-database");
+        Directory.CreateDirectory(directoryAsDatabase);
+
+        var database = new SettingsDatabase(directoryAsDatabase);
+
+        database.TryLoadAll(out var values).Should().BeFalse();
+        values.Should().BeEmpty();
+    }
+
+    [Fact]
     public void BugReportApiKeyShouldHaveDefaultValue()
     {
         var settings = new SettingsManager(_settingsDirectory);

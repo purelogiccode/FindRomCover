@@ -5,7 +5,7 @@ The **Local Files** tab finds cover images that already exist in your image fold
 ## How it works
 
 1. Select a game in the missing covers list.
-2. FindRomCover cleans the ROM filename (removing region tags, revision markers, and similar noise) and compares it against every image filename in your image folder.
+2. FindRomCover compares the ROM name (or MAME description) against every image filename in your image folder. With **Ignore Bracketed Text in Matching** on (the default), region and revision tags such as `(USA)` and `[En]` are ignored on both sides.
 3. Images whose similarity score is at or above the configured threshold are listed, ranked from best to worst.
 4. Click an image to save it as the cover: it is converted to PNG if necessary and stored as `[gamename].png`.
 

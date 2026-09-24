@@ -25,6 +25,7 @@ public sealed class ImageFolderWatcher : IDisposable
     private int _consecutiveErrorCount;
     private DateTime _lastErrorUtc = DateTime.MinValue;
     private bool _gaveUp;
+    private long _watchGeneration;
 
     private const int MaxConsecutiveRestarts = 5;
     private static readonly TimeSpan RestartCooldown = TimeSpan.FromMinutes(1);
@@ -167,9 +168,24 @@ public sealed class ImageFolderWatcher : IDisposable
         LogService.Debug($"ImageFolderWatcher: pre-registered '{Path.GetFileName(filePath)}' so watcher will skip it");
     }
 
+    public void UnregisterExpectedFile(string filePath)
+    {
+        if (string.IsNullOrWhiteSpace(filePath)) return;
+
+        if (_recentlyProcessed.TryRemove(filePath, out _))
+            LogService.Debug(
+                $"ImageFolderWatcher: unregistered '{Path.GetFileName(filePath)}' after a failed save");
+    }
+
     public bool Start(string folderPath)
     {
         if (_disposed) return false;
+
+        long generation;
+        lock (_restartLock)
+        {
+            generation = ++_watchGeneration;
+        }
 
         StopCore(clearWatchedPath: true);
 
@@ -187,19 +203,40 @@ public sealed class ImageFolderWatcher : IDisposable
                 Filter = "*.*",
                 IncludeSubdirectories = false,
                 InternalBufferSize = 64 * 1024,
-                EnableRaisingEvents = true
+                EnableRaisingEvents = false
             };
 
+            // Subscribe before enabling events so no file event can be raised
+            // before its handler is attached.
             watcher.Created += OnFileCreatedAsync;
             watcher.Renamed += OnFileRenamedAsync;
             watcher.Error += OnWatcherError;
 
-            _watcher = watcher;
             lock (_restartLock)
             {
+                // A newer Start/Stop (for example the user selecting another folder)
+                // superseded this call — do not replace its watcher.
+                if (_disposed || generation != _watchGeneration)
+                {
+                    watcher.Dispose();
+                    return false;
+                }
+
+                _watcher = watcher;
                 _watchedFolderPath = folderPath;
                 _consecutiveErrorCount = 0;
                 _gaveUp = false;
+            }
+
+            try
+            {
+                watcher.EnableRaisingEvents = true;
+            }
+            catch
+            {
+                Interlocked.CompareExchange(ref _watcher, null, watcher);
+                watcher.Dispose();
+                throw;
             }
 
             LogService.Information($"ImageFolderWatcher: started watching '{folderPath}'");
@@ -209,7 +246,8 @@ public sealed class ImageFolderWatcher : IDisposable
                                        or IOException
                                        or ArgumentException
                                        or System.ComponentModel.Win32Exception
-                                       or PlatformNotSupportedException)
+                                       or PlatformNotSupportedException
+                                       or ObjectDisposedException)
         {
             // Environmental failure (ACLs, disconnected drive, invalid path, AV lock, ...).
             // Log as Warning so it does NOT trigger an automatic bug report.
@@ -220,6 +258,13 @@ public sealed class ImageFolderWatcher : IDisposable
 
     public void Stop()
     {
+        // Invalidate any Start that is still in flight so a stopped watcher cannot
+        // be installed afterwards.
+        lock (_restartLock)
+        {
+            _watchGeneration++;
+        }
+
         StopCore(clearWatchedPath: true);
     }
 
@@ -264,11 +309,18 @@ public sealed class ImageFolderWatcher : IDisposable
             LogService.Debug($"ImageFolderWatcher: error disposing watcher: {ex.Message}");
         }
 
-        // Wait for any in-flight ProcessFileAsync to complete.
-        // Do not hold any lock while waiting to avoid deadlocks with OnWatcherError.
+        // Wait for any in-flight ProcessFileAsync to complete without blocking the
+        // caller (often the UI thread): an AI verification can hold the lock for seconds.
+        _ = Task.Run(WaitForProcessingAsync);
+
+        LogService.Information("ImageFolderWatcher: stopped");
+    }
+
+    private async Task WaitForProcessingAsync()
+    {
         try
         {
-            if (!_processingLock.Wait(TimeSpan.FromSeconds(15)))
+            if (!await _processingLock.WaitAsync(TimeSpan.FromSeconds(15)).ConfigureAwait(false))
                 LogService.Warning("ImageFolderWatcher: timed out waiting for in-flight processing to complete");
             else
                 _processingLock.Release();
@@ -281,8 +333,6 @@ public sealed class ImageFolderWatcher : IDisposable
         {
             LogService.Debug($"ImageFolderWatcher: error waiting for in-flight processing: {ex.Message}");
         }
-
-        LogService.Information("ImageFolderWatcher: stopped");
     }
 
     private void OnWatcherError(object sender, ErrorEventArgs e)
@@ -651,6 +701,20 @@ public sealed class ImageFolderWatcher : IDisposable
 
                 if (!Path.GetExtension(filePath).Equals(".png", StringComparison.OrdinalIgnoreCase))
                 {
+                    // Never overwrite an existing cover with the converted PNG: the
+                    // dropped file is kept under its current name instead.
+                    var pngTarget = Path.Combine(Path.GetDirectoryName(filePath) ?? ".",
+                        Path.GetFileNameWithoutExtension(filePath) + ".png");
+                    if (File.Exists(pngTarget))
+                    {
+                        _recentlyProcessed.TryRemove(filePath, out _);
+                        LogService.Warning(
+                            $"ImageFolderWatcher: '{Path.GetFileName(pngTarget)}' already exists — '{Path.GetFileName(filePath)}' was kept as-is to protect the existing cover");
+                        ConversionFailed?.Invoke(filePath,
+                            $"A cover named '{Path.GetFileName(pngTarget)}' already exists.\n\nThe dropped file was kept unchanged.");
+                        return;
+                    }
+
                     var (convertedPath, convertError) = await ConvertToPngWithRetryAsync(filePath);
                     if (convertedPath == null)
                     {
@@ -846,14 +910,32 @@ public sealed class ImageFolderWatcher : IDisposable
         var directory = Path.GetDirectoryName(sourcePath);
         var fileNameWithoutExt = Path.GetFileNameWithoutExtension(sourcePath);
         var targetPath = Path.Combine(directory ?? ".", fileNameWithoutExt + ".png");
+        var tempPath = Path.Combine(directory ?? ".", Guid.NewGuid().ToString("N") + ".tmp");
 
-        var settings = ImageProcessor.GetMagickReadSettings(sourcePath);
-        using var magickImage = new MagickImage(sourcePath, settings);
-        magickImage.AutoOrient();
-        magickImage.Quality = 90;
-        magickImage.Format = MagickFormat.Png;
+        try
+        {
+            var settings = ImageProcessor.GetMagickReadSettings(sourcePath);
+            using var magickImage = new MagickImage(sourcePath, settings);
+            magickImage.AutoOrient();
+            magickImage.Quality = 90;
+            magickImage.Format = MagickFormat.Png;
 
-        await magickImage.WriteAsync(targetPath);
+            // Write to a temp file and move into place so a crash or locked target
+            // never leaves a truncated cover behind.
+            await magickImage.WriteAsync(tempPath);
+            File.Move(tempPath, targetPath, true);
+        }
+        finally
+        {
+            try
+            {
+                if (File.Exists(tempPath)) File.Delete(tempPath);
+            }
+            catch (Exception ex)
+            {
+                LogService.Warning(ex, $"ImageFolderWatcher: failed to clean up temp file '{tempPath}'.");
+            }
+        }
 
         if (File.Exists(sourcePath) && !string.Equals(sourcePath, targetPath, StringComparison.OrdinalIgnoreCase))
             try

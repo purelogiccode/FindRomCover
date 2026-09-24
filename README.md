@@ -30,12 +30,12 @@ It supports **Local Similarity Search** across your existing image folder, plus 
     - **Google Custom Search API**: Fetches image results directly via API (requires an API key).
 - **Real-time Preview**: Thumbnail previews with configurable sizes (100-500px).
 - **Customizable UI**: Light/Dark themes with 20+ accent colors.
-- **Missing Covers List**: Automatically generates a list of ROMs without corresponding cover art (checks for PNG, JPG, BMP, GIF, TIFF, WebP, AVIF). Right-click an entry to remove it from the list, copy its filename, or delete the corresponding ROM/ISO file.
+- **Missing Covers List**: Automatically generates a list of ROMs without corresponding cover art (checks for PNG, JPG/JPEG, BMP, GIF, TIFF/TIF, WebP, AVIF, HEIC/HEIF, ICO, SVG, JXL, JP2). Right-click an entry to remove it from the list, copy its filename, or delete the corresponding ROM/ISO file.
 - **Flexible Configuration**: Support for custom file extensions and search queries.
-- **Automatic Image Conversion**: Automatically converts downloaded images (JPG, BMP, GIF, TIFF, WebP, AVIF, HEIC, HEIF, JXL, JP2) to PNG format using Magick.NET (ImageMagick). Also, automatically converts newly saved images in the image folder to PNG.
+- **Automatic Image Conversion**: Automatically converts downloaded images (JPG, BMP, GIF, TIFF, WebP, AVIF, HEIC, HEIF, JXL, JP2, ICO, SVG) to PNG format using Magick.NET (ImageMagick). Also, automatically converts newly saved images in the image folder to PNG.
 - **Automatic File Rename & Match**: A built-in `FileSystemWatcher` monitors the image folder and automatically renames any newly saved image to match the currently selected missing ROM's filename, then converts it to PNG and removes the entry from the missing covers list — so images saved from the embedded browser are matched hands-free.
 - **AI Vision Assist**: Connect a vision-capable model (OpenRouter, OpenAI, Anthropic, Gemini or GLM cloud, a local Ollama/LM Studio server, or a custom OpenAI/Anthropic-compatible endpoint) to actually *look* at candidate images and pick the correct cover. Works on Local Files and Google API results, can auto-save above a confidence threshold, verify images before renaming or saving, and batch-fill the entire missing list.
-- **Detailed Logging**: Built-in log viewer for troubleshooting and `app.log`/`error.log` files using Serilog.
+- **Detailed Logging**: Built-in log viewer for troubleshooting and rolling `app<yyyyMMdd>.log` files in `%LocalAppData%\FindRomCover` using Serilog.
 - **Sound Feedback**: Optional audio feedback for user actions using NAudio.
 - **Command-line Arguments**: Start the application with pre-set ROM and Image folders for quick scanning.
 - **Auto-Copy to Clipboard**: Automatically copies the selected ROM filename to the clipboard when navigating the missing covers list.
@@ -48,7 +48,7 @@ It supports **Local Similarity Search** across your existing image folder, plus 
 
 You can add or remove supported extensions through the `Settings > Edit Supported Extensions...` menu.
 
-**Recognized Cover Image Formats**: The application recognizes and converts `.jpg`, `.jpeg`, `.bmp`, `.gif`, `.tiff`, `.tif`, `.webp`, `.avif`, `.heic`, `.heif`, `.jxl`, and `.jp2` files to `.png` format.
+**Recognized Cover Image Formats**: The application recognizes and converts `.jpg`, `.jpeg`, `.bmp`, `.gif`, `.tiff`, `.tif`, `.webp`, `.avif`, `.heic`, `.heif`, `.jxl`, `.jp2`, `.ico`, and `.svg` files to `.png` format.
 
 ## Getting Started
 
@@ -119,7 +119,7 @@ All settings — theme, folders, similarity options, Google key, AI provider, mo
    - The status bar reports how many ROM files matched the supported extensions and how many are missing covers.
 
 2. **Missing Covers List**
-   - The app lists all ROMs without a corresponding `.png`, `.jpg`, `.jpeg`, `.bmp`, `.gif`, `.tiff`, `.webp`, or `.avif` cover in your image folder.
+   - The app lists all ROMs without a corresponding `.png`, `.jpg`, `.jpeg`, `.bmp`, `.gif`, `.tiff`, `.tif`, `.webp`, `.avif`, `.heic`, `.heif`, `.jxl`, `.jp2`, `.ico`, or `.svg` cover in your image folder.
    - If no ROM files are found, the status bar tells you explicitly so you can verify the folder and supported extensions.
 
 3. **Find Covers**
@@ -166,8 +166,8 @@ Toggle the use of MAME descriptions for search queries:
 #### Log Window
 Access detailed logs for troubleshooting:
 - **Settings > Show/Hide Log Window**.
-- Log files are also saved as `app.log` and `error.log` in the application folder.
-- `error_user.log` contains a simplified list of errors for user reference.
+- Log files are also saved as rolling `app<yyyyMMdd>.log` files in `%LocalAppData%\FindRomCover`.
+- `UserLogError.txt` contains a simplified list of errors for user reference.
 
 #### Command-line Arguments
 You can launch `FindRomCover.exe` with command-line arguments to pre-fill the ROM and Image folders:
@@ -252,7 +252,7 @@ Windows (main window, settings, AI, batch, log, about) live in the project root 
 - Ensure the image folder has write permissions.
 - For web searches, remember that you need to manually save images from the embedded browser. The application's `FileSystemWatcher` will then detect the new file, rename it to match the selected ROM, convert it to PNG if needed, and update the missing list.
 - If a file already exists, you'll be prompted to overwrite it.
-- Check the `app.log` for any errors related to file access or image conversion.
+- Check the rolling log file in `%LocalAppData%\FindRomCover` for any errors related to file access or image conversion.
 
 **Missing or Corrupted MAME Data File (`mame.dat`)**
 - If you encounter errors about a missing `mame.dat` file, ensure it is present in the same directory as `FindRomCover.exe`.
@@ -262,8 +262,8 @@ Windows (main window, settings, AI, batch, log, about) live in the project root 
 ### Logs
 Access detailed logs via:
 - **Settings > Show/Hide Log Window**.
-- Log files are saved as `app.log` and `error.log` in the application folder.
-- `error_user.log` contains a simplified list of errors for user reference.
+- Log files are saved as rolling `app<yyyyMMdd>.log` files in `%LocalAppData%\FindRomCover`.
+- `UserLogError.txt` contains a simplified list of errors for user reference.
 
 ## Testing
 

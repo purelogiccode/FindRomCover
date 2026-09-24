@@ -100,7 +100,7 @@ Verify the key in `Settings > API Settings...`, ensure the Custom Search JSON AP
 
 ### Where are the logs?
 
-In the application folder (`app.log`, `error.log`, `error_user.log`) and in the live log window under `Settings > Show/Hide Log Window`. See [Logs & Diagnostics](configuration/logs.md).
+In `%LocalAppData%\FindRomCover` (`app<yyyyMMdd>.log`, `ApiLogError.txt`, `UserLogError.txt`) and in the live log window under `Settings > Show/Hide Log Window`. See [Logs & Diagnostics](configuration/logs.md).
 
 ### How do I reset all settings?
 

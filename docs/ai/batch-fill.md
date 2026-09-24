@@ -2,8 +2,6 @@
 
 **AI Fill Missing Covers...** processes many missing covers in one run. For each item it looks at local candidates first and, optionally, falls back to the Google Custom Search API. It is the fastest way to clear a large missing list with AI Assist.
 
-![Batch fill window options](https://img.shields.io/badge/AI-Batch%20Fill-blue)
-
 ## Starting a batch
 
 1. Open the missing covers list and click **AI Fill Missing Covers...**.
@@ -11,7 +9,7 @@
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| **Use Google API fallback when local candidates are inconclusive** | Off | If the AI cannot find a confident local match, search Google images instead (requires a Google API key) |
+| **Use Google API fallback when local candidates are inconclusive** | On when a Google API key is configured (otherwise disabled) | If the AI cannot find a confident local match, search Google images instead (requires a Google API key) |
 | **Skip covers already queried in previous sessions** | On | Do not ask the AI twice for the same cover; managed in [AI Settings](settings.md) |
 | **Max items per run** | 25 | How many missing covers to process in this run (1–500) |
 

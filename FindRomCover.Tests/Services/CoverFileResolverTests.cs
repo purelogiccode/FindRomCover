@@ -46,6 +46,12 @@ public class CoverFileResolverTests : IDisposable
     [InlineData(".gif")]
     [InlineData(".webp")]
     [InlineData(".avif")]
+    [InlineData(".heic")]
+    [InlineData(".heif")]
+    [InlineData(".ico")]
+    [InlineData(".svg")]
+    [InlineData(".jxl")]
+    [InlineData(".jp2")]
     public void FindCoverShouldRecognizeSupportedImageFormats(string extension)
     {
         CreateImage("Super Mario Bros" + extension);

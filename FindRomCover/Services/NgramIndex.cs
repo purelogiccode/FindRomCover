@@ -11,7 +11,7 @@ public class NgramIndex
 
     public int FileCount { get; private set; }
 
-    public void Build(IEnumerable<string> imageFiles)
+    public void Build(IEnumerable<string> imageFiles, Func<string, string>? nameTransform = null)
     {
         _trigramToFiles.Clear();
         FileCount = 0;
@@ -20,6 +20,7 @@ public class NgramIndex
         {
             FileCount++;
             var imageName = Path.GetFileNameWithoutExtension(filePath).ToLowerInvariant();
+            if (nameTransform != null) imageName = nameTransform(imageName);
             var padded = new string(' ', N - 1) + imageName + new string(' ', N - 1);
 
             for (var i = 0; i <= padded.Length - N; i++)

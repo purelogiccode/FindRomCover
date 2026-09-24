@@ -122,6 +122,8 @@ public partial class MainWindow
 
                 IsSearching = true;
                 StatusMessage.Text = "Searching Google API...";
+                _webSearchCts?.Cancel();
+                _webSearchCts?.Dispose();
                 _webSearchCts = new CancellationTokenSource();
                 LblApiSearchQuery.Content = new TextBlock
                 {
@@ -131,7 +133,7 @@ public partial class MainWindow
                         new Run(searchQuery) { FontWeight = FontWeights.Bold }
                     }
                 };
-                _ = HandleApiSearchAsync(searchQuery, _webSearchCts.Token);
+                _ = HandleApiSearchAsync(searchQuery, _webSearchCts);
                 break;
         }
     }
@@ -171,6 +173,8 @@ public partial class MainWindow
             textBlock.Inlines.Add(new Run($"{Settings.SelectedSimilarityAlgorithm} ")
                 { FontWeight = FontWeights.Bold });
             textBlock.Inlines.Add(new Run("algorithm"));
+            if (Settings.IgnoreBracketedText)
+                textBlock.Inlines.Add(new Run(" (ignoring bracketed text)"));
             LblLocalSearchQuery.Content = textBlock;
 
             SimilarImages.Clear();
@@ -200,7 +204,8 @@ public partial class MainWindow
                                     HasSearchedSimilar = true;
                                 }
                             });
-                        }
+                        },
+                        Settings.IgnoreBracketedText
                     );
                 }
                 finally
@@ -343,7 +348,7 @@ public partial class MainWindow
 
             if (Settings.AiAutoSave && result.Confidence * 100 >= Settings.AiAutoSaveThreshold &&
                 picked.ImagePath != null)
-                await UseImageAsync(picked.ImagePath);
+                await UseImageAsync(selectedItem.RomName, picked.ImagePath);
         }
         catch (OperationCanceledException)
         {
@@ -381,8 +386,10 @@ public partial class MainWindow
     {
         try
         {
+            var romName = _selectedRomFileName;
+
             if (sender is FrameworkElement { DataContext: ImageData { ImagePath: not null } imageData })
-                _ = UseImageAsync(imageData.ImagePath);
+                _ = UseImageAsync(romName, imageData.ImagePath);
         }
         catch (Exception ex)
         {
@@ -390,25 +397,25 @@ public partial class MainWindow
         }
     }
 
-    private async Task UseImageAsync(string? imagePath)
+    private async Task UseImageAsync(string romName, string? imagePath)
     {
         var imageFolderPath = GetValidatedImageFolderPath(false);
-        if (string.IsNullOrEmpty(_selectedRomFileName) || string.IsNullOrEmpty(imagePath) ||
+        if (string.IsNullOrEmpty(romName) || string.IsNullOrEmpty(imagePath) ||
             string.IsNullOrEmpty(imageFolderPath))
             return;
 
-        var verification = await TryVerifyImageAsync(_selectedRomFileName, imagePath);
+        var verification = await TryVerifyImageAsync(romName, imagePath);
         if (verification is { IsMatch: false })
         {
             var choice = MessageBox.Show(
-                $"AI thinks this image is not a cover for '{_selectedRomFileName}'.\n\n" +
+                $"AI thinks this image is not a cover for '{romName}'.\n\n" +
                 $"{verification.Reason}\n\nSave it anyway?",
                 "AI Verification", MessageBoxButton.YesNo, MessageBoxImage.Warning);
 
             if (choice != MessageBoxResult.Yes) return;
         }
 
-        var safeFileName = SearchQueryHelper.SanitizeFileName(_selectedRomFileName);
+        var safeFileName = SearchQueryHelper.SanitizeFileName(romName);
         var newFileName = Path.Combine(imageFolderPath, safeFileName + ".png");
         _imageFolderWatcher?.PreRegisterExpectedFile(newFileName);
 
@@ -418,12 +425,13 @@ public partial class MainWindow
             if (result.Success)
             {
                 App.AudioService.PlayClickSound();
-                RemoveMissingItemByName(_selectedRomFileName);
+                RemoveMissingItemByName(romName);
                 SimilarImages.Clear();
                 UpdateMissingCount();
             }
             else
             {
+                _imageFolderWatcher?.UnregisterExpectedFile(newFileName);
                 var detail = result.ErrorMessage ?? "Failed to save the image.";
                 LogService.Warning(
                     $"UseImage: could not save '{newFileName}' from '{imagePath}': {result.LogContext ?? detail}");
@@ -432,6 +440,7 @@ public partial class MainWindow
         }
         catch (Exception ex)
         {
+            _imageFolderWatcher?.UnregisterExpectedFile(newFileName);
             MessageBox.Show($"Unexpected error saving image: {ex.Message}", "Error", MessageBoxButton.OK,
                 MessageBoxImage.Error);
             LogService.Error(ex, $"Unexpected error in UseImage: {imagePath}");
@@ -445,8 +454,11 @@ public partial class MainWindow
             if (sender is not FrameworkElement { DataContext: ImageData imageData } element) return;
 
             if (imageData.ImagePath != null)
+            {
+                var romName = _selectedRomFileName;
                 element.ContextMenu = ButtonFactory.CreateContextMenu(imageData.ImagePath,
-                    path => _ = UseImageAsync(path), element.ContextMenu);
+                    path => _ = UseImageAsync(romName, path), element.ContextMenu);
+            }
         }
         catch (Exception ex)
         {

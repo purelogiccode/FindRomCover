@@ -184,6 +184,10 @@
                           ToolTip="Match images with at least 90% similarity" />
             </MenuItem>
 
+            <MenuItem x:Name="ToggleIgnoreBracketedText" Header="Ignore Bracketed Text in Matching"
+                      IsCheckable="True" Click="ToggleIgnoreBracketedText_Click"
+                      ToolTip="Ignore text inside (), [], and {} when matching image names" />
+
             <MenuItem x:Name="ImageSizeMenu" Header="Set Thumbnail Size"
                       ToolTip="Set the size of image thumbnails in the results">
                 <MenuItem Click="SetThumbnailSize_Click" Header="100 pixels" IsCheckable="True" Tag="100"

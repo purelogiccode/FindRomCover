@@ -17,7 +17,7 @@ Include:
 2. Windows version and architecture (x64/ARM64).
 3. Steps to reproduce.
 4. Expected and actual behavior.
-5. Relevant log entries (`error.log` or the log window). Remove anything you do not want to share.
+5. Relevant log entries (`app<yyyyMMdd>.log` in `%LocalAppData%\FindRomCover` or the log window). Remove anything you do not want to share.
 6. Whether AI Assist or the Google API was involved.
 
 ## Development workflow

@@ -1,6 +1,6 @@
 # Settings Overview
 
-FindRomCover stores all settings in a single encrypted SQLite database. Most settings are changed through menus and windows; there is no separate settings file to edit by hand.
+FindRomCover stores all settings in a single SQLite database (the database itself is not encrypted, but stored API keys are). Most settings are changed through menus and windows; there is no separate settings file to edit by hand.
 
 ## Where settings are changed
 
@@ -8,6 +8,7 @@ FindRomCover stores all settings in a single encrypted SQLite database. Most set
 |---------------|-------|
 | Theme and accent color | `Theme` menu |
 | Similarity algorithm and threshold | `Set Similarity Algorithm` and `Set Similarity Threshold` menus |
+| Bracketed-text matching | `Ignore Bracketed Text in Matching` menu |
 | Thumbnail size | `Set Thumbnail Size` menu |
 | Google API key | `Settings > API Settings...` |
 | AI provider, model, limits, behavior | `Settings > AI Settings...` |
@@ -23,9 +24,9 @@ FindRomCover stores all settings in a single encrypted SQLite database. Most set
 |---------|---------|-------|-------------|
 | Similarity threshold | 70% | 10–90 | Minimum filename similarity for local results |
 | Similarity algorithm | Jaro-Winkler Distance | — | Jaccard, Jaro-Winkler, or Levenshtein |
-| Search engine / active tab | Bing Web | — | Last used search tab |
+| Ignore bracketed text | On | — | Ignore `()`, `[]`, and `{}` contents when matching |
 | Use MAME descriptions | Off | — | Use MAME descriptions instead of cleaned filenames |
-| Supported extensions | 140+ extensions | — | ROM file extensions that are scanned |
+| Supported extensions | 120+ extensions | — | ROM file extensions that are scanned |
 | Last image folder | — | — | Restored on startup |
 
 ### Display

@@ -13,23 +13,37 @@ public static class ImageProcessor
 
         try
         {
-            // Matches both temp naming schemes: the legacy "*.tmp" files and the
-            // current "<output>.tmp<8 hex chars>" names used by local saves and downloads.
-            var tempFiles = Directory.GetFiles(directoryPath, "*.tmp*");
-            foreach (var tempFile in tempFiles)
-                try
-                {
-                    File.Delete(tempFile);
-                }
-                catch (Exception ex)
-                {
-                    LogService.Warning(ex, $"Failed to delete orphaned temp file: {tempFile}");
-                }
+            // Only delete the app's own temp naming schemes: "*.tmp" and the current
+            // "<output>.tmp<8 hex chars>" names. A broad "*.tmp*" pattern would also
+            // delete user files whose names merely contain ".tmp".
+            foreach (var tempFile in Directory.EnumerateFiles(directoryPath))
+                if (IsOrphanedTempFileName(Path.GetFileName(tempFile)))
+                    try
+                    {
+                        File.Delete(tempFile);
+                    }
+                    catch (Exception ex)
+                    {
+                        LogService.Warning(ex, $"Failed to delete orphaned temp file: {tempFile}");
+                    }
         }
         catch (Exception ex)
         {
             LogService.Error(ex, $"Failed to enumerate temp files in directory: {directoryPath}");
         }
+    }
+
+    internal static bool IsOrphanedTempFileName(string fileName)
+    {
+        if (string.IsNullOrEmpty(fileName)) return false;
+
+        if (fileName.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase)) return true;
+
+        var index = fileName.LastIndexOf(".tmp", StringComparison.OrdinalIgnoreCase);
+        if (index < 0) return false;
+
+        var suffix = fileName[(index + 4)..];
+        return suffix.Length == 8 && suffix.All(char.IsAsciiHexDigit);
     }
 
     public static Task<ImageSaveResult> ConvertAndSaveImageAsync(string sourcePath, string? targetPath,

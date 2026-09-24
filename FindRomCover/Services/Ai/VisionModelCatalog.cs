@@ -20,31 +20,28 @@ internal static class VisionModelCatalog
         using var request = new HttpRequestMessage(HttpMethod.Get, BuildModelsUrl(options.BaseUrl));
         VisionModelClientBase.ApplyAuthHeaders(request, options);
 
-        HttpResponseMessage response;
         try
         {
-            response = await httpClient
+            using var response = await httpClient
                 .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeoutCts.Token)
                 .ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
-        {
-            throw new InvalidOperationException($"Connection test timed out after {options.TimeoutSeconds} seconds.");
-        }
-        catch (HttpRequestException ex)
-        {
-            throw new InvalidOperationException(
-                $"Could not reach the AI provider at '{options.BaseUrl}'. {ex.Message}", ex);
-        }
 
-        using (response)
-        {
             var body = await response.Content.ReadAsStringAsync(timeoutCts.Token).ConfigureAwait(false);
 
             if (!response.IsSuccessStatusCode)
                 throw new InvalidOperationException(VisionModelClientBase.BuildHttpErrorMessage(response.StatusCode, body));
 
             return ParseModels(body);
+        }
+        catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new InvalidOperationException($"Connection test timed out after {options.TimeoutSeconds} seconds.",
+                ex);
+        }
+        catch (HttpRequestException ex)
+        {
+            throw new InvalidOperationException(
+                $"Could not reach the AI provider at '{options.BaseUrl}'. {ex.Message}", ex);
         }
     }
 
@@ -137,6 +134,10 @@ internal static class VisionModelCatalog
             id.Contains("smolvlm", StringComparison.Ordinal) ||
             id.Contains("gemma-3", StringComparison.Ordinal) ||
             id.Contains("gemma3", StringComparison.Ordinal) ||
+            id.Contains("gemma-4", StringComparison.Ordinal) ||
+            id.Contains("gemma4", StringComparison.Ordinal) ||
+            id.Contains("nova-lite", StringComparison.Ordinal) ||
+            id.Contains("nova-pro", StringComparison.Ordinal) ||
             id.Contains("llama-4", StringComparison.Ordinal) ||
             id.Contains("llama4", StringComparison.Ordinal))
             return true;

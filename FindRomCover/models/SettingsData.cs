@@ -4,6 +4,7 @@ public class SettingsData
 {
     public double SimilarityThreshold { get; set; } = 70;
     public string SimilarityAlgorithm { get; set; } = "Jaro-Winkler Distance";
+    public bool IgnoreBracketedText { get; set; } = true;
     public string BaseTheme { get; set; } = "Dark";
     public string AccentColor { get; set; } = "Blue";
     public int ImageWidth { get; set; } = 300;

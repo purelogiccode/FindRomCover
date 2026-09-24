@@ -20,9 +20,17 @@
 
 ## Fixes & Improvements
 
+- **Ignore bracketed text when matching** — a new `Ignore Bracketed Text in Matching` menu option (enabled by default) removes balanced `(...)`, `[...]`, and `{...}` groups from ROM and image names before scoring, so `Game (USA) [En]` matches a cover named `Game`. Works with all three similarity algorithms and with AI candidate pre-filtering.
 - **Image download failures no longer trigger bug reports** — a dead or unreachable image host (connection timeout, refused connection, reset) is now logged as a warning and the thumbnail fallback is still tried, instead of aborting the download and filing an automatic bug report ([#67379](https://github.com/purelogiccode/FindRomCover/issues/67379), [#67382](https://github.com/purelogiccode/FindRomCover/issues/67382), [#67383](https://github.com/purelogiccode/FindRomCover/issues/67383), [#67432](https://github.com/purelogiccode/FindRomCover/issues/67432)).
 - **"File is being used by another process" when saving covers** — each save attempt now writes to a uniquely named temp file and write failures after all retries return a clear error dialog instead of an unhandled exception, fixing collisions from double-clicks, AI auto-save racing a manual save, and antivirus/sync locks ([#67436](https://github.com/purelogiccode/FindRomCover/issues/67436), [#67437](https://github.com/purelogiccode/FindRomCover/issues/67437), [#67438](https://github.com/purelogiccode/FindRomCover/issues/67438)).
 - **Save failure details in the UI** — when a cover cannot be saved, the dialog and log now include the real reason (locked file, permissions) instead of a generic "Failed to save the image." message.
+- **Anthropic and Gemini providers now actually work** — the provider adapters were never selected at runtime, so those requests went to an OpenAI-compatible endpoint and failed. Picks and verification now use the correct native adapter per provider.
+- **Covers are protected from accidental replacement** — Google API downloads are verified before they replace an existing cover, the folder watcher no longer overwrites an existing PNG, and startup cleanup only removes the app's own temp files instead of any file containing `.tmp`.
+- **Picks never land on the wrong game** — verification, saving, and missing-list removal use the ROM that was selected when the action started, even if the selection changes while the AI is still working.
+- **Google API timeouts handled properly** — a timeout now shows a real error instead of "Search canceled." with a stuck progress state, and no longer aborts an entire AI batch fill.
+- **OpenAI reasoning models fixed** — `gpt-5-nano` and o-series models are called with `max_completion_tokens` and without `temperature`, which the OpenAI API requires.
+- **Large missing lists no longer freeze the AI Batch window** — query-history status is loaded in a single query instead of one database open per item.
+- **Sturdier settings storage** — an unreadable settings database is preserved as `Settings.dat.corrupt` instead of being overwritten with defaults, and legacy settings are kept until the SQLite save succeeds.
 
 ## Under the Hood
 

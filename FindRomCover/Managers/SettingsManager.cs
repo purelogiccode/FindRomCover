@@ -87,6 +87,8 @@ public class SettingsManager : INotifyPropertyChanged
 
     private string _googleKey = string.Empty;
 
+    private bool _ignoreBracketedText = true;
+
     private int _imageHeight = 300;
 
     private int _imageLoaderMaxRetries = 3;
@@ -185,6 +187,18 @@ public class SettingsManager : INotifyPropertyChanged
 
             _selectedSimilarityAlgorithm = value;
             OnPropertyChanged(nameof(SelectedSimilarityAlgorithm));
+        }
+    }
+
+    public bool IgnoreBracketedText
+    {
+        get => _ignoreBracketedText;
+        set
+        {
+            if (_ignoreBracketedText == value) return;
+
+            _ignoreBracketedText = value;
+            OnPropertyChanged(nameof(IgnoreBracketedText));
         }
     }
 
@@ -749,8 +763,17 @@ public class SettingsManager : INotifyPropertyChanged
     {
         // A non-SQLite file at the database path is a legacy encrypted settings file; migrate it below.
         if (IsLegacySettingsFile(SettingsDatabasePath)) return false;
+        if (!File.Exists(SettingsDatabasePath)) return false;
 
-        var values = new SettingsDatabase(SettingsDatabasePath).LoadAll();
+        var database = new SettingsDatabase(SettingsDatabasePath);
+        if (!database.TryLoadAll(out var values))
+        {
+            // The database exists but could not be read. Keep it for diagnosis instead
+            // of letting LoadSettings overwrite it with defaults.
+            QuarantineSettingsFile();
+            return false;
+        }
+
         if (values.Count == 0) return false;
 
         SetDefaultSettings();
@@ -760,29 +783,59 @@ public class SettingsManager : INotifyPropertyChanged
 
     private bool TryMigrateLegacySettings()
     {
-        var legacyPath = GetMostRecentLegacySettingsFilePath();
-        if (legacyPath == null) return false;
+        var legacyPaths = GetLegacySettingsFilePaths();
+        if (legacyPaths.Count == 0) return false;
 
-        var data = LoadAndDecryptSettings(legacyPath);
-        if (data == null)
+        foreach (var legacyPath in legacyPaths)
         {
-            // Keep the unreadable file out of the way so a fresh database can be created.
-            BackupLegacyFile(legacyPath);
-            return false;
+            var data = LoadAndDecryptSettings(legacyPath);
+            if (data == null)
+            {
+                // Keep the unreadable file out of the way so a fresh database can be
+                // created, then try the next (older) legacy file.
+                BackupLegacyFile(legacyPath);
+                continue;
+            }
+
+            SetDefaultSettings();
+            ApplyData(data);
+
+            // The legacy file can occupy the database path itself, so move it aside
+            // before creating the database. It is kept as ".legacy" for recovery.
+            var backupPath = BackupLegacyFile(legacyPath);
+
+            if (!SaveSettingsInternal())
+            {
+                // Put the legacy file back so the migration is retried on the next
+                // start instead of stranding the settings in the backup.
+                if (backupPath != null)
+                    try
+                    {
+                        File.Move(backupPath, legacyPath, true);
+                    }
+                    catch (Exception restoreEx)
+                    {
+                        LogService.Warning(restoreEx,
+                            $"Could not restore legacy settings file '{backupPath}' after a failed migration.");
+                    }
+
+                LogService.Warning(
+                    $"Could not migrate legacy settings from '{legacyPath}' into the SQLite settings database; the migration will be retried on the next start.");
+                return true;
+            }
+
+            LogService.Information($"Migrated legacy settings from '{legacyPath}' into the SQLite settings database.");
+            return true;
         }
 
-        SetDefaultSettings();
-        ApplyData(data);
-        BackupLegacyFile(legacyPath);
-        SaveSettingsInternal();
-        LogService.Information($"Migrated legacy settings from '{legacyPath}' into the SQLite settings database.");
-        return true;
+        return false;
     }
 
     private void ApplyData(SettingsData data)
     {
         SimilarityThreshold = data.SimilarityThreshold;
         SelectedSimilarityAlgorithm = data.SimilarityAlgorithm;
+        IgnoreBracketedText = data.IgnoreBracketedText;
         BaseTheme = data.BaseTheme;
         AccentColor = data.AccentColor;
         ImageWidth = data.ImageWidth;
@@ -822,6 +875,7 @@ public class SettingsManager : INotifyPropertyChanged
         SimilarityThreshold = GetDouble(values, nameof(SimilarityThreshold), SimilarityThreshold);
         SelectedSimilarityAlgorithm =
             GetString(values, nameof(SelectedSimilarityAlgorithm), SelectedSimilarityAlgorithm);
+        IgnoreBracketedText = GetBool(values, nameof(IgnoreBracketedText), IgnoreBracketedText);
         BaseTheme = GetString(values, nameof(BaseTheme), BaseTheme);
         AccentColor = GetString(values, nameof(AccentColor), AccentColor);
         ImageWidth = GetInt(values, nameof(ImageWidth), ImageWidth);
@@ -1030,21 +1084,21 @@ public class SettingsManager : INotifyPropertyChanged
         }
     }
 
-    private string? GetMostRecentLegacySettingsFilePath()
+    private List<string> GetLegacySettingsFilePaths()
     {
         var candidates = new[] { SettingsDatabasePath, LegacyAppDirSettingsFilePath }
             .Where(IsLegacySettingsFile)
             .ToList();
 
-        if (candidates.Count == 0) return null;
+        if (candidates.Count == 0) return candidates;
 
         try
         {
-            return candidates.OrderByDescending(File.GetLastWriteTimeUtc).First();
+            return candidates.OrderByDescending(File.GetLastWriteTimeUtc).ToList();
         }
         catch
         {
-            return candidates[0];
+            return candidates;
         }
     }
 
@@ -1067,16 +1121,21 @@ public class SettingsManager : INotifyPropertyChanged
         }
     }
 
-    private static void BackupLegacyFile(string filePath)
+    private static string? BackupLegacyFile(string filePath)
     {
+        if (filePath.EndsWith(".legacy", StringComparison.OrdinalIgnoreCase)) return null;
+
         try
         {
-            File.Move(filePath, filePath + ".legacy", true);
-            LogService.Information($"Backed up legacy settings file to: {filePath}.legacy");
+            var backupPath = filePath + ".legacy";
+            File.Move(filePath, backupPath, true);
+            LogService.Information($"Backed up legacy settings file to: {backupPath}");
+            return backupPath;
         }
         catch (Exception ex)
         {
             LogService.Warning(ex, $"Failed to back up legacy settings file: {filePath}");
+            return null;
         }
     }
 
@@ -1109,12 +1168,13 @@ public class SettingsManager : INotifyPropertyChanged
         }
     }
 
-    private void SaveSettingsInternal()
+    private bool SaveSettingsInternal()
     {
         var values = new Dictionary<string, string>(StringComparer.Ordinal)
         {
             [nameof(SimilarityThreshold)] = SimilarityThreshold.ToString(CultureInfo.InvariantCulture),
             [nameof(SelectedSimilarityAlgorithm)] = SelectedSimilarityAlgorithm,
+            [nameof(IgnoreBracketedText)] = IgnoreBracketedText.ToString(CultureInfo.InvariantCulture),
             [nameof(BaseTheme)] = BaseTheme,
             [nameof(AccentColor)] = AccentColor,
             [nameof(ImageWidth)] = ImageWidth.ToString(CultureInfo.InvariantCulture),
@@ -1149,7 +1209,12 @@ public class SettingsManager : INotifyPropertyChanged
         };
 
         if (!new SettingsDatabase(SettingsDatabasePath).SaveAll(values))
+        {
             ShowSaveError("Could not save settings to the settings database. Your settings changes may be lost.");
+            return false;
+        }
+
+        return true;
     }
 
     private static void ShowSaveError(string message)
@@ -1165,9 +1230,14 @@ public class SettingsManager : INotifyPropertyChanged
         _similarityThreshold =
             double.Parse(AppConstants.Messages.DefaultSimilarityThreshold, CultureInfo.InvariantCulture);
         _selectedSimilarityAlgorithm = AppConstants.Algorithms.JaroWinkler;
+        _ignoreBracketedText = true;
         _supportedExtensions = GetDefaultExtensions();
         _imageWidth = 300;
         _imageHeight = 300;
+        _maxImagesToLoad = 30;
+        _imageLoaderMaxRetries = 3;
+        _imageLoaderRetryDelayMilliseconds = 200;
+        _apiTimeoutSeconds = 30;
         _baseTheme = AppConstants.Themes.Dark;
         _accentColor = "Blue";
         _useMameDescriptions = false;
@@ -1207,7 +1277,7 @@ public class SettingsManager : INotifyPropertyChanged
             "t64", "tap", "tgc", "toc", "trd", "tzx", "u1", "unf", "unif", "url", "v64", "voc", "wad", "wbfs", "wua",
             "xci",
             "xdf", "z64", "z80", "zip", "zso",
-            "gba", "gbc", "snes", "smc", "md", "smd", "gen", "32x", "sgg"
+            "gba", "gbc", "snes", "md", "smd", "gen", "32x", "sgg"
         ];
     }
 

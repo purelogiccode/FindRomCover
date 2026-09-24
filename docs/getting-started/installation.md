@@ -43,7 +43,9 @@ On first start FindRomCover creates default settings and opens the main window. 
 | `%LocalAppData%\FindRomCover\QueryHistory.dat` | SQLite database of covers already queried with AI Assist |
 | `%LocalAppData%\FindRomCover\ai-cache.json` | Cached AI verdicts (30-day retention) |
 | `%LocalAppData%\FindRomCover\ai-models.json` | Cached model lists per AI provider (7-day retention) |
-| Application folder | `app.log`, `error.log`, `error_user.log`, `mame.dat`, `settings.dat.legacy` (if migrated) |
+| `%LocalAppData%\FindRomCover\app<yyyyMMdd>.log` | Rolling daily application log (7-day retention) |
+| `%LocalAppData%\FindRomCover\ApiLogError.txt` | Error entries sent to the automatic bug-report API |
+| Application folder | `mame.dat`, `settings.dat.legacy` / `settings.dat.corrupt` (if migrated or quarantined) |
 
 See [Data Storage](../configuration/data-storage.md) for retention rules and backup instructions.
 
@@ -73,7 +75,7 @@ dotnet build
 | "You must install .NET Desktop Runtime" | Install the [.NET 10.0 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) and start the app again |
 | Windows SmartScreen warning | The builds are unsigned; choose **More info** and **Run anyway** if you trust the download |
 | WebView2 runtime missing | Follow the in-app prompt to download the runtime from Microsoft, then restart FindRomCover |
-| Application closes immediately | Check `error.log` in the application folder, and see [Troubleshooting](../troubleshooting.md) |
+| Application closes immediately | Check the rolling log in `%LocalAppData%\FindRomCover`, and see [Troubleshooting](../troubleshooting.md) |
 
 ## Next steps
 

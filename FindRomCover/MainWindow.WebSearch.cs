@@ -98,8 +98,10 @@ public partial class MainWindow
         }
     }
 
-    private async Task HandleApiSearchAsync(string searchQuery, CancellationToken token)
+    private async Task HandleApiSearchAsync(string searchQuery, CancellationTokenSource searchCts)
     {
+        var token = searchCts.Token;
+
         try
         {
             // searchQuery is already built by TriggerActiveTabSearch as
@@ -138,7 +140,15 @@ public partial class MainWindow
             }
             catch (OperationCanceledException)
             {
-                await Dispatcher.InvokeAsync(() => StatusMessage.Text = "Search canceled.");
+                await Dispatcher.InvokeAsync(() =>
+                {
+                    // A newer search (or a selection change) may have replaced this one;
+                    // only the current search may clear the progress state.
+                    if (!ReferenceEquals(_webSearchCts, searchCts)) return;
+
+                    IsSearching = false;
+                    StatusMessage.Text = "Search canceled.";
+                });
                 return;
             }
 
@@ -198,7 +208,7 @@ public partial class MainWindow
         {
             if (sender is not FrameworkElement { DataContext: ImageData { ImagePath: not null } imageData }) return;
 
-            await SaveApiImageAsync(imageData);
+            await SaveApiImageAsync(_selectedRomFileName, imageData);
         }
         catch (Exception ex)
         {
@@ -206,20 +216,23 @@ public partial class MainWindow
         }
     }
 
-    private async Task SaveApiImageAsync(ImageData imageData)
+    private async Task SaveApiImageAsync(string romName, ImageData imageData)
     {
         var imageFolderPath = GetValidatedImageFolderPath(false);
-        if (string.IsNullOrEmpty(_selectedRomFileName) || string.IsNullOrEmpty(imageFolderPath) ||
+        if (string.IsNullOrEmpty(romName) || string.IsNullOrEmpty(imageFolderPath) ||
             string.IsNullOrEmpty(imageData.ImagePath))
             return;
 
+        var newFileName = Path.Combine(imageFolderPath, SearchQueryHelper.SanitizeFileName(romName) + ".png");
+        // The ".tmp<hex>" suffix keeps the watcher away and lets startup cleanup
+        // remove the file if the app crashes mid-download.
+        var tempFileName = newFileName + ".tmp" + Guid.NewGuid().ToString("N")[..8];
+        var saved = false;
+
         try
         {
-            var safeFileName = SearchQueryHelper.SanitizeFileName(_selectedRomFileName);
-            var newFileName = Path.Combine(imageFolderPath, safeFileName + ".png");
-            _imageFolderWatcher?.PreRegisterExpectedFile(newFileName);
             var result = await ImageSaveService.DownloadAndSaveImageAsync(imageData.ImagePath,
-                imageData.ThumbnailUrl, newFileName, Settings.AiMinCoverWidth);
+                imageData.ThumbnailUrl, tempFileName, Settings.AiMinCoverWidth);
 
             if (!result)
             {
@@ -231,40 +244,85 @@ public partial class MainWindow
                 return;
             }
 
-            var verification = await TryVerifyImageAsync(_selectedRomFileName, newFileName);
+            var verification = await TryVerifyImageAsync(romName, tempFileName);
             if (verification is { IsMatch: false })
             {
                 var choice = MessageBox.Show(
-                    $"AI thinks this image is not a cover for '{_selectedRomFileName}'.\n\n" +
+                    $"AI thinks this image is not a cover for '{romName}'.\n\n" +
                     $"{verification.Reason}\n\nKeep the downloaded file anyway?",
                     "AI Verification", MessageBoxButton.YesNo, MessageBoxImage.Warning);
 
-                if (choice != MessageBoxResult.Yes)
-                {
-                    try
-                    {
-                        if (File.Exists(newFileName)) File.Delete(newFileName);
-                    }
-                    catch (Exception deleteEx)
-                    {
-                        LogService.Warning(deleteEx, $"Could not remove unverified image '{newFileName}'.");
-                    }
-
-                    return;
-                }
+                if (choice != MessageBoxResult.Yes) return;
             }
 
-            App.AudioService.PlayClickSound();
-            RemoveMissingItemByName(_selectedRomFileName);
-            PanelImages.Clear();
-            UpdateMissingCount();
+            if (File.Exists(newFileName))
+            {
+                var replace = MessageBox.Show(
+                    $"A cover named '{Path.GetFileName(newFileName)}' already exists.\n\nReplace it?",
+                    "Cover Exists", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                if (replace != MessageBoxResult.Yes) return;
+            }
+
+            _imageFolderWatcher?.PreRegisterExpectedFile(newFileName);
+            saved = await MoveFileWithRetryAsync(tempFileName, newFileName);
+            if (!saved)
+            {
+                _imageFolderWatcher?.UnregisterExpectedFile(newFileName);
+                MessageBox.Show($"The image could not be saved to '{newFileName}'.", "Save Failed",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
         }
         catch (Exception ex)
         {
+            _imageFolderWatcher?.UnregisterExpectedFile(newFileName);
             MessageBox.Show($"Error saving image: {ex.Message}", "Error", MessageBoxButton.OK,
                 MessageBoxImage.Error);
             LogService.Error(ex, "Error saving API image");
+            return;
         }
+        finally
+        {
+            try
+            {
+                if (File.Exists(tempFileName)) File.Delete(tempFileName);
+            }
+            catch (Exception cleanupEx)
+            {
+                LogService.Warning(cleanupEx, $"Could not remove temporary download '{tempFileName}'.");
+            }
+        }
+
+        if (!saved) return;
+
+        App.AudioService.PlayClickSound();
+        RemoveMissingItemByName(romName);
+        PanelImages.Clear();
+        UpdateMissingCount();
+    }
+
+    private static async Task<bool> MoveFileWithRetryAsync(string sourcePath, string targetPath)
+    {
+        const int maxAttempts = 5;
+
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+            try
+            {
+                File.Move(sourcePath, targetPath, true);
+                return true;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                if (attempt >= maxAttempts)
+                {
+                    LogService.Warning(ex, $"Could not move '{sourcePath}' to '{targetPath}'.");
+                    return false;
+                }
+
+                await Task.Delay(150 * attempt);
+            }
+
+        return false;
     }
 
     /// <summary>
@@ -406,7 +464,7 @@ public partial class MainWindow
             StatusMessage.Text = $"AI picked '{picked.ImageName}' ({result.Confidence:P0}). {result.Reason}".Trim();
 
             if (Settings.AiAutoSave && result.Confidence * 100 >= Settings.AiAutoSaveThreshold)
-                await SaveApiImageAsync(picked);
+                await SaveApiImageAsync(selectedItem.RomName, picked);
         }
         catch (OperationCanceledException)
         {
