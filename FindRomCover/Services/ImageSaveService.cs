@@ -329,7 +329,7 @@ public static class ImageSaveService
         const int maxAttempts = 5;
         const int baseDelayMs = 100;
 
-        for (var attempt = 1; ; attempt++)
+        for (var attempt = 1;; attempt++)
             try
             {
                 File.Move(sourcePath, targetPath, true);
