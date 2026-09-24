@@ -1,6 +1,15 @@
 [![GitHub release](https://img.shields.io/github/v/release/purelogiccode/FindRomCover)](https://github.com/purelogiccode/FindRomCover/releases)
+[![CI](https://github.com/purelogiccode/FindRomCover/actions/workflows/ci.yml/badge.svg)](https://github.com/purelogiccode/FindRomCover/actions/workflows/ci.yml)
+[![Docs](https://github.com/purelogiccode/FindRomCover/actions/workflows/docs.yml/badge.svg)](https://github.com/purelogiccode/FindRomCover/actions/workflows/docs.yml)
 [![Platform](https://img.shields.io/badge/platform-Windows%20x64%20%7C%20ARM64-blue)](https://github.com/purelogiccode/FindRomCover/releases)
+[![.NET](https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/download/dotnet/10.0)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE.txt)
+[![Downloads](https://img.shields.io/github/downloads/purelogiccode/FindRomCover/total?label=downloads)](https://github.com/purelogiccode/FindRomCover/releases)
+[![GitHub stars](https://img.shields.io/github/stars/purelogiccode/FindRomCover)](https://github.com/purelogiccode/FindRomCover/stargazers)
+[![Issues](https://img.shields.io/github/issues/purelogiccode/FindRomCover)](https://github.com/purelogiccode/FindRomCover/issues)
+[![Last commit](https://img.shields.io/github/last-commit/purelogiccode/FindRomCover)](https://github.com/purelogiccode/FindRomCover/commits/master)
+[![Docs site](https://img.shields.io/badge/docs-purelogiccode.github.io-blue)](https://purelogiccode.github.io/FindRomCover/)
+[![Wiki](https://img.shields.io/badge/wiki-available-blue)](https://github.com/purelogiccode/FindRomCover/wiki)
 
 # FindRomCover
 
