@@ -50,7 +50,7 @@ public static class AppConstants
         public const string GlmBaseUrl = "https://api.z.ai/api/paas/v4";
         public const string LocalBaseUrl = "http://localhost:11434/v1";
 
-        public const string DefaultOpenRouterModel = "qwen/qwen3.7-flash";
+        public const string DefaultOpenRouterModel = "google/gemma-4-26b-a4b-it";
         public const string DefaultOpenAiModel = "gpt-4o-mini";
         public const string DefaultAnthropicModel = "claude-sonnet-4-5";
         public const string DefaultGeminiModel = "gemini-2.5-flash";

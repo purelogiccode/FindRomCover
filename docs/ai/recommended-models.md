@@ -3,7 +3,7 @@
 Cheapest vision-capable models suitable for FindRomCover's AI Assist (synchronous chat completions, image input, text/JSON output).
 
 Source: OpenRouter `GET /api/v1/models` — 446 models total, 275 accept image input (checked 2026-09-20).
-Prices are USD per million tokens (input / output), ordered by input price. FindRomCover's current OpenRouter default is **`qwen/qwen3.7-flash`**.
+Prices are USD per million tokens (input / output), ordered by input price. FindRomCover's current OpenRouter default is **`google/gemma-4-26b-a4b-it`**.
 
 ## Models
 
@@ -20,7 +20,7 @@ Prices are USD per million tokens (input / output), ordered by input price. Find
 | 9 | `bytedance-seed/seed-1.6-flash` | $0.075 | $0.30 | 262k | `response_format` | 262k context |
 | 10 | `google/gemma-3-27b-it` | $0.08 | $0.45 | 131k | `response_format` | Larger Gemma 3 |
 | 11 | `mistralai/mistral-small-3.2-24b-instruct` | $0.09 | $0.25 | 256k | `response_format` | 256k context |
-| 12 | `google/gemma-4-26b-a4b-it` | $0.09 | $0.30 | 262k | `response_format` | MoE variant of Gemma 4 |
+| 12 | `google/gemma-4-26b-a4b-it` | $0.09 | $0.30 | 262k | `response_format` | MoE variant of Gemma 4; **FindRomCover default** |
 | 13 | `google/gemma-4-31b-it` | $0.09 | $0.34 | 262k | `response_format` | Best value of the Gemma 4 family |
 | 14 | `qwen/qwen3.5-9b` | $0.10 | $0.15 | 262k | `response_format` | 262k context; text, image and video input |
 | 15 | `meta-llama/llama-4-scout` | $0.10 | $0.30 | 1.3M | `response_format` | 1.3M context |
@@ -38,6 +38,8 @@ Estimated cost per 1,000 cover picks (assuming about 6 images ≈ 6k prompt toke
 | `google/gemma-3-12b-it` | ≈ $0.33 |
 | `openai/gpt-5-nano` | ≈ $0.38 |
 | `amazon/nova-lite-v1` | ≈ $0.41 |
+
+The default `google/gemma-4-26b-a4b-it` costs about **$0.60 per 1,000 picks**. See the table above for alternatives.
 
 ## OpenCode Zen (free MiMo-V2.5)
 

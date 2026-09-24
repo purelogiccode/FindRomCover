@@ -2,12 +2,12 @@
 
 > Also available in the documentation with current prices: [Recommended Models](https://purelogiccode.github.io/FindRomCover/ai/recommended-models/)
 
-Vision-capable models suitable for FindRomCover's AI Assist (synchronous chat completions, image input, text/JSON output). The application's default model is `qwen/qwen3.7-flash`.
+Vision-capable models suitable for FindRomCover's AI Assist (synchronous chat completions, image input, text/JSON output). The application's default model is `google/gemma-4-26b-a4b-it`.
 
 ## Models
 
-qwen/qwen3.7-flash
 google/gemma-4-26b-a4b-it
+qwen/qwen3.7-flash
 amazon/nova-lite-v1
 
 ## Caveats

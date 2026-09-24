@@ -90,7 +90,7 @@ AI Vision Assist uses a vision-capable model to choose the best cover among cand
 
 1. Open `Settings > AI Settings...`.
 2. Choose a provider:
-    - **OpenRouter** (cloud): paste an API key from [openrouter.ai/keys](https://openrouter.ai/keys). Default model: `qwen/qwen3.7-flash` (cheapest vision-capable option).
+    - **OpenRouter** (cloud): paste an API key from [openrouter.ai/keys](https://openrouter.ai/keys). Default model: `google/gemma-4-26b-a4b-it`.
     - **OpenAI** (cloud): paste an API key from [platform.openai.com/api-keys](https://platform.openai.com/api-keys). Default model: `gpt-4o-mini`.
     - **Anthropic** (cloud): paste an API key from [console.anthropic.com](https://console.anthropic.com). Default model: `claude-sonnet-4-5`.
     - **Gemini** (cloud): paste an API key from [aistudio.google.com](https://aistudio.google.com/apikey). Default model: `gemini-2.5-flash`.

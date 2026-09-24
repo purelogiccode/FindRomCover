@@ -64,7 +64,7 @@ Models without native JSON mode are prompted to output JSON as text, which FindR
 
 ## Cost example
 
-A pick with 6 images costs roughly 6,000 input tokens and a few hundred output tokens. With the default OpenRouter model `qwen/qwen3.7-flash`, that is about **$0.0002 per pick** — around **$0.21 per 1,000 picks**. See [Recommended Models](recommended-models.md) for a comparison of alternatives.
+A pick with 6 images costs roughly 6,000 input tokens and a few hundred output tokens. With the default OpenRouter model `google/gemma-4-26b-a4b-it`, that is about **$0.0006 per pick** — around **$0.60 per 1,000 picks**. See [Recommended Models](recommended-models.md) for a comparison of alternatives.
 
 ## Troubleshooting
 

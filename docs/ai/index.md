@@ -28,7 +28,7 @@ The filename matcher pre-filters local candidates first: only images whose simil
 
 | Provider | Type | Default model | API key |
 |----------|------|---------------|---------|
-| [OpenRouter](../ai/providers.md#openrouter) | Cloud | `qwen/qwen3.7-flash` | Required |
+| [OpenRouter](../ai/providers.md#openrouter) | Cloud | `google/gemma-4-26b-a4b-it` | Required |
 | [OpenAI](../ai/providers.md#openai) | Cloud | `gpt-4o-mini` | Required |
 | [Anthropic](../ai/providers.md#anthropic) | Cloud | `claude-sonnet-4-5` | Required |
 | [Gemini](../ai/providers.md#gemini) | Cloud | `gemini-2.5-flash` | Required |

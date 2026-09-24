@@ -46,7 +46,7 @@ The game disappears from the missing list once the cover is in place.
 3. Enable **AI-assisted image selection**.
 4. Back in the main window, use **AI Pick Best** on the Local Files or Google API tab, or **AI Fill Missing Covers...** to process the whole list.
 
-The default OpenRouter model is `qwen/qwen3.7-flash`, one of the cheapest vision-capable models available. See [AI Vision Assist](../ai/index.md) and [Recommended Models](../ai/recommended-models.md) for details.
+The default OpenRouter model is `google/gemma-4-26b-a4b-it`, which follows the cover/box-art instructions reliably. See [AI Vision Assist](../ai/index.md) and [Recommended Models](../ai/recommended-models.md) for details and cheaper alternatives.
 
 ## Where to go next
 

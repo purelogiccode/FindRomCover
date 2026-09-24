@@ -6,7 +6,7 @@ FindRomCover supports cloud providers, local servers, and custom endpoints. All 
 
 | Provider | Base URL | Default model | Key required | Notes |
 |----------|----------|---------------|--------------|-------|
-| OpenRouter | `https://openrouter.ai/api/v1` | `qwen/qwen3.7-flash` | Yes | Aggregator with hundreds of models; cheapest vision options |
+| OpenRouter | `https://openrouter.ai/api/v1` | `google/gemma-4-26b-a4b-it` | Yes | Aggregator with hundreds of models; cheapest vision options |
 | OpenAI | `https://api.openai.com/v1` | `gpt-4o-mini` | Yes | Reliable JSON output; `gpt-5-nano` is a low-cost alternative |
 | Anthropic | `https://api.anthropic.com/v1` | `claude-sonnet-4-5` | Yes | Strong visual reasoning; native Messages API |
 | Gemini | `https://generativelanguage.googleapis.com/v1beta` | `gemini-2.5-flash` | Yes | Generous free tier; `gemini-2.5-flash-lite` is cheaper |
@@ -19,7 +19,7 @@ FindRomCover supports cloud providers, local servers, and custom endpoints. All 
 
 1. Create an API key at [openrouter.ai/keys](https://openrouter.ai/keys).
 2. Select **OpenRouter** in AI Settings, paste the key, and click **Test / Load Models**.
-3. Pick a model. The default `qwen/qwen3.7-flash` is the cheapest vision-capable model on OpenRouter at the time of writing.
+3. Pick a model. The default `google/gemma-4-26b-a4b-it` follows the cover/box-art instructions reliably; see [Recommended Models](recommended-models.md) for cheaper and more expensive alternatives.
 
 OpenRouter exposes modality metadata, so the model picker knows exactly which models accept image input. See [Recommended Models](recommended-models.md) for a cost-ranked list.
 

@@ -44,7 +44,7 @@ public class VisionClientFactoryTests
 
     [Theory]
     [InlineData(AppConstants.AiProviders.OpenRouter, "https://openrouter.ai/api/v1",
-        "qwen/qwen3.7-flash")]
+        "google/gemma-4-26b-a4b-it")]
     [InlineData(AppConstants.AiProviders.OpenAi, "https://api.openai.com/v1", "gpt-4o-mini")]
     [InlineData(AppConstants.AiProviders.Anthropic, "https://api.anthropic.com/v1", "claude-sonnet-4-5")]
     [InlineData(AppConstants.AiProviders.Gemini, "https://generativelanguage.googleapis.com/v1beta",

@@ -12,7 +12,7 @@ This page covers problems specific to AI Vision Assist. For general application 
 
 **What to do:**
 
-- Use a model that is not a heavy reasoner for this task (for example `qwen/qwen3.7-flash` or `gemma-3-12b-it`).
+- Use a model that is not a heavy reasoner for this task (for example `google/gemma-4-26b-a4b-it` or `gemma-3-12b-it`).
 - If the error persists with a reasoning model, choose a different model — the output budget is not user-configurable.
 
 ## "API key is invalid" or 401/403 errors
