@@ -91,7 +91,15 @@ public static class ErrorLogger
         if (sendSuccess)
             try
             {
-                if (File.Exists(ApiLogFilePath)) await File.WriteAllTextAsync(ApiLogFilePath, string.Empty);
+                await LogFileLock.WaitAsync();
+                try
+                {
+                    if (File.Exists(ApiLogFilePath)) await File.WriteAllTextAsync(ApiLogFilePath, string.Empty);
+                }
+                finally
+                {
+                    LogFileLock.Release();
+                }
             }
             catch (Exception loggingEx)
             {

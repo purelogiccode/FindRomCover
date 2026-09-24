@@ -269,7 +269,7 @@ public static class ImageSaveService
                 await image.WriteAsync(tempOutputPath, MagickFormat.Png, cancellationToken);
             }
 
-            File.Move(tempOutputPath, outputPath, true);
+            await MoveWithRetryAsync(tempOutputPath, outputPath).ConfigureAwait(false);
             LogService.Information($"Successfully saved image from stream to '{outputPath}'.");
 
             return true;
@@ -318,6 +318,27 @@ public static class ImageSaveService
                     LogService.Warning(cleanupEx, $"Failed to clean up temporary file '{tempOutputPath}'.");
                 }
         }
+    }
+
+    /// <summary>
+    ///     Moves the converted temp file over the target, retrying transient locks
+    ///     (antivirus, cloud-sync clients) with linear backoff.
+    /// </summary>
+    private static async Task MoveWithRetryAsync(string sourcePath, string targetPath)
+    {
+        const int maxAttempts = 5;
+        const int baseDelayMs = 100;
+
+        for (var attempt = 1; ; attempt++)
+            try
+            {
+                File.Move(sourcePath, targetPath, true);
+                return;
+            }
+            catch (Exception ex) when ((ex is IOException or UnauthorizedAccessException) && attempt < maxAttempts)
+            {
+                await Task.Delay(baseDelayMs * attempt).ConfigureAwait(false);
+            }
     }
 
     /// <summary>
