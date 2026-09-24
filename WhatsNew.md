@@ -1,7 +1,5 @@
 # FindRomCover 3.2.0 — What's New
 
-> Unreleased — included in the next build. Download links will be added when 3.2.0 ships.
-
 ## AI Vision Assist (New)
 
 - **AI Pick Best** on the Local Files and Google API tabs: a vision-capable model looks at the candidate images and highlights the best cover (green badge, moved to the front).
@@ -44,8 +42,15 @@
 - **Dependency updates**: Magick.NET, NAudio, Microsoft.Extensions.DependencyInjection, the Roslyn/Meziantou analyzers and the .NET test SDK were updated.
 - **Log writes are serialized**: the error logger clears and appends under one lock, so entries cannot be lost or truncated during concurrent reporting.
 - AI request failures are logged as warnings and never trigger the automatic bug-report pipeline.
-- Version bumped to **3.2.0** (not released yet).
+- Version bumped to **3.2.0**.
 - GitHub Actions CI now builds and tests every push and pull request on Windows.
+
+## Download
+
+- `release_3.2.0_win-x64.zip` — Windows x64
+- `release_3.2.0_win-arm64.zip` — Windows ARM64
+
+Both builds are framework-dependent and require the [.NET 10.0 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0). Extract and run `FindRomCover.exe`.
 
 ---
 

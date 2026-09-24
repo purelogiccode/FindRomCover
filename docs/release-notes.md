@@ -2,9 +2,7 @@
 
 Complete version history for FindRomCover. Download links for each release are available on the [Releases](https://github.com/purelogiccode/FindRomCover/releases) page.
 
-## 3.2.0 — Unreleased
-
-> Included in the next build. Download links will be added when 3.2.0 ships.
+## 3.2.0 — 2026-09-24
 
 ### AI Vision Assist (New)
 
@@ -48,8 +46,13 @@ Complete version history for FindRomCover. Download links for each release are a
 - **Dependency updates**: Magick.NET, NAudio, Microsoft.Extensions.DependencyInjection, the Roslyn/Meziantou analyzers and the .NET test SDK were updated.
 - **Log writes are serialized**: the error logger clears and appends under one lock, so entries cannot be lost or truncated during concurrent reporting.
 - AI request failures are logged as warnings and never trigger the automatic bug-report pipeline.
-- Version bumped to **3.2.0** (not released yet).
+- Version bumped to **3.2.0**.
 - GitHub Actions CI now builds and tests every push and pull request on Windows.
+
+### Downloads
+
+- `release_3.2.0_win-x64.zip`
+- `release_3.2.0_win-arm64.zip`
 
 ## 3.1.0 — 2026-09-02
 
