@@ -62,7 +62,7 @@ The output is written under `FindRomCover/bin/Release/net10.0-windows/<rid>/publ
 | Language version | C# 14 |
 | Nullable | Enabled |
 | WPF | Enabled |
-| Assembly/file version | `3.2.0` (kept in `FindRomCover.csproj`) |
+| Assembly/file version | `3.2.2` (kept in `FindRomCover.csproj`) |
 | `mame.dat` | Copied to the output directory on every build |
 | `settings.dat` | Never copied to the output directory |
 

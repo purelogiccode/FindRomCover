@@ -2,6 +2,23 @@
 
 Complete version history for FindRomCover. Download links for each release are available on the [Releases](https://github.com/purelogiccode/FindRomCover/releases) page.
 
+## 3.2.2 — 2026-09-25
+
+### Improvements
+
+- **Settings menu cleanup** — `Ignore Bracketed Text in Matching` now lives under the **Settings** menu instead of the top level, grouping it with the other matching and display toggles.
+
+### Under the Hood
+
+- Removed an unused `ParseDouble` helper from the AI Settings window.
+- Normalized for-loop spacing in `ImageSaveService`.
+- Added CI, Docs, .NET, downloads, stars, issues, last-commit, and wiki badges to the README.
+
+### Downloads
+
+- `release_3.2.2_win-x64.zip`
+- `release_3.2.2_win-arm64.zip`
+
 ## 3.2.1 — 2026-09-24
 
 ### Improvements

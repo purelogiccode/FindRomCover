@@ -36,7 +36,7 @@ FindRomCover keeps the keyboard surface small and predictable.
 | `Theme > Light` / `Dark` | Switch base theme |
 | `Set Similarity Algorithm` | Choose Jaccard, Jaro-Winkler, or Levenshtein |
 | `Set Similarity Threshold` | Set the local match threshold (10–90%) |
-| `Ignore Bracketed Text in Matching` | Toggle ignoring text inside `()`, `[]`, and `{}` during matching |
+| `Settings > Ignore Bracketed Text in Matching` | Toggle ignoring text inside `()`, `[]`, and `{}` during matching |
 | `Set Thumbnail Size` | Set Google API thumbnail size (100–500 px) |
 | `Settings > Show/Hide Log Window` | Toggle the live log viewer |
 

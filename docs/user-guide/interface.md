@@ -12,13 +12,13 @@ The FindRomCover main window is organized around four areas: the menu bar, the f
 | **Theme > Accent Colors** | 20+ colors | Red, Green, Blue, Purple, Orange, Lime, Emerald, Teal, Cyan, Cobalt, Indigo, Violet, Pink, Magenta, Crimson, Amber, Yellow, Brown, Olive, Steel, Mauve, Taupe, Sienna |
 | **Set Similarity Algorithm** | Jaccard Similarity, Jaro-Winkler Distance, Levenshtein Distance | Algorithm used to match local image filenames to ROMs |
 | **Set Similarity Threshold** | 10% – 90% | Minimum similarity required to list a local image |
-| **Ignore Bracketed Text in Matching** | On / Off | Ignore text inside `()`, `[]`, and `{}` when matching local image filenames (on by default) |
 | **Set Thumbnail Size** | 100 – 500 pixels | Preview size for Google API results |
 | **Settings > API Settings...** | — | Google Custom Search API key |
 | **Settings > AI Settings...** | — | AI provider, model, limits, and behavior |
 | **Settings > Edit Supported Extensions...** | — | Manage which ROM file extensions are scanned |
 | **Settings > Show/Hide Log Window** | — | Toggle the live log viewer |
 | **Settings > Use MAME Descriptions** | — | Use MAME descriptions instead of cleaned filenames for searches |
+| **Settings > Ignore Bracketed Text in Matching** | On / Off | Ignore text inside `()`, `[]`, and `{}` when matching local image filenames (on by default) |
 | **About** | Donate, Check for Updates, About | Support links, update check, and application information |
 | **Exit** | — | Close the application (also **Escape**) |
 

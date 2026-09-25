@@ -35,7 +35,7 @@ It supports **Local Similarity Search** across your existing image folder, plus 
 - **Batch Processing**: Scan entire ROM directories to identify missing covers.
 - **Multiple Sources**:
     - **Local Similarity Search**: Matches ROM filenames against images already in your local image folder using configurable similarity algorithms (Jaccard Similarity, Jaro-Winkler Distance, or Levenshtein Distance) with an adjustable match threshold (10-90%).
-    - **Ignore Bracketed Text in Matching**: On by default; ignores text inside `()`, `[]`, and `{}` when comparing names, so `Game (USA) [En]` matches a cover named `Game`. Toggle it from the main menu.
+    - **Ignore Bracketed Text in Matching**: On by default; ignores text inside `()`, `[]`, and `{}` when comparing names, so `Game (USA) [En]` matches a cover named `Game`. Toggle it from the Settings menu.
     - **Google Web Image Search**: Uses an embedded browser (WebView2) to display Google image search results.
     - **Bing Web Image Search**: Uses an embedded browser (WebView2) to display Bing image search results.
     - **Google Custom Search API**: Fetches image results directly via API (requires an API key).

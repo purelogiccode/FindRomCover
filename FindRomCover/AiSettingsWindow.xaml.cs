@@ -449,9 +449,4 @@ public partial class AiSettingsWindow
             "Invalid Value", MessageBoxButton.OK, MessageBoxImage.Warning);
         return false;
     }
-
-    private static double ParseDouble(string text, double fallback)
-    {
-        return double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) ? value : fallback;
-    }
 }
