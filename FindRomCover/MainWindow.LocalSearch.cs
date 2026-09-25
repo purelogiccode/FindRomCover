@@ -138,6 +138,19 @@ public partial class MainWindow
         }
     }
 
+    private void ApplyDeterministicImageOrder(SimilarityCalculationResult similarityResult)
+    {
+        // Images are streamed into the collection as parallel loads finish, so the
+        // visible order varies between runs. Re-apply the ranked order from the
+        // calculator (score, then path) once all pending additions have been applied.
+        for (var targetIndex = 0; targetIndex < similarityResult.SimilarImages.Count; targetIndex++)
+        {
+            var currentIndex = SimilarImages.IndexOf(similarityResult.SimilarImages[targetIndex]);
+            if (currentIndex > targetIndex)
+                SimilarImages.Move(currentIndex, targetIndex);
+        }
+    }
+
     private async Task RunLocalSearchAsync(string searchName, string romName)
     {
         var imageFolderPath = GetValidatedImageFolderPath();
@@ -217,6 +230,8 @@ public partial class MainWindow
                 if (!cancellationToken.IsCancellationRequested)
                 {
                     HasSearchedSimilar = true;
+
+                    ApplyDeterministicImageOrder(similarityResult);
 
                     if (similarityResult.ProcessingErrors.Count > 0)
                     {

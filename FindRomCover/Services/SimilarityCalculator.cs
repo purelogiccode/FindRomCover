@@ -97,7 +97,10 @@ public static class SimilarityCalculator
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        result.SimilarImages = imageList.OrderByDescending(static x => x.SimilarityScore).ToList();
+        result.SimilarImages = imageList
+            .OrderByDescending(static x => x.SimilarityScore)
+            .ThenBy(static x => x.ImagePath, StringComparer.OrdinalIgnoreCase)
+            .ToList();
         result.ProcessingErrors = processingErrors.ToList();
 
         return result;
@@ -241,8 +244,12 @@ public static class SimilarityCalculator
 
         cancellationToken.ThrowIfCancellationRequested();
 
+        // Similarity scores tie frequently (especially with Jaro-Winkler). The parallel
+        // workers fill the bag in a nondeterministic completion order, so a secondary
+        // ordering key is required for stable results across runs.
         var topCandidates = candidateFiles
             .OrderByDescending(static x => x.SimilarityScore)
+            .ThenBy(static x => x.FilePath, StringComparer.OrdinalIgnoreCase)
             .Take(Math.Max(1, maxCandidates))
             .ToList();
 

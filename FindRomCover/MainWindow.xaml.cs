@@ -503,12 +503,15 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
                     break;
                 case nameof(SettingsManager.SelectedSimilarityAlgorithm):
                     UpdateSimilarityAlgorithmChecks();
+                    await RefreshLocalSearchForSelectionAsync();
                     break;
                 case nameof(SettingsManager.SimilarityThreshold):
                     UpdateSimilarityThresholdChecks();
+                    await RefreshLocalSearchForSelectionAsync();
                     break;
                 case nameof(SettingsManager.IgnoreBracketedText):
                     UpdateIgnoreBracketedTextCheck();
+                    await RefreshLocalSearchForSelectionAsync();
                     break;
                 case nameof(SettingsManager.UseMameDescriptions):
                     UpdateMameDescriptionCheck();
@@ -626,6 +629,16 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         {
             LogService.Error(ex, "Error in UpdateIgnoreBracketedTextCheck");
         }
+    }
+
+    private async Task RefreshLocalSearchForSelectionAsync()
+    {
+        // Toggling a matching option must re-run the similarity calculation for the
+        // ROM that is already selected; SelectionChanged will not fire again for it.
+        if (LstMissingImages.SelectedItem is not MissingImageItem selectedItem) return;
+
+        _findSimilarTask = RunLocalSearchAsync(selectedItem.SearchName, selectedItem.RomName);
+        await _findSimilarTask;
     }
 
     private void UpdateAiPickAvailability()
