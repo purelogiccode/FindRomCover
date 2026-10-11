@@ -19,6 +19,7 @@ public class MissingImageItem
 
     /// <summary>Original ROM name.</summary>
     public string RomName { get; }
+
     /// <summary>Cleaned name used for search queries.</summary>
     public string SearchName { get; }
 

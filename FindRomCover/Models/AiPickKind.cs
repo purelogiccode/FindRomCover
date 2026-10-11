@@ -7,6 +7,7 @@ public enum AiPickKind
 {
     /// <summary>Candidates were matched from the local image folder.</summary>
     Local,
+
     /// <summary>Candidates were fetched from the web search API.</summary>
     ApiFallback
 }

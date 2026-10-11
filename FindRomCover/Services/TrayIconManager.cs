@@ -12,6 +12,7 @@ public sealed class TrayIconManager : IDisposable
 
     /// <summary>Raised when the user requests the main window be restored from the tray.</summary>
     public event Action? RestoreRequested;
+
     /// <summary>Raised when the user requests the application exit from the tray menu.</summary>
     public event Action? ExitRequested;
 

@@ -119,7 +119,8 @@ public sealed class AiBatchFillService
         if (localCandidates.Count > 0)
         {
             var images = localCandidates
-                .Select(static candidate => new ImageData(candidate.FilePath, candidate.ImageName, candidate.SimilarityScore))
+                .Select(static candidate =>
+                    new ImageData(candidate.FilePath, candidate.ImageName, candidate.SimilarityScore))
                 .ToList();
 
             pick = await _aiAssist.PickBestAsync(item.RomName, item.SearchName, images, cancellationToken)
@@ -146,7 +147,9 @@ public sealed class AiBatchFillService
 
         if (!useApiFallback || string.IsNullOrWhiteSpace(_settings.GoogleKey))
         {
-            var outcome = localCandidates.Count == 0 ? AiBatchOutcome.NoCandidates : AiBatchOutcome.SkippedLowConfidence;
+            var outcome = localCandidates.Count == 0
+                ? AiBatchOutcome.NoCandidates
+                : AiBatchOutcome.SkippedLowConfidence;
             if (outcome == AiBatchOutcome.SkippedLowConfidence && pick != null)
                 _queryHistory.MarkQueried(targetPath, "local-no-match");
 

@@ -128,8 +128,10 @@ public sealed class ImageFolderWatcher : IDisposable
 
     /// <summary>Raised with the image name (without extension) when a dropped image is ready.</summary>
     public event Action<string>? ImageFound;
+
     /// <summary>Raised with the file path and error message when PNG conversion fails.</summary>
     public event Action<string, string>? ConversionFailed;
+
     /// <summary>Raised with the file path and target name when AI verification rejects an image.</summary>
     public event Action<string, string>? VerificationFailed;
 
@@ -281,7 +283,8 @@ public sealed class ImageFolderWatcher : IDisposable
         {
             // Environmental failure (ACLs, disconnected drive, invalid path, AV lock, ...).
             // Log as Warning so it does NOT trigger an automatic bug report.
-            LogService.Warning(ex, $"ImageFolderWatcher: cannot watch folder '{folderPath}' — automatic detection disabled");
+            LogService.Warning(ex,
+                $"ImageFolderWatcher: cannot watch folder '{folderPath}' — automatic detection disabled");
             return false;
         }
     }

@@ -38,12 +38,16 @@ public class ImageData : INotifyPropertyChanged
 
     /// <summary>Path or URL of the image, or <see langword="null" /> when unknown.</summary>
     public string? ImagePath { get; init; }
+
     /// <summary>URL of a thumbnail image, when one is available.</summary>
     public string? ThumbnailUrl { get; init; }
+
     /// <summary>Display name of the image; defaults to "Unknown Filename".</summary>
     public string? ImageName { get; set; } = "Unknown Filename";
+
     /// <summary>Human-readable file size, or "Unknown File Size" when unavailable.</summary>
     public string ImageFileSize { get; set; } = "Unknown File Size";
+
     /// <summary>Encoding format of the image, or "Unknown Encoding Format" when unavailable.</summary>
     public string ImageEncodingFormat { get; set; } = "Unknown Encoding Format";
 

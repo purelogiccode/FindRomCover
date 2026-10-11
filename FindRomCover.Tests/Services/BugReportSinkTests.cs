@@ -51,7 +51,8 @@ public class BugReportSinkTests : IDisposable
             var sink = new BugReportSink(new MessageTextTemplateFormatter());
             sink.Emit(CreateEvent(LogEventLevel.Warning, marker));
 
-            return WaitForReportAsync(reports, report => report.ErrorMessage.Contains(marker, StringComparison.Ordinal));
+            return WaitForReportAsync(reports,
+                report => report.ErrorMessage.Contains(marker, StringComparison.Ordinal));
         });
 
         reports.Should().Contain(report => report.ErrorMessage.Contains(marker, StringComparison.Ordinal));
@@ -73,7 +74,8 @@ public class BugReportSinkTests : IDisposable
                 report => string.Equals(report.Exception.Message, exception.Message, StringComparison.Ordinal));
         });
 
-        reports.Should().Contain(report => string.Equals(report.Exception.Message, exception.Message, StringComparison.Ordinal));
+        reports.Should().Contain(report =>
+            string.Equals(report.Exception.Message, exception.Message, StringComparison.Ordinal));
     }
 
     [Fact]

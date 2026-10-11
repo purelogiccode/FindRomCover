@@ -48,7 +48,8 @@ public static class ImageLoader
                 }
                 catch (Exception retryEx)
                 {
-                    LogService.Debug($"Could not load image '{imagePath}': {retryEx.Message} (first error: {ex.Message})");
+                    LogService.Debug(
+                        $"Could not load image '{imagePath}': {retryEx.Message} (first error: {ex.Message})");
 
                     if (i < maxRetries - 1)
                         await Task.Delay(retryDelayMilliseconds, cancellationToken);

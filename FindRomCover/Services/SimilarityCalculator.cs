@@ -16,6 +16,7 @@ public static class SimilarityCalculator
 {
     /// <summary>Default maximum number of candidate images loaded for display.</summary>
     public const int DefaultMaxImagesToLoad = 30;
+
     private const int NgramIndexMinFileCount = 50;
     private const double NgramIndexFallbackRatio = 0.05;
 
@@ -158,7 +159,8 @@ public static class SimilarityCalculator
         return candidates;
     }
 
-    private static async Task<(List<(string FilePath, string ImageName, double SimilarityScore)> Candidates, List<string>
+    private static async Task<(List<(string FilePath, string ImageName, double SimilarityScore)> Candidates,
+        List<string>
         Errors)> FindCandidatesCoreAsync(
         string selectedFileName,
         string imageFolderPath,

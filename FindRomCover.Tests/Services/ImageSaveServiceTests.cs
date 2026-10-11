@@ -387,6 +387,7 @@ public class ImageSaveServiceTests : IDisposable
         image.Format = MagickFormat.Png;
         return image.ToByteArray();
     }
+
     private sealed class StubHttpMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> responder)
         : HttpMessageHandler
     {

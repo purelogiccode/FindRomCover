@@ -1827,7 +1827,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
         catch (Exception ex)
         {
-            LogService.Warning(ex, $"StartImageFolderWatcher: cannot watch folder '{folderPath}' — automatic detection disabled");
+            LogService.Warning(ex,
+                $"StartImageFolderWatcher: cannot watch folder '{folderPath}' — automatic detection disabled");
         }
     }
 

@@ -38,7 +38,8 @@ internal static class VisionModelCatalog
             var body = await response.Content.ReadAsStringAsync(timeoutCts.Token).ConfigureAwait(false);
 
             if (!response.IsSuccessStatusCode)
-                throw new InvalidOperationException(VisionModelClientBase.BuildHttpErrorMessage(response.StatusCode, body));
+                throw new InvalidOperationException(
+                    VisionModelClientBase.BuildHttpErrorMessage(response.StatusCode, body));
 
             return ParseModels(body);
         }

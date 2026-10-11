@@ -124,7 +124,7 @@ public static class Dialogs
             panel.Children.Add(buttons);
             dialog.Content = panel;
 
-            return await ShowOwnedAsync<string?>(dialog, owner, null, () => result);
+            return await ShowOwnedAsync(dialog, owner, null, () => result);
         });
     }
 

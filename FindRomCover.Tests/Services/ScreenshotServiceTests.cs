@@ -152,7 +152,7 @@ public class ScreenshotServiceTests : IDisposable
         Path.GetFileName(path).Should().Be(
             $"Screenshot_{timestamp.ToString("yyyyMMdd_HHmmss_fff", CultureInfo.InvariantCulture)}_1.png");
         File.ReadAllText(existingPath).Should().Be("existing");
-        _createdPaths.Add(path!);
+        _createdPaths.Add(path);
     }
 
     [Fact]

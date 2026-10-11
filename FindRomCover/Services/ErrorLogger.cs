@@ -20,6 +20,7 @@ public static class ErrorLogger
     ///     Default timeout, in seconds, for a bug-report API request.
     /// </summary>
     public const int DefaultApiTimeoutSeconds = 30;
+
     /// <summary>
     ///     Indicates whether the logger has been disposed. Exposed for tests.
     /// </summary>
@@ -202,7 +203,8 @@ public static class ErrorLogger
             messageBuilder.AppendLine(CultureInfo.InvariantCulture, $"OS Version: {bugReport.OsVersion}");
             messageBuilder.AppendLine(CultureInfo.InvariantCulture, $"Architecture: {bugReport.Architecture}");
             messageBuilder.AppendLine(CultureInfo.InvariantCulture, $"Bitness: {bugReport.Bitness}");
-            messageBuilder.AppendLine(CultureInfo.InvariantCulture, $"Windows/Linux/macOS Version: {bugReport.WindowsVersion}");
+            messageBuilder.AppendLine(CultureInfo.InvariantCulture,
+                $"Windows/Linux/macOS Version: {bugReport.WindowsVersion}");
             messageBuilder.AppendLine(CultureInfo.InvariantCulture, $"Processor Count: {bugReport.ProcessorCount}");
             messageBuilder.AppendLine(CultureInfo.InvariantCulture, $"Base Directory: {bugReport.BaseDirectory}");
             messageBuilder.AppendLine(CultureInfo.InvariantCulture, $"Temp Path: {bugReport.TempPath}");

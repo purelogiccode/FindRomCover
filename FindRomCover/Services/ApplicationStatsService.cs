@@ -25,8 +25,9 @@ public static class ApplicationStatsService
     {
         try
         {
-            var version = (Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly()).GetName().Version?.ToString() ??
-                          "Unknown";
+            var version =
+                (Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly()).GetName().Version?.ToString() ??
+                "Unknown";
 
             var payload = new
             {

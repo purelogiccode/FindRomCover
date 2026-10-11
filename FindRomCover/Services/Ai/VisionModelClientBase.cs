@@ -98,7 +98,8 @@ public abstract class VisionModelClientBase : IVisionModelClient
 
         var prompt =
             $"Game title: {romName}\n" +
-            (string.IsNullOrWhiteSpace(searchName) || string.Equals(searchName, romName, StringComparison.OrdinalIgnoreCase)
+            (string.IsNullOrWhiteSpace(searchName) ||
+             string.Equals(searchName, romName, StringComparison.OrdinalIgnoreCase)
                 ? string.Empty
                 : $"Alternate title: {searchName}\n") +
             "Is the attached image cover art for this exact game?";
@@ -419,11 +420,13 @@ public abstract class VisionModelClientBase : IVisionModelClient
             // Accept integral reals too: models frequently emit {"bestIndex": 1.0}.
             JsonValueKind.Number when value.TryGetDouble(out var real) && Math.Abs(real - Math.Round(real)) < 0.0001
                 => (int)Math.Round(real),
-            JsonValueKind.String when int.TryParse(value.GetString(), NumberStyles.Integer, CultureInfo.InvariantCulture,
+            JsonValueKind.String when int.TryParse(value.GetString(), NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
                 out var parsed) => parsed,
             JsonValueKind.String when double.TryParse(value.GetString(), NumberStyles.Float,
-                    CultureInfo.InvariantCulture, out var parsedReal) &&
-                Math.Abs(parsedReal - Math.Round(parsedReal)) < 0.0001 => (int)Math.Round(parsedReal),
+                                          CultureInfo.InvariantCulture, out var parsedReal) &&
+                                      Math.Abs(parsedReal - Math.Round(parsedReal)) < 0.0001 => (int)Math.Round(
+                parsedReal),
             _ => null
         };
     }
@@ -450,8 +453,10 @@ public abstract class VisionModelClientBase : IVisionModelClient
             JsonValueKind.True => true,
             JsonValueKind.False => false,
             JsonValueKind.String when bool.TryParse(value.GetString(), out var parsed) => parsed,
-            JsonValueKind.String when string.Equals(value.GetString(), "yes", StringComparison.OrdinalIgnoreCase) => true,
-            JsonValueKind.String when string.Equals(value.GetString(), "no", StringComparison.OrdinalIgnoreCase) => false,
+            JsonValueKind.String when string.Equals(value.GetString(), "yes", StringComparison.OrdinalIgnoreCase) =>
+                true,
+            JsonValueKind.String when string.Equals(value.GetString(), "no", StringComparison.OrdinalIgnoreCase) =>
+                false,
             _ => null
         };
     }

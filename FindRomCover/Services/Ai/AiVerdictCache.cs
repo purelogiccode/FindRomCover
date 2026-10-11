@@ -18,6 +18,7 @@ public sealed class AiVerdictCache
     private Dictionary<string, CacheEntry>? _entries;
 
     private static readonly Lock SharedLock = new();
+
     private static readonly Dictionary<string, AiVerdictCache> SharedInstances =
         new(StringComparer.OrdinalIgnoreCase);
 

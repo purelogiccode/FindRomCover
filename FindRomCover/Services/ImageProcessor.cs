@@ -290,5 +290,4 @@ public static class ImageProcessor
 
         return settings;
     }
-
 }

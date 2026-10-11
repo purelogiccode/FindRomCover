@@ -97,7 +97,8 @@ public static class ImageSaveService
             if (!string.IsNullOrWhiteSpace(fallbackImageUrl) &&
                 !string.Equals(fallbackImageUrl, imageUrl, StringComparison.OrdinalIgnoreCase))
             {
-                LogService.WarningTransient($"Primary image download failed; trying fallback thumbnail '{fallbackImageUrl}'.");
+                LogService.WarningTransient(
+                    $"Primary image download failed; trying fallback thumbnail '{fallbackImageUrl}'.");
                 if (await TryDownloadAndSaveAsync(fallbackImageUrl, outputPath, minWidth, httpClient,
                             cancellationToken)
                         .ConfigureAwait(false))

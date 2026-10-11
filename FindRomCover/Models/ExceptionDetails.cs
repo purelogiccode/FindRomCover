@@ -10,12 +10,16 @@ public class ExceptionDetails
 {
     /// <summary>Full type name of the exception.</summary>
     public string Type { get; set; } = "";
+
     /// <summary>Message of the exception.</summary>
     public string Message { get; set; } = "";
+
     /// <summary>Name of the source where the exception was raised.</summary>
     public string Source { get; set; } = "";
+
     /// <summary>Stack trace of the exception, or "Unavailable" when none was captured.</summary>
     public string StackTrace { get; set; } = "";
+
     /// <summary>Details of the inner exception, or <see langword="null" /> when there is none.</summary>
     public ExceptionDetails? InnerException { get; set; }
 

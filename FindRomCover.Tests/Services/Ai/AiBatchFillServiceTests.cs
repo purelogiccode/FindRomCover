@@ -160,8 +160,10 @@ public class AiBatchFillServiceTests : IDisposable
         var service = new AiBatchFillService(settings, ai);
 
         var results = await service.RunAsync(
-            [new MissingImageItem("Dragon Quest III - Soshite Densetsu e... (Japan)",
-                "Dragon Quest III - Soshite Densetsu e... (Japan)")],
+            [
+                new MissingImageItem("Dragon Quest III - Soshite Densetsu e... (Japan)",
+                    "Dragon Quest III - Soshite Densetsu e... (Japan)")
+            ],
             _testDir,
             false,
             null,

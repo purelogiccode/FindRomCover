@@ -351,7 +351,8 @@ public sealed class AiQueryHistory
 
     private static DateTimeOffset? ParseTimestamp(string value)
     {
-        return DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var parsed)
+        return DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind,
+            out var parsed)
             ? parsed
             : null;
     }

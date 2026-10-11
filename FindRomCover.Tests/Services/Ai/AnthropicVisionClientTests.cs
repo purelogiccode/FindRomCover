@@ -102,7 +102,8 @@ public class AnthropicVisionClientTests
         using var httpClient = new HttpClient(handler);
         using var client = new AnthropicVisionClient(httpClient);
 
-        var result = await client.PickBestAsync(CreateOptions(), "Game", "Game", CreateImages(), CancellationToken.None);
+        var result =
+            await client.PickBestAsync(CreateOptions(), "Game", "Game", CreateImages(), CancellationToken.None);
 
         result.BestIndex.Should().Be(0);
         result.Confidence.Should().BeApproximately(0.9, 0.001);

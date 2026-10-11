@@ -71,7 +71,8 @@ public class AiAssistServiceTests
         using var handler = new StubHttpMessageHandler(request =>
             request.RequestUri!.AbsolutePath.Contains("bad", StringComparison.Ordinal)
                 ? new HttpResponseMessage(HttpStatusCode.NotFound)
-                : new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(CreatePngBytes(64, 64)) });
+                : new HttpResponseMessage(HttpStatusCode.OK)
+                    { Content = new ByteArrayContent(CreatePngBytes(64, 64)) });
         using var httpClient = new HttpClient(handler);
 
         var candidates = new List<ImageData>

@@ -1,5 +1,3 @@
-using System.Collections.Concurrent;
-using FindRomCover.Models;
 using FindRomCover.Services;
 using FluentAssertions;
 using Xunit;
