@@ -65,10 +65,10 @@
 
     <ItemGroup>
         <PackageReference Include="ControlzEx" Version="7.0.4" />
-        <PackageReference Include="Magick.NET-Q16-AnyCPU" Version="14.17.1" />
+        <PackageReference Include="Magick.NET-Q16-AnyCPU" Version="15.0.0" />
         <PackageReference Include="MahApps.Metro" Version="3.0.0-rc0529" />
-        <PackageReference Include="MessagePack" Version="3.1.10" />
-        <PackageReference Include="Meziantou.Analyzer" Version="3.0.290">
+        <PackageReference Include="MessagePack" Version="3.1.11" />
+        <PackageReference Include="Meziantou.Analyzer" Version="3.0.299">
           <PrivateAssets>all</PrivateAssets>
           <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
@@ -80,17 +80,9 @@
         <PackageReference Include="Microsoft.EntityFrameworkCore.Analyzers" Version="10.0.12" />
         <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.12" />
         <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.12" />
-        <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4191.47" />
+        <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4258.31" />
         <PackageReference Include="NAudio" Version="3.1.0" />
-        <PackageReference Include="Roslynator.Analyzers" Version="5.0.0">
-          <PrivateAssets>all</PrivateAssets>
-          <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-        </PackageReference>
-        <PackageReference Include="Roslynator.CodeAnalysis.Analyzers" Version="5.0.0">
-          <PrivateAssets>all</PrivateAssets>
-          <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-        </PackageReference>
-        <PackageReference Include="Roslynator.Formatting.Analyzers" Version="5.0.0">
+        <PackageReference Include="Roslynator.Analyzers" Version="5.0.1">
           <PrivateAssets>all</PrivateAssets>
           <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
