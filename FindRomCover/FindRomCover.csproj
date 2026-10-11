@@ -7,6 +7,7 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <LangVersion>14</LangVersion>
         <RootNamespace>FindRomCover</RootNamespace>
+        <ApplicationManifest>app.manifest</ApplicationManifest>
         <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
         <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
         <Version>3.3.0</Version>
