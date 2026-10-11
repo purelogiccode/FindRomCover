@@ -25,12 +25,14 @@
             <TextBlock Margin="0,10,0,0" ToolTip.Tip="Visit the developer's website">
                 <HyperlinkButton Content="https://www.purelogiccode.com"
                                  Tag="https://www.purelogiccode.com"
-                                 Click="Hyperlink_Click" Padding="0" />
+                                 Click="Hyperlink_Click" Padding="0"
+                                 ToolTip.Tip="Open the PureLogicCode website" />
             </TextBlock>
             <TextBlock Margin="0,10,0,10" ToolTip.Tip="View the source code on GitHub">
                 <HyperlinkButton Content="https://github.com/purelogiccode/FindRomCover"
                                  Tag="https://github.com/purelogiccode/FindRomCover"
-                                 Click="Hyperlink_Click" Padding="0" />
+                                 Click="Hyperlink_Click" Padding="0"
+                                 ToolTip.Tip="Open the project page on GitHub" />
             </TextBlock>
         </StackPanel>
 

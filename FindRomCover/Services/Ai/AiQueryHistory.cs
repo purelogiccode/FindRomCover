@@ -4,6 +4,10 @@ using Microsoft.Data.Sqlite;
 
 namespace FindRomCover.Services.Ai;
 
+/// <summary>
+///     Tracks which target cover files have already been queried so batch runs can skip them.
+///     Entries are stored in a SQLite database and expire after a configurable time-to-live.
+/// </summary>
 public sealed class AiQueryHistory
 {
     private const int MaxEntries = 100_000;
@@ -14,6 +18,11 @@ public sealed class AiQueryHistory
     private readonly Lock _lock;
     private readonly TimeSpan _ttl;
 
+    /// <summary>
+    ///     Initializes a new instance of the <see cref="AiQueryHistory"/> class.
+    /// </summary>
+    /// <param name="filePath">The database file path; defaults to <see cref="DefaultFilePath"/>.</param>
+    /// <param name="ttl">How long entries remain valid; defaults to 180 days.</param>
     public AiQueryHistory(string? filePath = null, TimeSpan? ttl = null)
     {
         _filePath = string.IsNullOrWhiteSpace(filePath) ? DefaultFilePath : filePath;
@@ -28,19 +37,26 @@ public sealed class AiQueryHistory
         {
             key = Path.GetFullPath(filePath);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            LogService.Debug($"Could not normalize query history path '{filePath}': {ex.Message}");
             key = filePath;
         }
 
         return FileLocks.GetOrAdd(key, static _ => new Lock());
     }
 
+    /// <summary>
+    ///     Gets the default query history database path under the local application data folder.
+    /// </summary>
     public static string DefaultFilePath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "FindRomCover",
         AppConstants.QueryHistoryFileName);
 
+    /// <summary>
+    ///     Gets the total number of stored entries, or 0 when the database cannot be read.
+    /// </summary>
     public int Count
     {
         get
@@ -96,6 +112,11 @@ public sealed class AiQueryHistory
         return paths;
     }
 
+    /// <summary>
+    ///     Determines whether the target path has a non-expired entry, deleting the entry when it has expired.
+    /// </summary>
+    /// <param name="targetPath">The target cover file path to check.</param>
+    /// <returns><see langword="true"/> when the path was queried within the time-to-live; otherwise <see langword="false"/>.</returns>
     public bool WasQueried(string targetPath)
     {
         var key = NormalizeKey(targetPath);
@@ -129,6 +150,11 @@ public sealed class AiQueryHistory
         }
     }
 
+    /// <summary>
+    ///     Records or refreshes the query entry for the target path and prunes expired or excess rows.
+    /// </summary>
+    /// <param name="targetPath">The target cover file path to record.</param>
+    /// <param name="outcome">A short outcome label stored with the entry.</param>
     public void MarkQueried(string targetPath, string outcome)
     {
         var key = NormalizeKey(targetPath);
@@ -157,6 +183,10 @@ public sealed class AiQueryHistory
         }
     }
 
+    /// <summary>
+    ///     Deletes the entry for the target path, if present.
+    /// </summary>
+    /// <param name="targetPath">The target cover file path whose entry should be removed.</param>
     public void Remove(string targetPath)
     {
         var key = NormalizeKey(targetPath);
@@ -179,6 +209,9 @@ public sealed class AiQueryHistory
         }
     }
 
+    /// <summary>
+    ///     Deletes all entries from the query history.
+    /// </summary>
     public void Clear()
     {
         lock (_lock)
@@ -197,6 +230,11 @@ public sealed class AiQueryHistory
         }
     }
 
+    /// <summary>
+    ///     Normalizes a target path to a full, lower-case key suitable for database lookups.
+    /// </summary>
+    /// <param name="targetPath">The path to normalize.</param>
+    /// <returns>The normalized key, or an empty string when the path is blank.</returns>
     internal static string NormalizeKey(string targetPath)
     {
         if (string.IsNullOrWhiteSpace(targetPath)) return string.Empty;
@@ -205,8 +243,9 @@ public sealed class AiQueryHistory
         {
             return Path.GetFullPath(targetPath.Trim()).ToLowerInvariant();
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            LogService.Debug($"Could not normalize key '{targetPath}': {ex.Message}");
             return targetPath.Trim().ToLowerInvariant();
         }
     }

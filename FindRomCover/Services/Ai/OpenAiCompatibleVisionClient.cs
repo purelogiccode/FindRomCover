@@ -5,28 +5,54 @@ using FindRomCover.Models;
 
 namespace FindRomCover.Services.Ai;
 
+/// <summary>
+///     Vision model client for OpenAI-compatible chat completions APIs.
+/// </summary>
 public sealed class OpenAiCompatibleVisionClient : VisionModelClientBase
 {
     private readonly HttpClient _httpClient;
 
+    /// <summary>
+    ///     Initializes a new instance using a dedicated default HTTP client owned by this instance.
+    /// </summary>
     public OpenAiCompatibleVisionClient()
         : this(CreateDefaultHttpClient(), true)
     {
     }
 
+    /// <summary>
+    ///     Initializes a new instance of the <see cref="OpenAiCompatibleVisionClient"/> class.
+    /// </summary>
+    /// <param name="httpClient">The HTTP client used to send requests.</param>
+    /// <param name="ownsClient">Whether this instance disposes <paramref name="httpClient"/>.</param>
     public OpenAiCompatibleVisionClient(HttpClient httpClient, bool ownsClient = false)
     {
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
         OwnsClient = ownsClient;
     }
 
+    /// <summary>
+    ///     Gets a value indicating whether this instance disposes the underlying HTTP client.
+    /// </summary>
     public bool OwnsClient { get; }
 
+    /// <summary>
+    ///     Disposes the underlying HTTP client when this instance owns it.
+    /// </summary>
     protected override void DisposeCore()
     {
         if (OwnsClient) _httpClient.Dispose();
     }
 
+    /// <summary>
+    ///     Sends a chat completion request to the configured endpoint and returns the assistant text.
+    /// </summary>
+    /// <param name="options">The AI vision options (base URL, model, key, timeout).</param>
+    /// <param name="systemPrompt">The system prompt guiding the model.</param>
+    /// <param name="userPrompt">The user prompt describing the task.</param>
+    /// <param name="images">The prepared candidate images to attach.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <returns>The assistant text.</returns>
     protected override async Task<string> SendRequestAsync(
         AiVisionOptions options,
         string systemPrompt,
@@ -52,6 +78,14 @@ public sealed class OpenAiCompatibleVisionClient : VisionModelClientBase
         return ExtractMessageContent(responseText);
     }
 
+    /// <summary>
+    ///     Serializes the chat completion payload with base64 data-URL images and provider-appropriate token limits.
+    /// </summary>
+    /// <param name="options">The AI vision options providing the model name.</param>
+    /// <param name="systemPrompt">The system prompt guiding the model.</param>
+    /// <param name="userPrompt">The user prompt describing the task.</param>
+    /// <param name="images">The prepared candidate images to attach.</param>
+    /// <returns>The JSON request body.</returns>
     internal static string BuildRequestBody(
         AiVisionOptions options,
         string systemPrompt,
@@ -92,6 +126,12 @@ public sealed class OpenAiCompatibleVisionClient : VisionModelClientBase
         return JsonSerializer.Serialize(payload);
     }
 
+    /// <summary>
+    ///     Determines whether the configured model is an OpenAI reasoning model (o-series or gpt-5*)
+    ///     that rejects temperature and max_tokens.
+    /// </summary>
+    /// <param name="options">The AI vision options providing the provider and model.</param>
+    /// <returns><see langword="true"/> when the model needs reasoning-model request parameters; otherwise <see langword="false"/>.</returns>
     internal static bool IsOpenAiReasoningModel(AiVisionOptions options)
     {
         if (options.Provider is not (AppConstants.AiProviders.OpenAi or AppConstants.AiProviders.CustomOpenAi))
@@ -107,6 +147,11 @@ public sealed class OpenAiCompatibleVisionClient : VisionModelClientBase
                modelId.StartsWith("gpt-5", StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    ///     Builds the chat completions endpoint URL from the configured base URL.
+    /// </summary>
+    /// <param name="baseUrl">The provider base URL.</param>
+    /// <returns>The absolute chat completions endpoint URL.</returns>
     internal static string BuildChatCompletionsUrl(string baseUrl)
     {
         if (string.IsNullOrWhiteSpace(baseUrl))
@@ -115,6 +160,11 @@ public sealed class OpenAiCompatibleVisionClient : VisionModelClientBase
         return baseUrl.Trim().TrimEnd('/') + "/chat/completions";
     }
 
+    /// <summary>
+    ///     Extracts the assistant text from an OpenAI-compatible response body.
+    /// </summary>
+    /// <param name="responseJson">The raw JSON response body.</param>
+    /// <returns>The assistant text.</returns>
     internal static string ExtractMessageContent(string responseJson)
     {
         using var doc = JsonDocument.Parse(responseJson);
@@ -160,6 +210,12 @@ public sealed class OpenAiCompatibleVisionClient : VisionModelClientBase
             throw new InvalidOperationException(OutputBudgetExhaustedMessage);
     }
 
+    /// <summary>
+    ///     Builds a user-facing error message from a failed HTTP response.
+    /// </summary>
+    /// <param name="statusCode">The HTTP status code returned by the provider.</param>
+    /// <param name="responseBody">The raw error response body.</param>
+    /// <returns>The formatted error message.</returns>
     internal static string BuildErrorMessage(HttpStatusCode statusCode, string responseBody)
     {
         return BuildHttpErrorMessage(statusCode, responseBody);

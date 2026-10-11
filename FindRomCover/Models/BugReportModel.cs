@@ -5,21 +5,42 @@ using System.Text;
 
 namespace FindRomCover.Models;
 
+/// <summary>
+///     Collects application, environment, and exception details for a generated bug report.
+/// </summary>
 public class BugReportModel
 {
+    /// <summary>Name of the application.</summary>
     public string ApplicationName { get; set; } = "FindRomCover";
+    /// <summary>Date and time the report was created.</summary>
     public DateTime Date { get; set; } = DateTime.Now;
+    /// <summary>Version of the running application.</summary>
     public string ApplicationVersion { get; set; } = "Unknown";
+    /// <summary>Description of the operating system.</summary>
     public string OsVersion { get; set; } = "Unknown";
+    /// <summary>Architecture of the operating system (for example, X64).</summary>
     public string Architecture { get; set; } = "Unknown";
+    /// <summary>Whether the operating system is 32-bit or 64-bit.</summary>
     public string Bitness { get; set; } = "Unknown";
+    /// <summary>Friendly name of the Windows version.</summary>
     public string WindowsVersion { get; set; } = "Unknown";
+    /// <summary>Number of logical processors available to the process.</summary>
     public int ProcessorCount { get; set; }
+    /// <summary>Base directory of the running application.</summary>
     public string BaseDirectory { get; set; } = "Unknown";
+    /// <summary>Path of the system temporary directory.</summary>
     public string TempPath { get; set; } = "Unknown";
+    /// <summary>Context message describing what was being done when the error occurred.</summary>
     public string ErrorMessage { get; set; } = "";
+    /// <summary>Details of the captured exception.</summary>
     public ExceptionDetails Exception { get; set; } = new();
 
+    /// <summary>
+    ///     Creates a bug report from the given exception, capturing the current environment.
+    /// </summary>
+    /// <param name="ex">The exception to capture, or <see langword="null" /> when none is available.</param>
+    /// <param name="contextMessage">Optional context message describing the failing operation.</param>
+    /// <returns>A populated <see cref="BugReportModel" />.</returns>
     public static BugReportModel FromException(Exception? ex, string? contextMessage = null)
     {
         var model = new BugReportModel
@@ -40,6 +61,10 @@ public class BugReportModel
         return model;
     }
 
+    /// <summary>
+    ///     Renders the report as a plain-text block suitable for display or saving.
+    /// </summary>
+    /// <returns>The formatted report text.</returns>
     public override string ToString()
     {
         var sb = new StringBuilder();
@@ -56,7 +81,7 @@ public class BugReportModel
         sb.AppendLine(CultureInfo.InvariantCulture, $"OS Version: {OsVersion}");
         sb.AppendLine(CultureInfo.InvariantCulture, $"Architecture: {Architecture}");
         sb.AppendLine(CultureInfo.InvariantCulture, $"Bitness: {Bitness}");
-        sb.AppendLine(CultureInfo.InvariantCulture, $"Windows Version: {WindowsVersion}");
+        sb.AppendLine(CultureInfo.InvariantCulture, $"Windows/Linux/macOS Version: {WindowsVersion}");
         sb.AppendLine(CultureInfo.InvariantCulture, $"Processor Count: {ProcessorCount}");
         sb.AppendLine(CultureInfo.InvariantCulture, $"Base Directory: {BaseDirectory}");
         sb.AppendLine(CultureInfo.InvariantCulture, $"Temp Path: {TempPath}");
@@ -91,19 +116,25 @@ public class BugReportModel
     private static string GetFriendlyWindowsVersion()
     {
         var os = Environment.OSVersion;
-        if (!OperatingSystem.IsWindows()) return os.Platform.ToString();
 
-        return os.Version.Major switch
-        {
-            >= 10 => os.Version.Build >= 22000 ? "Windows 11" : "Windows 10",
-            6 => os.Version.Minor switch
+        if (OperatingSystem.IsWindows())
+            return os.Version.Major switch
             {
-                1 => "Windows 7",
-                2 => "Windows 8",
-                3 => "Windows 8.1",
+                >= 10 => os.Version.Build >= 22000 ? "Windows 11" : "Windows 10",
+                6 => os.Version.Minor switch
+                {
+                    1 => "Windows 7",
+                    2 => "Windows 8",
+                    3 => "Windows 8.1",
+                    _ => "Older Windows NT"
+                },
                 _ => "Older Windows NT"
-            },
-            _ => "Older Windows NT"
-        };
+            };
+
+        if (OperatingSystem.IsLinux()) return $"Linux {os.Version}";
+        if (OperatingSystem.IsMacOS()) return $"macOS {os.Version}";
+        if (OperatingSystem.IsFreeBSD()) return $"FreeBSD {os.Version}";
+
+        return os.Platform.ToString();
     }
 }

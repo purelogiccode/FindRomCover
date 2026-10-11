@@ -4,6 +4,9 @@ using Microsoft.Data.Sqlite;
 
 namespace FindRomCover.Managers;
 
+/// <summary>
+///     Provides thread-safe read/write access to the key-value settings stored in a SQLite database file.
+/// </summary>
 public sealed class SettingsDatabase
 {
     private static readonly ConcurrentDictionary<string, Lock> FileLocks = new(StringComparer.OrdinalIgnoreCase);
@@ -11,6 +14,10 @@ public sealed class SettingsDatabase
     private readonly string _filePath;
     private readonly Lock _lock;
 
+    /// <summary>
+    ///     Initializes a new instance of the <see cref="SettingsDatabase" /> class for the specified database file.
+    /// </summary>
+    /// <param name="filePath">The path of the SQLite settings database file.</param>
     public SettingsDatabase(string filePath)
     {
         _filePath = string.IsNullOrWhiteSpace(filePath)
@@ -26,14 +33,20 @@ public sealed class SettingsDatabase
         {
             key = Path.GetFullPath(filePath);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            LogService.Debug($"Could not normalize settings database path '{filePath}': {ex.Message}");
             key = filePath;
         }
 
         return FileLocks.GetOrAdd(key, static _ => new Lock());
     }
 
+    /// <summary>
+    ///     Reads all key-value pairs from the settings database.
+    /// </summary>
+    /// <param name="values">Receives the stored key-value pairs; empty when the load fails.</param>
+    /// <returns><c>true</c> if the database was read successfully; otherwise <c>false</c>.</returns>
     public bool TryLoadAll(out Dictionary<string, string> values)
     {
         values = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -61,6 +74,11 @@ public sealed class SettingsDatabase
         }
     }
 
+    /// <summary>
+    ///     Inserts or updates all supplied key-value pairs in the settings database.
+    /// </summary>
+    /// <param name="values">The key-value pairs to persist.</param>
+    /// <returns><c>true</c> if the values were saved successfully; otherwise <c>false</c>.</returns>
     public bool SaveAll(IReadOnlyDictionary<string, string> values)
     {
         ArgumentNullException.ThrowIfNull(values);

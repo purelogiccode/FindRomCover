@@ -2,6 +2,9 @@ using System.Web;
 
 namespace FindRomCover.Services;
 
+/// <summary>
+///     Builds web search URLs for the supported image search engines.
+/// </summary>
 public static class WebSearchService
 {
     /// <summary>

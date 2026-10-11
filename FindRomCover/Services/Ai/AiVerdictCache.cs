@@ -2,6 +2,10 @@ using System.Text.Json;
 
 namespace FindRomCover.Services.Ai;
 
+/// <summary>
+///     Persists AI pick and verification verdicts in a JSON file so repeated requests can be answered
+///     without calling the vision model again.
+/// </summary>
 public sealed class AiVerdictCache
 {
     private const int MaxEntries = 2000;
@@ -16,6 +20,11 @@ public sealed class AiVerdictCache
     private static readonly Lock SharedLock = new();
     private static readonly Dictionary<string, AiVerdictCache> SharedInstances = new(StringComparer.Ordinal);
 
+    /// <summary>
+    ///     Initializes a new instance of the <see cref="AiVerdictCache"/> class.
+    /// </summary>
+    /// <param name="filePath">The cache file path; defaults to <see cref="DefaultFilePath"/>.</param>
+    /// <param name="ttl">How long entries remain valid; defaults to 30 days.</param>
     public AiVerdictCache(string? filePath = null, TimeSpan? ttl = null)
     {
         _filePath = string.IsNullOrWhiteSpace(filePath) ? DefaultFilePath : filePath;
@@ -42,11 +51,21 @@ public sealed class AiVerdictCache
         }
     }
 
+    /// <summary>
+    ///     Gets the default cache file path under the local application data folder.
+    /// </summary>
     public static string DefaultFilePath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "FindRomCover",
         "ai-cache.json");
 
+    /// <summary>
+    ///     Tries to retrieve a cached value, discarding entries that are expired or corrupt.
+    /// </summary>
+    /// <typeparam name="T">The cached payload type.</typeparam>
+    /// <param name="key">The cache key.</param>
+    /// <param name="value">The cached value when found; otherwise <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when a valid cached value was found; otherwise <see langword="false"/>.</returns>
     public bool TryGet<T>(string key, out T? value) where T : class
     {
         value = null;
@@ -67,14 +86,21 @@ public sealed class AiVerdictCache
                 value = JsonSerializer.Deserialize<T>(entry.Payload, JsonOptions);
                 return value != null;
             }
-            catch (JsonException)
+            catch (JsonException ex)
             {
+                LogService.Debug($"Discarding corrupt AI verdict cache entry '{key}': {ex.Message}");
                 entries.Remove(key);
                 return false;
             }
         }
     }
 
+    /// <summary>
+    ///     Stores or replaces the cached value for the key and persists the cache to disk.
+    /// </summary>
+    /// <typeparam name="T">The payload type to cache.</typeparam>
+    /// <param name="key">The cache key.</param>
+    /// <param name="value">The value to cache.</param>
     public void Set<T>(string key, T value) where T : class
     {
         ArgumentNullException.ThrowIfNull(value);

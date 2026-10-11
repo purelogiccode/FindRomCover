@@ -4,10 +4,17 @@ using MessagePack;
 
 namespace FindRomCover.Managers;
 
+/// <summary>
+///     Provides static helpers for loading MAME metadata from the bundled <c>mame.dat</c> file.
+/// </summary>
 public static class MameManager
 {
     private static readonly string DefaultDatPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "mame.dat");
 
+    /// <summary>
+    ///     Loads all MAME entries from the bundled <c>mame.dat</c> MessagePack file.
+    /// </summary>
+    /// <returns>The parsed list of <see cref="MameData" /> entries.</returns>
     public static List<MameData> LoadFromDat()
     {
         var datPath = DefaultDatPath;

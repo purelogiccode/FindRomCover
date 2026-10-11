@@ -16,6 +16,7 @@
         <Company>PureLogicCode.com</Company>
         <NeutralLanguage>en</NeutralLanguage>
         <IsPackable>false</IsPackable>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <!-- Windows are created by code with constructor arguments; they are not
              instantiated by the Avalonia runtime XAML loader. -->
         <NoWarn>$(NoWarn);AVLN3001</NoWarn>

@@ -1,9 +1,18 @@
+using FindRomCover.Models;
 using ImageMagick;
 
 namespace FindRomCover.Services;
 
+/// <summary>
+///     ImageMagick-based helpers that clean up orphaned temporary files and convert
+///     images to PNG so they can be saved for display.
+/// </summary>
 public static class ImageProcessor
 {
+    /// <summary>
+    ///     Deletes leftover temporary files created by this application in the given directory.
+    /// </summary>
+    /// <param name="directoryPath">The directory to scan for orphaned temp files.</param>
     public static void CleanupOrphanedTempFiles(string directoryPath)
     {
         if (!Directory.Exists(directoryPath))
@@ -31,6 +40,11 @@ public static class ImageProcessor
         }
     }
 
+    /// <summary>
+    ///     Determines whether a file name matches one of the application's temporary naming schemes.
+    /// </summary>
+    /// <param name="fileName">The file name (without directory) to inspect.</param>
+    /// <returns>True when the name looks like an orphaned temp file; otherwise false.</returns>
     internal static bool IsOrphanedTempFileName(string fileName)
     {
         if (string.IsNullOrEmpty(fileName)) return false;
@@ -44,12 +58,19 @@ public static class ImageProcessor
         return suffix.Length == 8 && suffix.All(char.IsAsciiHexDigit);
     }
 
+    /// <summary>
+    ///     Converts the source image to PNG and saves it at the target path.
+    /// </summary>
+    /// <param name="sourcePath">The path of the image to convert.</param>
+    /// <param name="targetPath">The destination path, or null to return a failure result.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>The result of the conversion and save operation.</returns>
     public static Task<ImageSaveResult> ConvertAndSaveImageAsync(string sourcePath, string? targetPath,
         CancellationToken cancellationToken)
     {
         if (targetPath != null) return ConvertAndSaveImageCoreAsync(sourcePath, targetPath, cancellationToken);
 
-        return Task.FromResult(new ImageSaveResult(false, "Target path is null.", "Error", ImageSaveIcon.Error));
+        return Task.FromResult(new ImageSaveResult(false, "Target path is null.", "Error", MessageIcon.Error));
     }
 
     private static async Task<ImageSaveResult> ConvertAndSaveImageCoreAsync(string sourcePath, string targetPath,
@@ -57,12 +78,12 @@ public static class ImageProcessor
     {
         var directory = Path.GetDirectoryName(targetPath);
         if (directory == null)
-            return new ImageSaveResult(false, "Invalid target path.", "Error", ImageSaveIcon.Error);
+            return new ImageSaveResult(false, "Invalid target path.", "Error", MessageIcon.Error);
 
         if (string.Equals(sourcePath, targetPath, StringComparison.OrdinalIgnoreCase))
             return new ImageSaveResult(false,
                 "Source and target paths are the same.\n\nPlease choose another target path.", "Error",
-                ImageSaveIcon.Error);
+                MessageIcon.Error);
 
         const int maxAttempts = 3;
         for (var attempt = 0;; attempt++)
@@ -84,7 +105,7 @@ public static class ImageProcessor
                         false,
                         $"Cannot write to directory: {directory}\n\nError: {ex.Message}\n\nTry running as administrator.",
                         "Permission Error",
-                        ImageSaveIcon.Error,
+                        MessageIcon.Error,
                         ex,
                         $"Cannot write to directory: {directory}");
             }
@@ -102,7 +123,7 @@ public static class ImageProcessor
     {
         if (string.IsNullOrEmpty(sourcePath) || !File.Exists(sourcePath))
             return new ImageSaveResult(false, "Source image could not be found.", "Image Not Found",
-                ImageSaveIcon.Error);
+                MessageIcon.Error);
 
         try
         {
@@ -123,7 +144,7 @@ public static class ImageProcessor
             return new ImageSaveResult(false,
                 $"Error processing image with Magick.NET: {ex.Message}",
                 "Image Processing Error",
-                ImageSaveIcon.Error,
+                MessageIcon.Error,
                 ex,
                 $"Magick.NET error: {sourcePath}");
         }
@@ -134,7 +155,7 @@ public static class ImageProcessor
             return new ImageSaveResult(false,
                 $"Cannot access image file: {ex.Message}",
                 "File Access Error",
-                ImageSaveIcon.Error,
+                MessageIcon.Error,
                 ex,
                 $"File access error: {sourcePath}");
         }
@@ -173,7 +194,7 @@ public static class ImageProcessor
                         : new ImageSaveResult(false,
                             "The image was processed but the target file was not created.",
                             "File Write Error",
-                            ImageSaveIcon.Error,
+                            MessageIcon.Error,
                             new IOException("Target file was not created"),
                             $"WriteBlob failed for: {sourcePath}");
                 }
@@ -209,7 +230,7 @@ public static class ImageProcessor
             false,
             errorMessage,
             "File Write Error",
-            ImageSaveIcon.Error,
+            MessageIcon.Error,
             lastException ?? new IOException("Write failed after all retries"),
             $"WriteBlob failed after {maxRetries} retries for: {sourcePath}");
     }
@@ -234,6 +255,11 @@ public static class ImageProcessor
         }
     }
 
+    /// <summary>
+    ///     Builds Magick.NET read settings with the format matching the file's extension.
+    /// </summary>
+    /// <param name="filePath">The image file path whose extension selects the format.</param>
+    /// <returns>The read settings for the given file.</returns>
     internal static MagickReadSettings GetMagickReadSettings(string filePath)
     {
         var settings = new MagickReadSettings();
@@ -260,20 +286,4 @@ public static class ImageProcessor
         return settings;
     }
 
-    public sealed record ImageSaveResult(
-        bool Success,
-        string? ErrorMessage = null,
-        string? ErrorTitle = null,
-        ImageSaveIcon ErrorIcon = ImageSaveIcon.None,
-        Exception? Exception = null,
-        string? LogContext = null);
-
-    public enum ImageSaveIcon
-    {
-        None,
-        Information,
-        Warning,
-        Error,
-        Question
-    }
 }

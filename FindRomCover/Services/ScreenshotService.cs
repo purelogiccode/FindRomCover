@@ -1,3 +1,4 @@
+using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media.Imaging;
@@ -6,12 +7,20 @@ namespace FindRomCover.Services;
 
 /// <summary>
 ///     Cross-platform replacement for the Windows-only screen capture service.
-///     Renders the application window to a PNG file.
+///     Renders the application window to a PNG file. Screenshots are stored in a
+///     "Screenshot" folder next to the application; when that folder is not writable
+///     (for example a Program Files installation) the per-user application data
+///     folder is used instead.
 /// </summary>
 public static class ScreenshotService
 {
-    private static readonly string ScreenshotFolder = Path.Combine(AppDataPaths.BaseDirectory, "Screenshot");
+    private const string ScreenshotFolderName = "Screenshot";
 
+    /// <summary>
+    ///     Captures the given window and saves it as a PNG file.
+    /// </summary>
+    /// <param name="window">The window to capture.</param>
+    /// <returns>The full path of the saved file, or <see langword="null" /> when the capture failed.</returns>
     public static string? CaptureWindow(Window window)
     {
         try
@@ -28,17 +37,66 @@ public static class ScreenshotService
             using var bitmap = new RenderTargetBitmap(new PixelSize(width, height), new Vector(96, 96));
             bitmap.Render(window);
 
-            Directory.CreateDirectory(ScreenshotFolder);
-            var filePath = Path.Combine(ScreenshotFolder, $"Screenshot_{DateTime.Now:yyyyMMdd_HHmmss}.png");
-            bitmap.Save(filePath, new PngBitmapEncoderOptions());
-
-            LogService.Information($"Screenshot saved: {filePath}");
-            return filePath;
+            return SaveScreenshot(
+                filePath => bitmap.Save(filePath, new PngBitmapEncoderOptions()),
+                DateTime.Now);
         }
         catch (Exception ex)
         {
-            LogService.Warning(ex, "Screenshot: capture failed.");
+            LogService.Error(ex, "Screenshot: capture failed.");
             return null;
         }
+    }
+
+    /// <summary>
+    ///     Gets the folders that are tried in order when saving a screenshot. The first
+    ///     entry is the "Screenshot" folder next to the application, the second is the
+    ///     per-user application data fallback.
+    /// </summary>
+    /// <returns>The candidate folders, in priority order.</returns>
+    internal static IReadOnlyList<string> GetCandidateFolders()
+    {
+        return
+        [
+            Path.Combine(AppContext.BaseDirectory, ScreenshotFolderName),
+            Path.Combine(AppDataPaths.BaseDirectory, ScreenshotFolderName)
+        ];
+    }
+
+    /// <summary>
+    ///     Saves a screenshot using the supplied write delegate, falling back to the
+    ///     per-user application data folder when the application folder is not writable.
+    /// </summary>
+    /// <param name="writeFile">Delegate that writes the PNG data to the given path.</param>
+    /// <param name="timestamp">Timestamp used to build the unique file name.</param>
+    /// <param name="folders">Overrides the candidate folders (used by tests).</param>
+    /// <returns>The path of the saved file, or <see langword="null" /> when every folder failed.</returns>
+    internal static string? SaveScreenshot(Action<string> writeFile, DateTime timestamp,
+        IReadOnlyList<string>? folders = null)
+    {
+        ArgumentNullException.ThrowIfNull(writeFile);
+
+        var fileName = $"Screenshot_{timestamp.ToString("yyyyMMdd_HHmmss_fff", CultureInfo.InvariantCulture)}.png";
+
+        foreach (var folder in folders ?? GetCandidateFolders())
+        {
+            var filePath = Path.Combine(folder, fileName);
+
+            try
+            {
+                Directory.CreateDirectory(folder);
+                writeFile(filePath);
+
+                LogService.Information($"Screenshot saved: {filePath}");
+                return filePath;
+            }
+            catch (Exception ex)
+            {
+                LogService.WarningTransient(ex, $"Screenshot: failed to save inside '{folder}', trying next location.");
+            }
+        }
+
+        LogService.Error("Screenshot: could not be saved to any candidate folder.");
+        return null;
     }
 }

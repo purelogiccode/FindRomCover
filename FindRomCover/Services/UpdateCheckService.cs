@@ -5,6 +5,9 @@ using FindRomCover.Models;
 
 namespace FindRomCover.Services;
 
+/// <summary>
+///     Checks the GitHub releases API for a newer version of the application.
+/// </summary>
 public static class UpdateCheckService
 {
     private const string GitHubReleasesUrl =
@@ -18,6 +21,10 @@ public static class UpdateCheckService
     /// </summary>
     internal static Version? CurrentVersionOverride { get; set; }
 
+    /// <summary>
+    ///     Gets the version of the running application.
+    /// </summary>
+    /// <returns>The entry assembly version, or <see langword="null" /> when it cannot be determined.</returns>
     internal static Version? GetCurrentVersion()
     {
         return CurrentVersionOverride ??
@@ -56,7 +63,7 @@ public static class UpdateCheckService
                 if (response.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.TooManyRequests)
                     LogService.Debug($"GitHub API returned status code: {response.StatusCode} (likely rate-limited)");
                 else
-                    LogService.Warning($"GitHub API returned status code: {response.StatusCode}");
+                    LogService.WarningTransient($"GitHub API returned status code: {response.StatusCode}");
                 return new UpdateInfo { IsUpdateAvailable = false };
             }
 
@@ -66,12 +73,12 @@ public static class UpdateCheckService
         }
         catch (TaskCanceledException)
         {
-            LogService.Warning("Update check timed out.");
+            LogService.WarningTransient("Update check timed out.");
             return new UpdateInfo { IsUpdateAvailable = false };
         }
         catch (HttpRequestException ex)
         {
-            LogService.Warning(ex, "Update check failed (network error).");
+            LogService.WarningTransient(ex, "Update check failed (network error).");
             return new UpdateInfo { IsUpdateAvailable = false };
         }
         catch (Exception ex)
@@ -81,6 +88,12 @@ public static class UpdateCheckService
         }
     }
 
+    /// <summary>
+    ///     Parses a GitHub "latest release" JSON payload and compares it with the current version.
+    /// </summary>
+    /// <param name="json">The raw GitHub API response body.</param>
+    /// <param name="currentVersion">The version currently running.</param>
+    /// <returns>The parsed update information.</returns>
     internal static UpdateInfo ParseReleaseResponse(string json, Version currentVersion)
     {
         using var doc = JsonDocument.Parse(json);
@@ -134,6 +147,11 @@ public static class UpdateCheckService
         };
     }
 
+    /// <summary>
+    ///     Parses a release tag (with optional "v"/"release_" prefixes) into a version.
+    /// </summary>
+    /// <param name="tagName">The release tag name.</param>
+    /// <returns>The parsed version, or <see langword="null" /> when the tag is not a version.</returns>
     internal static Version? ParseVersion(string tagName)
     {
         var versionString = tagName

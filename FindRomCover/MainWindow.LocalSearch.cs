@@ -7,6 +7,10 @@ using FindRomCover.Services.Ai;
 
 namespace FindRomCover;
 
+/// <summary>
+///     Main application window. This part contains the local similarity search, the
+///     AI-assisted pick of local candidates and the image saving logic.
+/// </summary>
 public partial class MainWindow
 {
     private CancellationTokenSource? _webSearchCts;

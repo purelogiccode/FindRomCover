@@ -1,12 +1,20 @@
 using System.Reflection;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using FindRomCover.Models;
 using FindRomCover.Services;
 
 namespace FindRomCover;
 
+/// <summary>
+///     About dialog that shows the application version and links to the project pages.
+/// </summary>
 public partial class AboutWindow : Window
 {
+    /// <summary>
+    ///     Initializes a new instance of the <see cref="AboutWindow"/> class and displays
+    ///     the running application version.
+    /// </summary>
     public AboutWindow()
     {
         InitializeComponent();

@@ -1,3 +1,4 @@
+using FindRomCover.Models;
 using FindRomCover.Services;
 using FluentAssertions;
 using ImageMagick;
@@ -221,7 +222,7 @@ public class ImageProcessorTests : IDisposable
     [Fact]
     public void ImageSaveResultSuccessShouldHaveNoErrorMessage()
     {
-        var result = new ImageProcessor.ImageSaveResult(true);
+        var result = new ImageSaveResult(true);
 
         result.Success.Should().BeTrue();
         result.ErrorMessage.Should().BeNull();
@@ -233,11 +234,11 @@ public class ImageProcessorTests : IDisposable
     public void ImageSaveResultFailureShouldContainErrorDetails()
     {
         var ex = new InvalidOperationException("test error");
-        var result = new ImageProcessor.ImageSaveResult(
+        var result = new ImageSaveResult(
             false,
             "Something went wrong",
             "Error Title",
-            ImageProcessor.ImageSaveIcon.Error,
+            MessageIcon.Error,
             ex,
             "log context");
 
@@ -251,8 +252,8 @@ public class ImageProcessorTests : IDisposable
     [Fact]
     public void ImageSaveResultShouldSupportEquality()
     {
-        var result1 = new ImageProcessor.ImageSaveResult(true);
-        var result2 = new ImageProcessor.ImageSaveResult(true);
+        var result1 = new ImageSaveResult(true);
+        var result2 = new ImageSaveResult(true);
 
         result1.Should().Be(result2);
     }
@@ -260,8 +261,8 @@ public class ImageProcessorTests : IDisposable
     [Fact]
     public void ImageSaveResultWithSameValuesShouldBeEqual()
     {
-        var result1 = new ImageProcessor.ImageSaveResult(false, "msg", "title");
-        var result2 = new ImageProcessor.ImageSaveResult(false, "msg", "title");
+        var result1 = new ImageSaveResult(false, "msg", "title");
+        var result2 = new ImageSaveResult(false, "msg", "title");
 
         result1.Should().Be(result2);
     }
@@ -269,8 +270,8 @@ public class ImageProcessorTests : IDisposable
     [Fact]
     public void ImageSaveResultWithDifferentValuesShouldNotBeEqual()
     {
-        var result1 = new ImageProcessor.ImageSaveResult(false, "msg1", "title1");
-        var result2 = new ImageProcessor.ImageSaveResult(false, "msg2", "title2");
+        var result1 = new ImageSaveResult(false, "msg1", "title1");
+        var result2 = new ImageSaveResult(false, "msg2", "title2");
 
         result1.Should().NotBe(result2);
     }

@@ -17,6 +17,11 @@ using FindRomCover.Services.Ai;
 
 namespace FindRomCover;
 
+/// <summary>
+///     Main application window. This part contains the window lifetime, command bindings and
+///     cover-management handlers; local search lives in <c>MainWindow.LocalSearch.cs</c> and
+///     web/API search in <c>MainWindow.WebSearch.cs</c>.
+/// </summary>
 public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 {
     private static readonly HashSet<string> NonRomExtensions = new(StringComparer.OrdinalIgnoreCase)
@@ -44,6 +49,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     private bool _webView2NotificationShown;
     private bool _webView2Unavailable;
 
+    /// <summary>
+    ///     Initializes a new instance of the <see cref="MainWindow"/> class.
+    /// </summary>
+    /// <param name="settingsManager">The settings manager backing the window.</param>
+    /// <param name="startupImageFolder">Optional image folder passed on the command line.</param>
+    /// <param name="startupRomFolder">Optional ROM folder passed on the command line.</param>
     public MainWindow(SettingsManager settingsManager, string? startupImageFolder = null,
         string? startupRomFolder = null)
     {
@@ -102,10 +113,24 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         UpdateAiPickAvailability();
     }
 
+    /// <summary>
+    ///     Gets or sets the images found by the local similarity search for the selected ROM.
+    /// </summary>
     public ObservableCollection<ImageData> SimilarImages { get; set; } = [];
+
+    /// <summary>
+    ///     Gets or sets the images returned by the API search for the selected ROM.
+    /// </summary>
     public ObservableCollection<ImageData> PanelImages { get; set; } = [];
+
+    /// <summary>
+    ///     Gets or sets the ROM files that currently have no cover image.
+    /// </summary>
     public ObservableCollection<MissingImageItem> MissingImages { get; set; } = [];
 
+    /// <summary>
+    ///     Gets or sets a value indicating whether a missing-covers scan is running.
+    /// </summary>
     public bool IsCheckingMissing
     {
         get;
@@ -118,6 +143,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
     }
 
+    /// <summary>
+    ///     Gets or sets a value indicating whether a local similarity search is running.
+    /// </summary>
     public bool IsFindingSimilar
     {
         get;
@@ -131,6 +159,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
     }
 
+    /// <summary>
+    ///     Gets or sets a value indicating whether a local similarity search has completed.
+    /// </summary>
     public bool HasSearchedSimilar
     {
         get;
@@ -144,6 +175,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
     }
 
+    /// <summary>
+    ///     Gets or sets a value indicating whether a web or API search is running.
+    /// </summary>
     public bool IsSearching
     {
         get;
@@ -157,6 +191,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
     }
 
+    /// <summary>
+    ///     Gets or sets a value indicating whether an API search has completed.
+    /// </summary>
     public bool HasSearchedApi
     {
         get;
@@ -170,6 +207,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
     }
 
+    /// <summary>
+    ///     Gets or sets a value indicating whether the AI can pick from the local candidates.
+    /// </summary>
     public bool IsAiPickAvailable
     {
         get;
@@ -182,6 +222,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
     }
 
+    /// <summary>
+    ///     Gets or sets a value indicating whether the AI can pick from the API results.
+    /// </summary>
     public bool IsAiPickApiAvailable
     {
         get;
@@ -194,6 +237,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
     }
 
+    /// <summary>
+    ///     Gets or sets a value indicating whether an AI request is currently in progress.
+    /// </summary>
     public bool IsAiBusy
     {
         get;
@@ -209,23 +255,51 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     // --- Computed properties replacing the WPF DataTriggers ---
 
+    /// <summary>
+    ///     Gets a value indicating whether the empty-state overlay for the local results is visible.
+    /// </summary>
     public bool EmptyLocalOverlayVisible => !IsFindingSimilar && SimilarImages.Count == 0;
 
+    /// <summary>
+    ///     Gets a value indicating whether the "select a missing cover" hint is visible.
+    /// </summary>
     public bool ShowSelectHint => !HasSearchedSimilar;
 
+    /// <summary>
+    ///     Gets a value indicating whether the "no results" message is visible.
+    /// </summary>
     public bool ShowNoResults => HasSearchedSimilar;
 
+    /// <summary>
+    ///     Gets a value indicating whether the API empty-state message is visible.
+    /// </summary>
     public bool ApiEmptyMessageVisible => !IsSearching && PanelImages.Count == 0;
 
+    /// <summary>
+    ///     Gets the message shown in the API results panel while it has no content.
+    /// </summary>
     public string ApiEmptyMessage => HasSearchedApi
         ? "No results found. Try adjusting your search query or API settings."
         : "Select a missing cover from the list to see suggestions.";
 
+    /// <summary>
+    ///     Gets the settings manager backing the window.
+    /// </summary>
     public SettingsManager Settings { get; }
 
+    /// <summary>
+    ///     Gets the command that starts a missing-covers scan.
+    /// </summary>
     public ICommand CheckForMissingImagesCommand { get; }
+
+    /// <summary>
+    ///     Gets the command that closes the application.
+    /// </summary>
     public ICommand ExitCommand { get; }
 
+    /// <summary>
+    ///     Releases the window's cancellation sources, watcher, tray icon and commands.
+    /// </summary>
     public void Dispose()
     {
         if (_disposed) return;
@@ -499,6 +573,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
     }
 
+    /// <summary>
+    ///     Raises the <c>PropertyChanged</c> event for the given property.
+    /// </summary>
+    /// <param name="propertyName">Name of the changed property; supplied automatically by the compiler.</param>
     protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
     {
         PropertyChangedCore?.Invoke(this, new PropertyChangedEventArgs(propertyName));
@@ -640,7 +718,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
     }
 
-    private async void ShowAboutWindow_Click(object? sender, RoutedEventArgs e)
+    private async void ShowAboutWindow_ClickAsync(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -649,11 +727,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
         catch (Exception ex)
         {
-            LogService.Error(ex, "Error in ShowAboutWindow_Click");
+            LogService.Error(ex, "Error in ShowAboutWindow_ClickAsync");
         }
     }
 
-    private async void CheckForUpdates_Click(object? sender, RoutedEventArgs e)
+    private async void CheckForUpdates_ClickAsync(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -686,7 +764,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
     }
 
-    private async void ApiSettings_Click(object? sender, RoutedEventArgs e)
+    private async void ApiSettings_ClickAsync(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -695,11 +773,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
         catch (Exception ex)
         {
-            LogService.Error(ex, "Error in ApiSettings_Click");
+            LogService.Error(ex, "Error in ApiSettings_ClickAsync");
         }
     }
 
-    private async void AiSettings_Click(object? sender, RoutedEventArgs e)
+    private async void AiSettings_ClickAsync(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -709,7 +787,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
         catch (Exception ex)
         {
-            LogService.Error(ex, "Error in AiSettings_Click");
+            LogService.Error(ex, "Error in AiSettings_ClickAsync");
         }
     }
 
@@ -763,18 +841,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             {
                 _findSimilarCts?.Cancel();
             }
-            catch
+            catch (Exception ex)
             {
-                // ignored
+                LogService.Debug($"Cancelling find-similar task during close failed: {ex.Message}");
             }
 
             try
             {
                 _loadMissingCts?.Cancel();
             }
-            catch
+            catch (Exception ex)
             {
-                // ignored
+                LogService.Debug($"Cancelling missing-covers scan during close failed: {ex.Message}");
             }
 
             return;
@@ -797,7 +875,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
     }
 
-    private async void BtnBrowseRomFolder_Click(object? sender, RoutedEventArgs e)
+    private async void BtnBrowseRomFolder_ClickAsync(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -817,11 +895,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
         catch (Exception ex)
         {
-            LogService.Error(ex, "Error in BtnBrowseRomFolder_Click");
+            LogService.Error(ex, "Error in BtnBrowseRomFolder_ClickAsync");
         }
     }
 
-    private async void BtnBrowseImageFolder_Click(object? sender, RoutedEventArgs e)
+    private async void BtnBrowseImageFolder_ClickAsync(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -842,7 +920,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
         catch (Exception ex)
         {
-            LogService.Error(ex, "Error in BtnBrowseImageFolder_Click");
+            LogService.Error(ex, "Error in BtnBrowseImageFolder_ClickAsync");
         }
     }
 
@@ -863,7 +941,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         _ = CheckForMissingImagesSafeAsync();
     }
 
-    private async void BtnAiPickApi_Click(object? sender, RoutedEventArgs e)
+    private async void BtnAiPickApi_ClickAsync(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -871,7 +949,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
         catch (Exception ex)
         {
-            LogService.Warning(ex, "Error in BtnAiPickApi_Click");
+            LogService.Warning(ex, "Error in BtnAiPickApi_ClickAsync");
         }
     }
 
@@ -901,7 +979,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
     }
 
-    private async void BtnAiBatchFill_Click(object? sender, RoutedEventArgs e)
+    private async void BtnAiBatchFill_ClickAsync(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -959,7 +1037,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
         catch (Exception ex)
         {
-            LogService.Error(ex, "Error in BtnAiBatchFill_Click");
+            LogService.Error(ex, "Error in BtnAiBatchFill_ClickAsync");
         }
     }
 
@@ -1198,7 +1276,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
     }
 
-    private async void DeleteCorrespondingRom_Click(object? sender, RoutedEventArgs e)
+    private async void DeleteCorrespondingRom_ClickAsync(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -1270,7 +1348,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         return null;
     }
 
-    private async void EditExtensions_Click(object? sender, RoutedEventArgs e)
+    private async void EditExtensions_ClickAsync(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -1280,7 +1358,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
         catch (Exception ex)
         {
-            LogService.Error(ex, "Error in EditExtensions_Click");
+            LogService.Error(ex, "Error in EditExtensions_ClickAsync");
         }
     }
 
@@ -1437,9 +1515,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 var clipboard = GetTopLevel(this)?.Clipboard;
                 if (clipboard != null) _ = clipboard.SetTextAsync(selectedItemRomName);
             }
-            catch
+            catch (Exception ex)
             {
                 // Clipboard may be locked by another process
+                LogService.Debug($"Could not copy ROM name to clipboard: {ex.Message}");
             }
 
             // Always do local search
@@ -1489,7 +1568,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
     }
 
-    private async void BtnAiPickLocal_Click(object? sender, RoutedEventArgs e)
+    private async void BtnAiPickLocal_ClickAsync(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -1497,7 +1576,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
         catch (Exception ex)
         {
-            LogService.Warning(ex, "Error in BtnAiPickLocal_Click");
+            LogService.Warning(ex, "Error in BtnAiPickLocal_ClickAsync");
         }
     }
 
@@ -1811,7 +1890,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             : romName;
     }
 
-    private async void SearchTabControl_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+    private async void SearchTabControl_SelectionChangedAsync(object? sender, SelectionChangedEventArgs e)
     {
         try
         {
@@ -1850,7 +1929,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
         catch (Exception ex)
         {
-            LogService.Error(ex, "Error in SearchTabControl_SelectionChanged");
+            LogService.Error(ex, "Error in SearchTabControl_SelectionChangedAsync");
         }
     }
 
@@ -1873,18 +1952,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         {
             if (_findSimilarTask != null) await Task.WhenAny(_findSimilarTask, timeout);
         }
-        catch
+        catch (Exception ex)
         {
-            /* ignored - task was cancelled */
+            LogService.Debug($"Find-similar task did not settle cleanly: {ex.Message}");
         }
 
         try
         {
             if (_loadMissingTask != null) await Task.WhenAny(_loadMissingTask, timeout);
         }
-        catch
+        catch (Exception ex)
         {
-            /* ignored - task was cancelled */
+            LogService.Debug($"Missing-covers task did not settle cleanly: {ex.Message}");
         }
     }
 }

@@ -5,13 +5,19 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Threading;
+using FindRomCover.Interfaces;
 using FindRomCover.Managers;
+using FindRomCover.Models;
 using FindRomCover.Services;
 using ImageMagick;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace FindRomCover;
 
+/// <summary>
+///     Avalonia application entry point that bootstraps services, the main window and global
+///     exception handling.
+/// </summary>
 public class App : Application
 {
     private static readonly Lazy<IAudioService> AudioServiceLazy = new(static () =>
@@ -22,13 +28,20 @@ public class App : Application
         }
         catch (Exception ex)
         {
-            LogService.Warning(ex, "Failed to initialize audio service, falling back to NullAudioService");
+            LogService.WarningTransient(ex, "Failed to initialize audio service, falling back to NullAudioService");
             return new NullAudioService();
         }
     });
 
+    /// <summary>
+    ///     Gets the application service provider, or <see langword="null"/> before startup completes.
+    /// </summary>
     public static IServiceProvider? ServiceProvider { get; private set; }
 
+    /// <summary>
+    ///     Gets the settings manager resolved from <see cref="ServiceProvider"/>.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">Thrown when the service provider is not initialized.</exception>
     public static SettingsManager SettingsManager
     {
         get
@@ -39,13 +52,30 @@ public class App : Application
         }
     }
 
+    /// <summary>
+    ///     Gets the debug/log window created during startup, or <see langword="null"/> when it is closed.
+    /// </summary>
     public static DebugWindow? LogWindow { get; private set; }
 
+    /// <summary>
+    ///     Gets the image folder passed on the command line, or <see langword="null"/> when none was given.
+    /// </summary>
     public static string? StartupImageFolderPath { get; private set; }
+
+    /// <summary>
+    ///     Gets the ROM folder passed on the command line, or <see langword="null"/> when none was given.
+    /// </summary>
     public static string? StartupRomFolderPath { get; private set; }
 
+    /// <summary>
+    ///     Gets the audio service, falling back to a silent implementation when audio is unavailable.
+    /// </summary>
     public static IAudioService AudioService => AudioServiceLazy.Value;
 
+    /// <summary>
+    ///     Bootstraps logging, services, theme, exception handlers and the main window once the
+    ///     Avalonia framework initialization has completed.
+    /// </summary>
     public override void OnFrameworkInitializationCompleted()
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
@@ -292,10 +322,15 @@ public class App : Application
         }
         catch (Exception ex)
         {
-            LogService.Warning(ex, "Update check failed silently.");
+            LogService.WarningTransient(ex, "Update check failed silently.");
         }
     }
 
+    /// <summary>
+    ///     Applies the given theme, persists it in the settings and saves the settings file.
+    /// </summary>
+    /// <param name="baseTheme">The base theme name (for example "Light" or "Dark").</param>
+    /// <param name="accentColor">The accent color name to apply.</param>
     public static void ChangeTheme(string baseTheme, string accentColor)
     {
         try
@@ -327,6 +362,10 @@ public class App : Application
         }
     }
 
+    /// <summary>
+    ///     Shuts down the desktop application lifetime, or exits the process when no desktop
+    ///     lifetime is available.
+    /// </summary>
     public static void ShutdownApplication()
     {
         if (Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)

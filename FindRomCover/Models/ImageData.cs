@@ -4,6 +4,9 @@ using FindRomCover.Services;
 
 namespace FindRomCover.Models;
 
+/// <summary>
+///     A cover image candidate shown in the UI, including its similarity score and display metadata.
+/// </summary>
 public class ImageData : INotifyPropertyChanged
 {
     private string _aiBadge = string.Empty;
@@ -12,10 +15,20 @@ public class ImageData : INotifyPropertyChanged
 
     private int _imageWidth;
 
+    /// <summary>
+    ///     Initializes a new instance of the <see cref="ImageData" /> class.
+    /// </summary>
     public ImageData()
     {
     }
 
+    /// <summary>
+    ///     Initializes a new instance of the <see cref="ImageData" /> class with a path, display name,
+    ///     and similarity score.
+    /// </summary>
+    /// <param name="imagePath">Path or URL of the image.</param>
+    /// <param name="imageName">Display name of the image.</param>
+    /// <param name="similarityScore">Similarity score (0-100) to the searched ROM name.</param>
     public ImageData(string? imagePath, string? imageName, double similarityScore)
     {
         ImagePath = imagePath;
@@ -23,12 +36,18 @@ public class ImageData : INotifyPropertyChanged
         SimilarityScore = similarityScore;
     }
 
+    /// <summary>Path or URL of the image, or <see langword="null" /> when unknown.</summary>
     public string? ImagePath { get; init; }
+    /// <summary>URL of a thumbnail image, when one is available.</summary>
     public string? ThumbnailUrl { get; init; }
+    /// <summary>Display name of the image; defaults to "Unknown Filename".</summary>
     public string? ImageName { get; set; } = "Unknown Filename";
+    /// <summary>Human-readable file size, or "Unknown File Size" when unavailable.</summary>
     public string ImageFileSize { get; set; } = "Unknown File Size";
+    /// <summary>Encoding format of the image, or "Unknown Encoding Format" when unavailable.</summary>
     public string ImageEncodingFormat { get; set; } = "Unknown Encoding Format";
 
+    /// <summary>Similarity score (0-100) between the image and the searched ROM name.</summary>
     public double SimilarityScore { get; init; }
 
     private object? _imageSource;
@@ -50,8 +69,13 @@ public class ImageData : INotifyPropertyChanged
         }
     }
 
+    /// <summary>
+    ///     Image to display, falling back to <see cref="ImageSources.BrokenImage" /> when
+    ///     <see cref="ImageSource" /> is <see langword="null" />.
+    /// </summary>
     public object? DisplayImage => ImageSource ?? ImageSources.BrokenImage;
 
+    /// <summary>Short badge describing an AI pick; empty when the image was not picked.</summary>
     public string AiBadge
     {
         get => _aiBadge;
@@ -64,6 +88,8 @@ public class ImageData : INotifyPropertyChanged
         }
     }
 
+    /// <summary>Image width in pixels.</summary>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when the assigned value is not positive.</exception>
     public int ImageWidth
     {
         get => _imageWidth;
@@ -76,6 +102,8 @@ public class ImageData : INotifyPropertyChanged
         }
     }
 
+    /// <summary>Image height in pixels.</summary>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when the assigned value is not positive.</exception>
     public int ImageHeight
     {
         get => _imageHeight;
@@ -88,6 +116,7 @@ public class ImageData : INotifyPropertyChanged
         }
     }
 
+    /// <summary>Width of the thumbnail in pixels.</summary>
     public int ThumbnailWidth
     {
         get;
@@ -100,6 +129,7 @@ public class ImageData : INotifyPropertyChanged
         }
     }
 
+    /// <summary>Height of the thumbnail in pixels.</summary>
     public int ThumbnailHeight
     {
         get;
@@ -112,8 +142,13 @@ public class ImageData : INotifyPropertyChanged
         }
     }
 
+    /// <summary>Occurs when a property value changes.</summary>
     public event PropertyChangedEventHandler? PropertyChanged;
 
+    /// <summary>
+    ///     Raises the <see cref="PropertyChanged" /> event for the specified property.
+    /// </summary>
+    /// <param name="propertyName">Name of the changed property; inferred from the caller when omitted.</param>
     protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));

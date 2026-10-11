@@ -5,12 +5,22 @@ using System.Text.Json;
 
 namespace FindRomCover.Services;
 
+/// <summary>
+///     Sends an anonymous usage/telemetry hit to the PureLogicCode ApplicationStats
+///     endpoint once per application launch.
+/// </summary>
 public static class ApplicationStatsService
 {
     private const string StatsApiUrl = "https://www.purelogiccode.com/ApplicationStats/stats";
     private const string ApiKey = AppConstants.BugReportApiKey;
     private const string ApplicationId = "findromcover";
 
+    /// <summary>
+    ///     Records a start-up hit for this application. Failures are expected when the
+    ///     machine is offline or the endpoint is rate-limited and are therefore marked
+    ///     as transient (not forwarded to the bug report API).
+    /// </summary>
+    /// <returns>A task that completes when the attempt has finished.</returns>
     public static async Task RecordStartupAsync()
     {
         try
@@ -39,15 +49,15 @@ public static class ApplicationStatsService
             else if (response.StatusCode == HttpStatusCode.TooManyRequests)
                 LogService.Debug("Application stats API rate-limited (429).");
             else
-                LogService.Warning($"Application stats API returned: {response.StatusCode}");
+                LogService.WarningTransient($"Application stats API returned: {response.StatusCode}");
         }
         catch (TaskCanceledException ex)
         {
-            LogService.Warning(ex, "Application stats request timed out.");
+            LogService.WarningTransient(ex, "Application stats request timed out.");
         }
         catch (HttpRequestException ex)
         {
-            LogService.Warning(ex, "Failed to record application stats (network error).");
+            LogService.WarningTransient(ex, "Failed to record application stats (network error).");
         }
         catch (Exception ex)
         {

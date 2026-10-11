@@ -11,21 +11,26 @@ namespace FindRomCover.Controls;
 /// </summary>
 public class ProgressRing : Control
 {
+    /// <summary>Styled property that backs <see cref="IsActive"/>.</summary>
     public static readonly StyledProperty<bool> IsActiveProperty =
         AvaloniaProperty.Register<ProgressRing, bool>(nameof(IsActive));
 
+    /// <summary>Styled property that backs <see cref="StrokeThickness"/>.</summary>
     public static readonly StyledProperty<double> StrokeThicknessProperty =
         AvaloniaProperty.Register<ProgressRing, double>(nameof(StrokeThickness), 3.0);
 
+    /// <summary>Styled property that backs <see cref="Stroke"/>.</summary>
     public static readonly StyledProperty<IBrush?> StrokeProperty =
         AvaloniaProperty.Register<ProgressRing, IBrush?>(nameof(Stroke));
 
+    /// <summary>Styled property that backs <see cref="TrackBrush"/>.</summary>
     public static readonly StyledProperty<IBrush?> TrackBrushProperty =
         AvaloniaProperty.Register<ProgressRing, IBrush?>(nameof(TrackBrush));
 
     private readonly DispatcherTimer _timer;
     private double _angle;
 
+    /// <summary>Initializes a new instance of the <see cref="ProgressRing"/> class and starts its animation timer setup.</summary>
     public ProgressRing()
     {
         Width = 60;
@@ -39,30 +44,38 @@ public class ProgressRing : Control
         };
     }
 
+    /// <summary>Gets or sets a value indicating whether the ring is spinning.</summary>
     public bool IsActive
     {
         get => GetValue(IsActiveProperty);
         set => SetValue(IsActiveProperty, value);
     }
 
+    /// <summary>Gets or sets the thickness of the drawn arc and track.</summary>
     public double StrokeThickness
     {
         get => GetValue(StrokeThicknessProperty);
         set => SetValue(StrokeThicknessProperty, value);
     }
 
+    /// <summary>Gets or sets the brush used to draw the rotating arc.</summary>
     public IBrush? Stroke
     {
         get => GetValue(StrokeProperty);
         set => SetValue(StrokeProperty, value);
     }
 
+    /// <summary>Gets or sets the brush used to draw the background track.</summary>
     public IBrush? TrackBrush
     {
         get => GetValue(TrackBrushProperty);
         set => SetValue(TrackBrushProperty, value);
     }
 
+    /// <summary>
+    ///     Starts or stops the animation timer when the <see cref="IsActive" /> property changes.
+    /// </summary>
+    /// <param name="change">The property change arguments.</param>
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
@@ -82,6 +95,8 @@ public class ProgressRing : Control
         }
     }
 
+    /// <summary>Draws the background track and the rotating arc of the progress ring.</summary>
+    /// <param name="context">The drawing context to render the ring into.</param>
     public override void Render(DrawingContext context)
     {
         if (!IsActive) return;

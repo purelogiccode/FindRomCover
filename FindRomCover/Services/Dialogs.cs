@@ -4,6 +4,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Threading;
+using FindRomCover.Models;
 
 namespace FindRomCover.Services;
 
@@ -18,18 +19,41 @@ public static class Dialogs
     private const string ErrorGlyph = "\u2716";
     private const string QuestionGlyph = "?";
 
+    /// <summary>
+    ///     Shows a message dialog with an OK button without waiting for it to close.
+    /// </summary>
+    /// <param name="owner">The window that owns the dialog, or <see langword="null" />.</param>
+    /// <param name="message">The message body.</param>
+    /// <param name="title">The dialog title.</param>
+    /// <param name="icon">The icon to display.</param>
     public static void ShowMessage(Window? owner, string message, string title,
         MessageIcon icon = MessageIcon.Information)
     {
         _ = ShowMessageAsync(owner, message, title, icon);
     }
 
+    /// <summary>
+    ///     Shows a modal message dialog with an OK button.
+    /// </summary>
+    /// <param name="owner">The window that owns the dialog, or <see langword="null" />.</param>
+    /// <param name="message">The message body.</param>
+    /// <param name="title">The dialog title.</param>
+    /// <param name="icon">The icon to display.</param>
+    /// <returns>The button the user pressed.</returns>
     public static Task<MessageResult> ShowMessageAsync(Window? owner, string message, string title,
         MessageIcon icon = MessageIcon.Information)
     {
         return ShowCoreAsync(owner, message, title, icon, [("OK", MessageResult.Ok)]);
     }
 
+    /// <summary>
+    ///     Shows a modal question dialog with Yes and No buttons.
+    /// </summary>
+    /// <param name="owner">The window that owns the dialog, or <see langword="null" />.</param>
+    /// <param name="message">The message body.</param>
+    /// <param name="title">The dialog title.</param>
+    /// <param name="icon">The icon to display.</param>
+    /// <returns><see cref="MessageResult.Yes" /> or <see cref="MessageResult.No" />.</returns>
     public static Task<MessageResult> ShowQuestionAsync(Window? owner, string message, string title,
         MessageIcon icon = MessageIcon.Warning)
     {
@@ -37,13 +61,13 @@ public static class Dialogs
             [("Yes", MessageResult.Yes), ("No", MessageResult.No)]);
     }
 
-    public static Task<MessageResult> ShowYesNoCancelAsync(Window? owner, string message, string title,
-        MessageIcon icon = MessageIcon.Warning)
-    {
-        return ShowCoreAsync(owner, message, title, icon,
-            [("Yes", MessageResult.Yes), ("No", MessageResult.No), ("Cancel", MessageResult.Cancel)]);
-    }
-
+    /// <summary>
+    ///     Shows a modal input dialog with a single text box.
+    /// </summary>
+    /// <param name="owner">The window that owns the dialog, or <see langword="null" />.</param>
+    /// <param name="title">The dialog title.</param>
+    /// <param name="prompt">The placeholder text shown in the text box.</param>
+    /// <returns>The entered text, or <see langword="null" /> when the dialog was cancelled.</returns>
     public static async Task<string?> ShowInputAsync(Window? owner, string title, string prompt)
     {
         return await OnUiAsync(async () =>

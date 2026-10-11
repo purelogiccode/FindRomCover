@@ -8,7 +8,8 @@
         MinHeight="600"
         WindowStartupLocation="CenterScreen"
         KeyDown="MainWindow_KeyDown"
-        Icon="avares://FindRomCover/Assets/images/logo.png">
+        Icon="avares://FindRomCover/Assets/images/logo.png"
+        ToolTip.Tip="Find ROM cover images for your collection">
 
     <Window.Resources>
         <DataTemplate x:Key="LocalImageCellTemplate">
@@ -16,21 +17,26 @@
                     Click="ImageCell_Click"
                     ToolTip.Tip="{Binding ImageName, StringFormat='Click to assign: {0}'}">
                 <Button.ContextMenu>
-                    <ContextMenu Opening="Image_ContextMenuOpening" />
+                    <ContextMenu Opening="Image_ContextMenuOpening"
+                                 ToolTip.Tip="Right-click for image actions" />
                 </Button.ContextMenu>
                 <StackPanel>
                     <Image
                         Width="{Binding $parent[Window].Settings.ImageWidth, FallbackValue=200}"
                         Height="{Binding $parent[Window].Settings.ImageHeight, FallbackValue=200}"
-                        Source="{Binding DisplayImage}" />
+                        Source="{Binding DisplayImage}"
+                        ToolTip.Tip="Candidate image preview" />
                     <TextBlock HorizontalAlignment="Center" Text="{Binding ImageName, FallbackValue=''}"
                                FontWeight="Bold"
-                               Margin="0,5,0,0" TextTrimming="CharacterEllipsis" />
+                               Margin="0,5,0,0" TextTrimming="CharacterEllipsis"
+                               ToolTip.Tip="Image file name" />
                     <TextBlock HorizontalAlignment="Center"
                                Text="{Binding SimilarityScore, StringFormat='{}{0:F2}%', FallbackValue='0.00%'}"
-                               FontWeight="Bold" />
+                               FontWeight="Bold"
+                               ToolTip.Tip="Name similarity score for this image" />
                     <TextBlock HorizontalAlignment="Center" Text="{Binding AiBadge}"
-                               Foreground="#FF00A36C" FontWeight="Bold" Margin="0,2,0,0" />
+                               Foreground="#FF00A36C" FontWeight="Bold" Margin="0,2,0,0"
+                               ToolTip.Tip="AI pick/verification indicator" />
                 </StackPanel>
             </Button>
         </DataTemplate>
@@ -40,11 +46,15 @@
                     ToolTip.Tip="Click to save this image as cover art">
                 <StackPanel Width="{Binding ThumbnailWidth}">
                     <Image Width="{Binding ThumbnailWidth}" Height="{Binding ThumbnailHeight}"
-                           Source="{Binding DisplayImage}" />
+                           Source="{Binding DisplayImage}"
+                           ToolTip.Tip="Search result image preview" />
                     <TextBlock HorizontalAlignment="Center" Text="{Binding ImageName}" FontWeight="Bold"
-                               Margin="0,5,0,0" TextTrimming="CharacterEllipsis" />
-                    <TextBlock HorizontalAlignment="Center" Text="{Binding ImageFileSize}" />
-                    <TextBlock HorizontalAlignment="Center">
+                               Margin="0,5,0,0" TextTrimming="CharacterEllipsis"
+                               ToolTip.Tip="Image file name" />
+                    <TextBlock HorizontalAlignment="Center" Text="{Binding ImageFileSize}"
+                               ToolTip.Tip="Image file size" />
+                    <TextBlock HorizontalAlignment="Center"
+                               ToolTip.Tip="Image dimensions and format">
                         <TextBlock.Text>
                             <MultiBinding StringFormat="{}{0}x{1} ({2})">
                                 <Binding Path="ImageWidth" />
@@ -54,7 +64,8 @@
                         </TextBlock.Text>
                     </TextBlock>
                     <TextBlock HorizontalAlignment="Center" Text="{Binding AiBadge}"
-                               Foreground="#FF00A36C" FontWeight="Bold" Margin="0,2,0,0" />
+                               Foreground="#FF00A36C" FontWeight="Bold" Margin="0,2,0,0"
+                               ToolTip.Tip="AI pick/verification indicator" />
                 </StackPanel>
             </Button>
         </DataTemplate>
@@ -70,15 +81,18 @@
             <MenuItem ToolTip.Tip="Theme and appearance settings">
                 <MenuItem.Header>
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="Theme" />
+                        <TextBlock Text="Theme"
+                                   ToolTip.Tip="Theme and appearance settings" />
                     </StackPanel>
                 </MenuItem.Header>
                 <MenuItem ToolTip.Tip="Switch between light and dark themes">
                     <MenuItem.Header>
                         <StackPanel Orientation="Horizontal">
                             <Image Source="avares://FindRomCover/Assets/images/theme.png" Width="16"
-                                   Height="16" Margin="0,0,5,0" />
-                            <TextBlock Text="Base Theme" />
+                                   Height="16" Margin="0,0,5,0"
+                                   ToolTip.Tip="Switch between light and dark themes" />
+                            <TextBlock Text="Base Theme"
+                                       ToolTip.Tip="Switch between light and dark themes" />
                         </StackPanel>
                     </MenuItem.Header>
                     <MenuItem x:Name="LightTheme" Header="Light" Click="ChangeBaseTheme_Click" ToggleType="CheckBox"
@@ -90,8 +104,10 @@
                     <MenuItem.Header>
                         <StackPanel Orientation="Horizontal">
                             <Image Source="avares://FindRomCover/Assets/images/theme.png" Width="16"
-                                   Height="16" Margin="0,0,5,0" />
-                            <TextBlock Text="Accent Colors" />
+                                   Height="16" Margin="0,0,5,0"
+                                   ToolTip.Tip="Choose an accent color for the application" />
+                            <TextBlock Text="Accent Colors"
+                                       ToolTip.Tip="Choose an accent color for the application" />
                         </StackPanel>
                     </MenuItem.Header>
                     <MenuItem x:Name="RedAccent" Header="Red" Click="ChangeAccentColor_Click" ToggleType="CheckBox"
@@ -201,31 +217,37 @@
             </MenuItem>
 
             <MenuItem Header="Settings" ToolTip.Tip="Application settings and configuration">
-                <MenuItem Click="ApiSettings_Click" ToolTip.Tip="Configure API keys for image search services">
+                <MenuItem Click="ApiSettings_ClickAsync" ToolTip.Tip="Configure API keys for image search services">
                     <MenuItem.Header>
                         <StackPanel Orientation="Horizontal">
                             <Image Source="avares://FindRomCover/Assets/images/keys.png" Width="16"
-                                   Height="16" Margin="0,0,5,0" />
-                            <TextBlock Text="API Settings" />
+                                   Height="16" Margin="0,0,5,0"
+                                   ToolTip.Tip="Configure API keys for image search services" />
+                            <TextBlock Text="API Settings"
+                                       ToolTip.Tip="Configure API keys for image search services" />
                         </StackPanel>
                     </MenuItem.Header>
                 </MenuItem>
-                <MenuItem Click="AiSettings_Click"
+                <MenuItem Click="AiSettings_ClickAsync"
                           ToolTip.Tip="Configure the AI vision model used to pick cover images">
                     <MenuItem.Header>
                         <StackPanel Orientation="Horizontal">
                             <Image Source="avares://FindRomCover/Assets/images/settings.png" Width="16"
-                                   Height="16" Margin="0,0,5,0" />
-                            <TextBlock Text="AI Settings..." />
+                                   Height="16" Margin="0,0,5,0"
+                                   ToolTip.Tip="Configure the AI vision model used to pick cover images" />
+                            <TextBlock Text="AI Settings..."
+                                       ToolTip.Tip="Configure the AI vision model used to pick cover images" />
                         </StackPanel>
                     </MenuItem.Header>
                 </MenuItem>
-                <MenuItem Click="EditExtensions_Click" ToolTip.Tip="Manage which ROM file extensions to scan for">
+                <MenuItem Click="EditExtensions_ClickAsync" ToolTip.Tip="Manage which ROM file extensions to scan for">
                     <MenuItem.Header>
                         <StackPanel Orientation="Horizontal">
                             <Image Source="avares://FindRomCover/Assets/images/settings.png" Width="16"
-                                   Height="16" Margin="0,0,5,0" />
-                            <TextBlock Text="Edit Supported Extensions..." />
+                                   Height="16" Margin="0,0,5,0"
+                                   ToolTip.Tip="Manage which ROM file extensions to scan for" />
+                            <TextBlock Text="Edit Supported Extensions..."
+                                       ToolTip.Tip="Manage which ROM file extensions to scan for" />
                         </StackPanel>
                     </MenuItem.Header>
                 </MenuItem>
@@ -244,26 +266,32 @@
                     <MenuItem.Header>
                         <StackPanel Orientation="Horizontal">
                             <Image Source="avares://FindRomCover/Assets/images/donate.png" Width="16"
-                                   Height="16" Margin="0,0,5,0" />
-                            <TextBlock Text="Donate" />
+                                   Height="16" Margin="0,0,5,0"
+                                   ToolTip.Tip="Support the developer with a donation" />
+                            <TextBlock Text="Donate"
+                                       ToolTip.Tip="Support the developer with a donation" />
                         </StackPanel>
                     </MenuItem.Header>
                 </MenuItem>
-                <MenuItem Click="CheckForUpdates_Click" ToolTip.Tip="Check for new versions of the application">
+                <MenuItem Click="CheckForUpdates_ClickAsync" ToolTip.Tip="Check for new versions of the application">
                     <MenuItem.Header>
                         <StackPanel Orientation="Horizontal">
                             <Image Source="avares://FindRomCover/Assets/images/about.png" Width="16"
-                                   Height="16" Margin="0,0,5,0" />
-                            <TextBlock Text="Check for Updates" />
+                                   Height="16" Margin="0,0,5,0"
+                                   ToolTip.Tip="Check for new versions of the application" />
+                            <TextBlock Text="Check for Updates"
+                                       ToolTip.Tip="Check for new versions of the application" />
                         </StackPanel>
                     </MenuItem.Header>
                 </MenuItem>
-                <MenuItem Click="ShowAboutWindow_Click" ToolTip.Tip="View application version and credits">
+                <MenuItem Click="ShowAboutWindow_ClickAsync" ToolTip.Tip="View application version and credits">
                     <MenuItem.Header>
                         <StackPanel Orientation="Horizontal">
                             <Image Source="avares://FindRomCover/Assets/images/about.png" Width="16"
-                                   Height="16" Margin="0,0,5,0" />
-                            <TextBlock Text="About" />
+                                   Height="16" Margin="0,0,5,0"
+                                   ToolTip.Tip="View application version and credits" />
+                            <TextBlock Text="About"
+                                       ToolTip.Tip="View application version and credits" />
                         </StackPanel>
                     </MenuItem.Header>
                 </MenuItem>
@@ -274,8 +302,10 @@
                     <MenuItem.Header>
                         <StackPanel Orientation="Horizontal">
                             <Image Source="avares://FindRomCover/Assets/images/exit.png" Width="16"
-                                   Height="16" Margin="0,0,5,0" />
-                            <TextBlock Text="Exit" />
+                                   Height="16" Margin="0,0,5,0"
+                                   ToolTip.Tip="Close the application" />
+                            <TextBlock Text="Exit"
+                                       ToolTip.Tip="Close the application" />
                         </StackPanel>
                     </MenuItem.Header>
                 </MenuItem>
@@ -298,7 +328,7 @@
                                      KeyDown="TxtRomFolder_KeyDown"
                                      ToolTip.Tip="Enter the full path to your ROM files folder" />
                             <Button Grid.Column="1" Content="Browse..." Margin="5,0,0,0"
-                                    Click="BtnBrowseRomFolder_Click"
+                                    Click="BtnBrowseRomFolder_ClickAsync"
                                     ToolTip.Tip="Browse for the ROM folder location" />
                         </Grid>
                         <Grid Margin="0,5,0,5" ColumnDefinitions="*,Auto">
@@ -309,7 +339,7 @@
                                      KeyDown="TxtImageFolder_KeyDown"
                                      ToolTip.Tip="Enter the full path to your cover images folder" />
                             <Button Grid.Column="1" Content="Browse..." Margin="5,0,0,0"
-                                    Click="BtnBrowseImageFolder_Click"
+                                    Click="BtnBrowseImageFolder_ClickAsync"
                                     ToolTip.Tip="Browse for the cover images folder location" />
                         </Grid>
                         <Grid Margin="0,5,0,5" ColumnDefinitions="Auto,*">
@@ -326,7 +356,8 @@
                     <GroupBox.Header>
                         <StackPanel Orientation="Horizontal">
                             <Label x:Name="LabelMissingRoms" Content="LIST OF MISSING COVERS"
-                                   Classes="missingCovers" />
+                                   Classes="missingCovers"
+                                   ToolTip.Tip="List of ROMs that do not have a cover image yet" />
                         </StackPanel>
                     </GroupBox.Header>
                     <Grid RowDefinitions="Auto,*,Auto,Auto">
@@ -341,18 +372,19 @@
                                      ToolTip.Tip="Select a ROM to search for its cover image">
                                 <ListBox.ItemTemplate>
                                     <DataTemplate>
-                                        <TextBlock Text="{Binding RomName}" />
+                                        <TextBlock Text="{Binding RomName}"
+                                                   ToolTip.Tip="ROM file name missing a cover" />
                                     </DataTemplate>
                                 </ListBox.ItemTemplate>
                                 <ListBox.ContextMenu>
-                                    <ContextMenu>
+                                    <ContextMenu ToolTip.Tip="Right-click actions for this ROM">
                                         <MenuItem Header="Remove Item from the list" Click="RemoveItemFromList_Click"
                                                   ToolTip.Tip="Remove the selected ROM from the missing list" />
                                         <MenuItem Header="Copy FileName" Click="CopyFileName_Click"
                                                   ToolTip.Tip="Copy the ROM filename to clipboard" />
                                         <Separator />
                                         <MenuItem Header="Delete corresponding ROM or ISO"
-                                                  Click="DeleteCorrespondingRom_Click"
+                                                  Click="DeleteCorrespondingRom_ClickAsync"
                                                   ToolTip.Tip="Permanently delete the ROM/ISO file from disk" />
                                     </ContextMenu>
                                 </ListBox.ContextMenu>
@@ -366,14 +398,14 @@
                                 IsEnabled="{Binding #LstMissingImages.SelectedItem, Converter={x:Static ObjectConverters.IsNotNull}}"
                                 ToolTip.Tip="Remove the selected ROM from the missing covers list" />
                         <Button Grid.Row="3" x:Name="BtnAiBatchFill" Content="AI Fill Missing Covers..."
-                                Click="BtnAiBatchFill_Click" Margin="5,0,5,5"
+                                Click="BtnAiBatchFill_ClickAsync" Margin="5,0,5,5"
                                 ToolTip.Tip="Let the AI fill missing covers automatically from local images and Google API results" />
                     </Grid>
                 </GroupBox>
             </Grid>
 
             <!-- RIGHT COLUMN - 4 TABS -->
-            <TabControl Grid.Column="1" x:Name="SearchTabControl" SelectionChanged="SearchTabControl_SelectionChanged"
+            <TabControl Grid.Column="1" x:Name="SearchTabControl" SelectionChanged="SearchTabControl_SelectionChangedAsync"
                         ToolTip.Tip="Switch between different search methods">
 
                 <!-- TAB 1: Local Files -->
@@ -384,7 +416,7 @@
                             <Label x:Name="LblLocalSearchQuery" Grid.Column="0" Margin="5,0,5,5"
                                    ToolTip.Tip="Displays the current search query and settings" />
                             <Button Grid.Column="1" x:Name="BtnAiPickLocal" Content="AI Pick Best"
-                                    Click="BtnAiPickLocal_Click" Margin="5,0,5,5" Padding="10,2"
+                                    Click="BtnAiPickLocal_ClickAsync" Margin="5,0,5,5" Padding="10,2"
                                     IsEnabled="{Binding IsAiPickAvailable}"
                                     ToolTip.Tip="Ask the configured AI vision model which candidate is the correct cover" />
                         </Grid>
@@ -393,7 +425,8 @@
                             <ScrollViewer x:Name="LocalImageScrollViewer"
                                           ToolTip.Tip="Scroll through locally found similar images">
                                 <ItemsControl ItemsSource="{Binding SimilarImages}"
-                                              ItemTemplate="{StaticResource LocalImageCellTemplate}">
+                                              ItemTemplate="{StaticResource LocalImageCellTemplate}"
+                                              ToolTip.Tip="Locally found candidate images">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
                                             <WrapPanel />
@@ -409,7 +442,8 @@
                                                            HorizontalAlignment="Center"
                                                            Margin="0,0,0,15"
                                                            ToolTip.Tip="Searching for similar images..." />
-                                    <TextBlock Text="Please wait ... Loading" Classes="loadingText" />
+                                    <TextBlock Text="Please wait ... Loading" Classes="loadingText"
+                                               ToolTip.Tip="Search in progress, please wait" />
                                 </StackPanel>
                             </Grid>
 
@@ -418,14 +452,18 @@
                                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="20">
                                     <TextBlock Text="Select a missing cover from the list to see suggestions."
                                                Classes="emptyStateHint"
-                                               IsVisible="{Binding ShowSelectHint}" />
+                                               IsVisible="{Binding ShowSelectHint}"
+                                               ToolTip.Tip="How to start a local image search" />
                                     <StackPanel HorizontalAlignment="Center" IsVisible="{Binding ShowNoResults}">
                                         <TextBlock Text="No similar images found"
-                                                   Classes="noResultsTitle" />
+                                                   Classes="noResultsTitle"
+                                                   ToolTip.Tip="No results for the current search" />
                                         <TextBlock Text="No images matched the current similarity threshold."
-                                                   Classes="noResultsMessage" />
+                                                   Classes="noResultsMessage"
+                                                   ToolTip.Tip="No results for the current search" />
                                         <TextBlock Text="Try lowering the threshold in the menu to see more results."
-                                                   Classes="noResultsHint" />
+                                                   Classes="noResultsHint"
+                                                   ToolTip.Tip="Lower the similarity threshold in the menu to see more results" />
                                     </StackPanel>
                                 </StackPanel>
                             </Grid>
@@ -465,7 +503,7 @@
                             <Label x:Name="LblApiSearchQuery" Grid.Column="0" Margin="5,0,5,5"
                                    ToolTip.Tip="Displays the current API search query" />
                             <Button Grid.Column="1" x:Name="BtnAiPickApi" Content="AI Pick Best"
-                                    Click="BtnAiPickApi_Click" Margin="5,0,5,5" Padding="10,2"
+                                    Click="BtnAiPickApi_ClickAsync" Margin="5,0,5,5" Padding="10,2"
                                     IsEnabled="{Binding IsAiPickApiAvailable}"
                                     ToolTip.Tip="Ask the configured AI vision model which API result is the correct cover" />
                         </Grid>
@@ -474,7 +512,8 @@
                             <ScrollViewer x:Name="ApiImageScrollViewer"
                                           ToolTip.Tip="Scroll through API search results">
                                 <ItemsControl ItemsSource="{Binding PanelImages}"
-                                              ItemTemplate="{StaticResource ApiImageCellTemplate}">
+                                              ItemTemplate="{StaticResource ApiImageCellTemplate}"
+                                              ToolTip.Tip="Images found on Google API">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
                                             <WrapPanel />
@@ -489,7 +528,8 @@
 
                             <TextBlock Classes="emptyImageListMessage"
                                        Text="{Binding ApiEmptyMessage}"
-                                       IsVisible="{Binding ApiEmptyMessageVisible}" />
+                                       IsVisible="{Binding ApiEmptyMessageVisible}"
+                                       ToolTip.Tip="No images available for the current tab" />
                         </Grid>
                     </Grid>
                 </TabItem>
@@ -497,17 +537,23 @@
         </Grid>
 
         <!-- Status Bar -->
-        <Border Grid.Row="2" Background="{DynamicResource Gray8Brush}" Padding="8,2">
+        <Border Grid.Row="2" Background="{DynamicResource Gray8Brush}" Padding="8,2"
+                ToolTip.Tip="Status bar">
             <Grid ColumnDefinitions="Auto,*,Auto">
                 <StackPanel Grid.Column="0" Orientation="Horizontal">
-                    <TextBlock Text="Tab: " Classes="statusBarText" />
-                    <TextBlock x:Name="StatusSearchEngine" Text="Local Files" Classes="statusBarBold" />
+                    <TextBlock Text="Tab: " Classes="statusBarText"
+                               ToolTip.Tip="Active search tab" />
+                    <TextBlock x:Name="StatusSearchEngine" Text="Local Files" Classes="statusBarBold"
+                               ToolTip.Tip="Currently selected search engine" />
                 </StackPanel>
                 <TextBlock Grid.Column="1" x:Name="StatusMessage" Text="Ready" Classes="statusBarText"
-                           HorizontalAlignment="Center" />
+                           HorizontalAlignment="Center"
+                           ToolTip.Tip="Latest status message" />
                 <StackPanel Grid.Column="2" Orientation="Horizontal">
-                    <TextBlock Text="Images: " Classes="statusBarText" />
-                    <TextBlock x:Name="StatusImageCount" Text="0" Classes="statusBarBold" />
+                    <TextBlock Text="Images: " Classes="statusBarText"
+                               ToolTip.Tip="Number of images displayed" />
+                    <TextBlock x:Name="StatusImageCount" Text="0" Classes="statusBarBold"
+                               ToolTip.Tip="Number of images displayed" />
                 </StackPanel>
             </Grid>
         </Border>

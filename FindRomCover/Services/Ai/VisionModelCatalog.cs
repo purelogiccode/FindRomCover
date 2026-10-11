@@ -3,9 +3,19 @@ using FindRomCover.Models;
 
 namespace FindRomCover.Services.Ai;
 
+/// <summary>
+///     Fetches and parses the list of models exposed by an AI provider, flagging the vision-capable ones.
+/// </summary>
 internal static class VisionModelCatalog
 {
-    public static async Task<List<VisionModelInfo>> FetchModelsAsync(
+    /// <summary>
+    ///     Fetches the provider's model list and parses it into vision model information.
+    /// </summary>
+    /// <param name="options">The AI vision options providing the base URL, API key, and timeout.</param>
+    /// <param name="httpClient">The HTTP client used for the request.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <returns>The parsed models sorted by identifier.</returns>
+    internal static async Task<List<VisionModelInfo>> FetchModelsAsync(
         AiVisionOptions options,
         HttpClient httpClient,
         CancellationToken cancellationToken)
@@ -44,15 +54,11 @@ internal static class VisionModelCatalog
         }
     }
 
-    public static async Task<List<string>> FetchModelIdsAsync(
-        AiVisionOptions options,
-        HttpClient httpClient,
-        CancellationToken cancellationToken)
-    {
-        var models = await FetchModelsAsync(options, httpClient, cancellationToken).ConfigureAwait(false);
-        return models.Select(static model => model.Id).ToList();
-    }
-
+    /// <summary>
+    ///     Builds the models listing endpoint URL from the configured base URL.
+    /// </summary>
+    /// <param name="baseUrl">The provider base URL.</param>
+    /// <returns>The absolute models endpoint URL.</returns>
     internal static string BuildModelsUrl(string baseUrl)
     {
         if (string.IsNullOrWhiteSpace(baseUrl))
@@ -61,11 +67,11 @@ internal static class VisionModelCatalog
         return baseUrl.Trim().TrimEnd('/') + "/models";
     }
 
-    internal static List<string> ParseModelIds(string json)
-    {
-        return ParseModels(json).Select(static model => model.Id).ToList();
-    }
-
+    /// <summary>
+    ///     Parses a models response in OpenAI ("data") or Gemini ("models") format.
+    /// </summary>
+    /// <param name="json">The raw JSON response body.</param>
+    /// <returns>The parsed models, sorted by identifier.</returns>
     internal static List<VisionModelInfo> ParseModels(string json)
     {
         var models = new List<VisionModelInfo>();
@@ -95,6 +101,11 @@ internal static class VisionModelCatalog
         return models.OrderBy(static model => model.Id, StringComparer.OrdinalIgnoreCase).ToList();
     }
 
+    /// <summary>
+    ///     Heuristically determines whether a model identifier refers to a vision-capable model.
+    /// </summary>
+    /// <param name="modelId">The model identifier to inspect.</param>
+    /// <returns><see langword="true"/> when the identifier matches known vision model patterns; otherwise <see langword="false"/>.</returns>
     internal static bool LooksVisionCapable(string modelId)
     {
         if (string.IsNullOrWhiteSpace(modelId)) return false;

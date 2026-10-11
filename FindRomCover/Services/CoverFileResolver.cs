@@ -1,5 +1,9 @@
 namespace FindRomCover.Services;
 
+/// <summary>
+///     Locates an existing cover image for a ROM name by probing the recognized image
+///     extensions in a folder.
+/// </summary>
 public static class CoverFileResolver
 {
     private static readonly string[] RecognizedImageExtensions =
@@ -8,6 +12,13 @@ public static class CoverFileResolver
         ".heic", ".heif", ".ico", ".svg", ".jxl", ".jp2"
     ];
 
+    /// <summary>
+    ///     Finds the cover image for a ROM by checking the sanitized and original name
+    ///     against every recognized image extension.
+    /// </summary>
+    /// <param name="imageFolderPath">The folder to search for a cover.</param>
+    /// <param name="romNameWithoutExtension">The ROM name (without extension) to look up.</param>
+    /// <returns>The full path of the matching image, or null when no cover exists.</returns>
     public static string? FindCover(string imageFolderPath, string romNameWithoutExtension)
     {
         if (string.IsNullOrWhiteSpace(imageFolderPath) || string.IsNullOrWhiteSpace(romNameWithoutExtension))

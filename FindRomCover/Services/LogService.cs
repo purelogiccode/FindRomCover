@@ -1,18 +1,34 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
-using System.Text.Json;
 using FindRomCover.Models;
 using Serilog;
 using Serilog.Events;
 
 namespace FindRomCover.Services;
 
+/// <summary>
+///     Central application logging facade. All application code must log through this
+///     class; the underlying Serilog pipeline writes to the rolling log file, to the
+///     in-app <see cref="DebugWindow" /> collection and to the remote bug report API
+///     (through <see cref="BugReportSink" />).
+/// </summary>
 public static class LogService
 {
+    /// <summary>
+    ///     Structured property name used to mark per-file image-folder watcher failures.
+    ///     Events carrying this property are never forwarded to the bug report API.
+    /// </summary>
     public const string WatcherErrorPropertyName = "WatcherError";
 
     /// <summary>
-    ///     Set by the GUI head (WPF/Avalonia) to marshal log entries onto the UI thread.
+    ///     Structured property name used to mark environmental failures (network,
+    ///     audio, update check, ...). Events carrying this property are never forwarded
+    ///     to the bug report API.
+    /// </summary>
+    public const string TransientErrorPropertyName = "TransientEnvironmentError";
+
+    /// <summary>
+    ///     Set by the GUI head (Avalonia) to marshal log entries onto the UI thread.
     ///     When null, entries are appended directly.
     /// </summary>
     public static Action<Action>? UiDispatcher { get; set; }
@@ -22,13 +38,20 @@ public static class LogService
     private static readonly Lock Lock = new();
     private static bool _initialized;
 
-    private static readonly JsonSerializerOptions JsonFormatOptions = new() { WriteIndented = true };
-
+    /// <summary>
+    ///     Gets the live collection of log entries displayed by <see cref="DebugWindow" />.
+    /// </summary>
+    /// <returns>The observable collection of log entries (maximum 5000 entries).</returns>
     public static ObservableCollection<LogEntry> GetLogMessages()
     {
         return LogMessages;
     }
 
+    /// <summary>
+    ///     Initializes the Serilog pipeline once. Writes to a daily rolling file under
+    ///     the per-user application data folder, to the in-app log window and to the
+    ///     remote bug report API.
+    /// </summary>
     public static void Initialize()
     {
         lock (Lock)
@@ -78,31 +101,82 @@ public static class LogService
         while (LogMessages.Count > 5000) LogMessages.RemoveAt(0);
     }
 
+    /// <summary>
+    ///     Writes a debug-level message.
+    /// </summary>
+    /// <param name="message">The message to log.</param>
     public static void Debug(string message)
     {
         _logger.Debug(message);
     }
 
+    /// <summary>
+    ///     Writes an information-level message.
+    /// </summary>
+    /// <param name="message">The message to log.</param>
     public static void Information(string message)
     {
         _logger.Information(message);
     }
 
+    /// <summary>
+    ///     Writes a warning-level message. Warnings are forwarded to the bug report API
+    ///     unless marked as transient (see <see cref="WarningTransient(string)" />).
+    /// </summary>
+    /// <param name="message">The message to log.</param>
     public static void Warning(string message)
     {
         _logger.Warning(message);
     }
 
+    /// <summary>
+    ///     Writes a warning-level message with an exception. Warnings are forwarded to
+    ///     the bug report API unless marked as transient.
+    /// </summary>
+    /// <param name="ex">The exception to log.</param>
+    /// <param name="message">The context message.</param>
     public static void Warning(Exception ex, string message)
     {
         _logger.Warning(ex, message);
     }
 
+    /// <summary>
+    ///     Writes a warning-level message that is expected in a degraded environment
+    ///     (no network, no audio device, ...). These warnings stay in the log file and
+    ///     log window but are never forwarded to the bug report API.
+    /// </summary>
+    /// <param name="message">The message to log.</param>
+    public static void WarningTransient(string message)
+    {
+        _logger.ForContext(TransientErrorPropertyName, true).Warning(message);
+    }
+
+    /// <summary>
+    ///     Writes a warning-level message with an exception that is expected in a
+    ///     degraded environment (no network, no audio device, ...). These warnings stay
+    ///     in the log file and log window but are never forwarded to the bug report API.
+    /// </summary>
+    /// <param name="ex">The exception to log.</param>
+    /// <param name="message">The context message.</param>
+    public static void WarningTransient(Exception ex, string message)
+    {
+        _logger.ForContext(TransientErrorPropertyName, true).Warning(ex, message);
+    }
+
+    /// <summary>
+    ///     Writes an error-level message.
+    /// </summary>
+    /// <param name="message">The message to log.</param>
     public static void Error(string message)
     {
         _logger.Error(message);
     }
 
+    /// <summary>
+    ///     Writes an error-level message with an exception.
+    /// </summary>
+    /// <param name="ex">The exception to log.</param>
+    /// <param name="message">The context message.</param>
     public static void Error(Exception ex, string message)
     {
         _logger.Error(ex, message);
@@ -115,37 +189,35 @@ public static class LogService
     ///     suppresses automatic bug reports for events marked with
     ///     <see cref="WatcherErrorPropertyName"/>.
     /// </summary>
+    /// <param name="ex">The exception raised while processing the file.</param>
+    /// <param name="message">The context message.</param>
     public static void ErrorWatcher(Exception ex, string message)
     {
         _logger.ForContext(WatcherErrorPropertyName, true).Error(ex, message);
     }
 
+    /// <summary>
+    ///     Writes a fatal-level message.
+    /// </summary>
+    /// <param name="message">The message to log.</param>
     public static void Fatal(string message)
     {
         _logger.Fatal(message);
     }
 
+    /// <summary>
+    ///     Writes a fatal-level message with an exception.
+    /// </summary>
+    /// <param name="ex">The exception to log.</param>
+    /// <param name="message">The context message.</param>
     public static void Fatal(Exception ex, string message)
     {
         _logger.Fatal(ex, message);
     }
 
-    public static string FormatJson(string json)
-    {
-        if (string.IsNullOrWhiteSpace(json))
-            return string.Empty;
-
-        try
-        {
-            using var jDoc = JsonDocument.Parse(json);
-            return JsonSerializer.Serialize(jDoc, JsonFormatOptions);
-        }
-        catch (JsonException)
-        {
-            return json;
-        }
-    }
-
+    /// <summary>
+    ///     Flushes and disposes the Serilog pipeline and resets the initialization flag.
+    /// </summary>
     public static void Dispose()
     {
         lock (Lock)

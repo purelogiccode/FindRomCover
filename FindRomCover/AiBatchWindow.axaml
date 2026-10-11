@@ -10,6 +10,7 @@
     <Grid Margin="16" RowDefinitions="Auto,Auto,Auto,*,Auto">
 
         <TextBlock Grid.Row="0" TextWrapping="Wrap" Margin="0,0,0,10"
+                   ToolTip.Tip="Batch fill missing covers with AI"
                    Text="The AI inspects each missing cover, ranks your local images first and, if enabled, falls back to the Google API. An image is saved automatically only when the AI confidence is above the configured threshold. A request is sent per item, so large batches may take a while." />
 
         <StackPanel Grid.Row="1" Margin="0,0,0,10">
@@ -20,11 +21,11 @@
                       Content="Skip covers already queried in previous sessions"
                       ToolTip.Tip="Queried items are remembered across sessions so the AI is not asked twice; manage the list in Settings > AI Settings" />
             <Grid Margin="0,3" ColumnDefinitions="Auto,80,*">
-                <Label Grid.Column="0" Content="Max items per run:" VerticalAlignment="Center" />
+                <Label Grid.Column="0" Content="Max items per run:" VerticalAlignment="Center" ToolTip.Tip="How many missing covers to process in this run" />
                 <TextBox Grid.Column="1" x:Name="TxtMaxItems" Text="25" VerticalContentAlignment="Center"
                          ToolTip.Tip="How many missing covers to process in this run (1-500)" />
                 <TextBlock Grid.Column="2" x:Name="TxtSummary" Margin="10,0,0,0" VerticalAlignment="Center"
-                           TextWrapping="Wrap" />
+                           TextWrapping="Wrap" ToolTip.Tip="Batch progress summary" />
             </Grid>
         </StackPanel>
 
@@ -34,7 +35,7 @@
         <ListBox Grid.Row="3" x:Name="LstResults" ToolTip.Tip="Per-item results" />
 
         <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
-            <Button x:Name="BtnStart" Content="Start" Width="100" Margin="0,0,10,0" Click="BtnStart_Click"
+            <Button x:Name="BtnStart" Content="Start" Width="100" Margin="0,0,10,0" Click="BtnStart_ClickAsync"
                     ToolTip.Tip="Start the batch fill" />
             <Button x:Name="BtnCancel" Content="Cancel" Width="100" Margin="0,0,10,0" Click="BtnCancel_Click"
                     IsEnabled="False" ToolTip.Tip="Stop the batch after the current item" />

@@ -1,5 +1,9 @@
 namespace FindRomCover.Services;
 
+/// <summary>
+///     Provides the shared <see cref="HttpClient" /> instance used by every network
+///     service, with connection pooling configured for long-running desktop use.
+/// </summary>
 public static class HttpClientHelper
 {
     private static readonly Lazy<HttpClient> HttpClient = new(static () =>
@@ -25,6 +29,10 @@ public static class HttpClientHelper
 
     private static int _disposed;
 
+    /// <summary>
+    ///     Gets the lazily created shared HTTP client.
+    /// </summary>
+    /// <exception cref="ObjectDisposedException">Thrown after <see cref="Dispose" /> has been called.</exception>
     public static HttpClient Client
     {
         get
@@ -36,6 +44,9 @@ public static class HttpClientHelper
         }
     }
 
+    /// <summary>
+    ///     Disposes the shared client once. Subsequent calls are ignored.
+    /// </summary>
     public static void Dispose()
     {
         if (Interlocked.CompareExchange(ref _disposed, 1, 0) != 0)

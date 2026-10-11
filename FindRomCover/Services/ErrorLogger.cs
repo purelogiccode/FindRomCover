@@ -7,19 +7,36 @@ using FindRomCover.Models;
 
 namespace FindRomCover.Services;
 
+/// <summary>
+///     Writes bug reports to the local user/API log files and forwards them to the
+///     remote bug report API defined by <see cref="AppConstants.BugReportApiUrl" />.
+/// </summary>
 public static class ErrorLogger
 {
     private const string ApiKey = AppConstants.BugReportApiKey;
     private const string BugReportApiUrl = AppConstants.BugReportApiUrl;
 
+    /// <summary>
+    ///     Default timeout, in seconds, for a bug-report API request.
+    /// </summary>
     public const int DefaultApiTimeoutSeconds = 30;
+    /// <summary>
+    ///     Indicates whether the logger has been disposed. Exposed for tests.
+    /// </summary>
     internal static volatile bool IsDisposed;
+
+    /// <summary>
+    ///     Guards <see cref="Dispose" /> and <see cref="IsDisposed" />. Exposed for tests.
+    /// </summary>
     internal static readonly Lock DisposeLock = new();
 
+    /// <summary>Path of the log file holding reports not yet accepted by the API.</summary>
     internal static readonly string ApiLogFilePath = AppDataPaths.LogFilePath("ApiLogError.txt");
 
+    /// <summary>Path of the log file holding all user-facing error reports.</summary>
     internal static readonly string UserLogFilePath = AppDataPaths.LogFilePath("UserLogError.txt");
 
+    /// <summary>Path of the log file holding internal diagnostics of the logger itself.</summary>
     internal static readonly string InternalLogFilePath = AppDataPaths.LogFilePath("InternalLog.txt");
 
     private static readonly SemaphoreSlim LogFileLock = new(1, 1);
@@ -31,8 +48,15 @@ public static class ErrorLogger
         WriteIndented = false
     };
 
+    /// <summary>
+    ///     Test seam that replaces the real HTTP send. Exposed for tests.
+    /// </summary>
     internal static Func<BugReportModel, int, Task<bool>>? SendToApiOverride;
 
+    /// <summary>
+    ///     Marks the logger as disposed. Subsequent <see cref="LogAsync" /> calls return
+    ///     immediately. Idempotent.
+    /// </summary>
     public static void Dispose()
     {
         using var scope = DisposeLock.EnterScope();
@@ -41,6 +65,14 @@ public static class ErrorLogger
         IsDisposed = true;
     }
 
+    /// <summary>
+    ///     Appends a formatted bug report (environment, error and exception details) to
+    ///     the local log files and sends it to the remote bug report API.
+    /// </summary>
+    /// <param name="ex">The exception to report, or <see langword="null" /> for a message-only report.</param>
+    /// <param name="contextMessage">A context message describing where the error occurred.</param>
+    /// <param name="apiTimeoutSeconds">Overrides the API timeout; values &lt;= 0 or the default fall back to settings.</param>
+    /// <returns>A task that completes when the report has been written and sent.</returns>
     public static async Task LogAsync(Exception? ex, string? contextMessage = null,
         int apiTimeoutSeconds = DefaultApiTimeoutSeconds)
     {
@@ -137,7 +169,7 @@ public static class ErrorLogger
             messageBuilder.AppendLine(CultureInfo.InvariantCulture, $"OS Version: {bugReport.OsVersion}");
             messageBuilder.AppendLine(CultureInfo.InvariantCulture, $"Architecture: {bugReport.Architecture}");
             messageBuilder.AppendLine(CultureInfo.InvariantCulture, $"Bitness: {bugReport.Bitness}");
-            messageBuilder.AppendLine(CultureInfo.InvariantCulture, $"Windows Version: {bugReport.WindowsVersion}");
+            messageBuilder.AppendLine(CultureInfo.InvariantCulture, $"Windows/Linux/macOS Version: {bugReport.WindowsVersion}");
             messageBuilder.AppendLine(CultureInfo.InvariantCulture, $"Processor Count: {bugReport.ProcessorCount}");
             messageBuilder.AppendLine(CultureInfo.InvariantCulture, $"Base Directory: {bugReport.BaseDirectory}");
             messageBuilder.AppendLine(CultureInfo.InvariantCulture, $"Temp Path: {bugReport.TempPath}");

@@ -4,10 +4,15 @@ using ImageMagick;
 
 namespace FindRomCover.Services;
 
+/// <summary>
+///     Downloads images from URLs and converts streams to PNG covers, guarding against
+///     oversized or non-image payloads.
+/// </summary>
 public static class ImageSaveService
 {
     private const int MaxDownloadBytes = 50 * 1024 * 1024;
 
+    /// <summary>Browser-like User-Agent header used for image downloads.</summary>
     internal static readonly string BrowserUserAgent = BuildBrowserUserAgent();
 
     private static string BuildBrowserUserAgent()
@@ -51,6 +56,16 @@ public static class ImageSaveService
             HttpClientHelper.Client, cancellationToken);
     }
 
+    /// <summary>
+    ///     Downloads an image and saves it as PNG using the supplied HTTP client, falling back to
+    ///     a second URL when the primary download fails.
+    /// </summary>
+    /// <param name="imageUrl">The URL of the image to download.</param>
+    /// <param name="fallbackImageUrl">An optional second URL tried when the primary download fails.</param>
+    /// <param name="outputPath">The path where the PNG image will be saved.</param>
+    /// <param name="httpClient">The HTTP client used for the download.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>True if the download and save was successful, false otherwise.</returns>
     internal static async Task<bool> DownloadAndSaveImageAsync(string imageUrl, string? fallbackImageUrl,
         string outputPath, HttpClient httpClient, CancellationToken cancellationToken)
     {
@@ -58,6 +73,17 @@ public static class ImageSaveService
             cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    ///     Downloads an image and saves it as PNG using the supplied HTTP client, falling back to
+    ///     a second URL and rejecting images narrower than the minimum width.
+    /// </summary>
+    /// <param name="imageUrl">The URL of the image to download.</param>
+    /// <param name="fallbackImageUrl">An optional second URL tried when the primary download fails.</param>
+    /// <param name="outputPath">The path where the PNG image will be saved.</param>
+    /// <param name="minWidth">Minimum accepted image width in pixels; narrower images are rejected. 0 disables the check.</param>
+    /// <param name="httpClient">The HTTP client used for the download.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>True if the download and save was successful, false otherwise.</returns>
     internal static async Task<bool> DownloadAndSaveImageAsync(string imageUrl, string? fallbackImageUrl,
         string outputPath, int minWidth, HttpClient httpClient, CancellationToken cancellationToken)
     {
@@ -91,6 +117,14 @@ public static class ImageSaveService
         }
     }
 
+    /// <summary>
+    ///     Attempts to download a single image URL and save it as PNG using the supplied HTTP client.
+    /// </summary>
+    /// <param name="imageUrl">The URL of the image to download.</param>
+    /// <param name="outputPath">The path where the PNG image will be saved.</param>
+    /// <param name="httpClient">The HTTP client used for the download.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>True if the download and save was successful, false otherwise.</returns>
     internal static async Task<bool> TryDownloadAndSaveAsync(string imageUrl, string outputPath, HttpClient httpClient,
         CancellationToken cancellationToken)
     {
@@ -98,6 +132,16 @@ public static class ImageSaveService
             .ConfigureAwait(false);
     }
 
+    /// <summary>
+    ///     Attempts to download a single image URL and save it as PNG, validating the payload and
+    ///     rejecting images narrower than the minimum width.
+    /// </summary>
+    /// <param name="imageUrl">The URL of the image to download.</param>
+    /// <param name="outputPath">The path where the PNG image will be saved.</param>
+    /// <param name="minWidth">Minimum accepted image width in pixels; narrower images are rejected. 0 disables the check.</param>
+    /// <param name="httpClient">The HTTP client used for the download.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>True if the download and save was successful, false otherwise.</returns>
     internal static async Task<bool> TryDownloadAndSaveAsync(string imageUrl, string outputPath, int minWidth,
         HttpClient httpClient, CancellationToken cancellationToken)
     {
@@ -358,6 +402,11 @@ public static class ImageSaveService
         return buffer.ToArray();
     }
 
+    /// <summary>
+    ///     Checks whether the first bytes of a payload match a known image file signature.
+    /// </summary>
+    /// <param name="bytes">The payload to inspect.</param>
+    /// <returns>True when the payload starts with a recognized image signature; otherwise false.</returns>
     internal static bool LooksLikeImageData(byte[] bytes)
     {
         if (bytes.Length < 4) return false;

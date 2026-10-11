@@ -37,8 +37,12 @@ public static class ThemePalette
         ["Sienna"] = "#A0522D"
     };
 
-    public static IReadOnlyCollection<string> AccentNames => AccentColors.Keys;
-
+    /// <summary>
+    ///     Applies the given base theme and accent color to the application,
+    ///     updating both the custom accent brushes and the Fluent theme accent resources.
+    /// </summary>
+    /// <param name="baseTheme">Name of the base theme; "Dark" selects the dark variant, any other value the light variant.</param>
+    /// <param name="accentColor">Name of the accent color to apply; unknown names fall back to blue.</param>
     public static void ApplyTheme(string baseTheme, string accentColor)
     {
         if (Application.Current is not { } app) return;

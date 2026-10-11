@@ -2,15 +2,23 @@ using System.Collections.ObjectModel;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using FindRomCover.Managers;
+using FindRomCover.Models;
 using FindRomCover.Services;
 
 namespace FindRomCover;
 
+/// <summary>
+///     Window for editing the list of file extensions that are treated as ROM files.
+/// </summary>
 public partial class SettingsWindow : Window
 {
     private readonly SettingsManager _settingsManager;
     private readonly ObservableCollection<string> _supportedExtensions;
 
+    /// <summary>
+    ///     Initializes a new instance of the <see cref="SettingsWindow"/> class.
+    /// </summary>
+    /// <param name="settingsManager">The settings manager whose supported extensions are edited.</param>
     public SettingsWindow(SettingsManager settingsManager)
     {
         InitializeComponent();
@@ -97,7 +105,7 @@ public partial class SettingsWindow : Window
         }
     }
 
-    private async void BtnSave_Click(object? sender, RoutedEventArgs e)
+    private async void BtnSave_ClickAsync(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -147,7 +155,7 @@ public partial class SettingsWindow : Window
         }
         catch (Exception ex)
         {
-            LogService.Error(ex, "Error in BtnSave_Click");
+            LogService.Error(ex, "Error in BtnSave_ClickAsync");
             await Dialogs.ShowMessageAsync(this,
                 "An error occurred while saving settings. Your changes were not saved.",
                 "Error", MessageIcon.Error);

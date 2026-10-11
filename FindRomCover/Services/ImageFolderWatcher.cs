@@ -3,6 +3,10 @@ using ImageMagick;
 
 namespace FindRomCover.Services;
 
+/// <summary>
+///     Watches an image folder and, when a new or renamed image appears, optionally verifies
+///     it, renames it to the pending target name and converts it to PNG.
+/// </summary>
 public sealed class ImageFolderWatcher : IDisposable
 {
     private static readonly HashSet<string> SupportedExtensions = new(StringComparer.OrdinalIgnoreCase)
@@ -30,6 +34,10 @@ public sealed class ImageFolderWatcher : IDisposable
     private static readonly TimeSpan RestartCooldown = TimeSpan.FromMinutes(1);
     private static readonly TimeSpan RestartDelay = TimeSpan.FromSeconds(2);
 
+    /// <summary>
+    ///     Gets or sets the file name (without extension) that the next dropped image should be
+    ///     renamed to.
+    /// </summary>
     public string? PendingRenameTarget
     {
         get
@@ -51,6 +59,7 @@ public sealed class ImageFolderWatcher : IDisposable
         }
     }
 
+    /// <summary>Gets the path of the folder currently being watched, or null when watching is stopped.</summary>
     public string? WatchedFolderPath
     {
         get
@@ -78,6 +87,7 @@ public sealed class ImageFolderWatcher : IDisposable
         }
     }
 
+    /// <summary>Stops watching and releases all resources held by the watcher.</summary>
     public void Dispose()
     {
         if (_disposed) return;
@@ -116,10 +126,17 @@ public sealed class ImageFolderWatcher : IDisposable
         }
     }
 
+    /// <summary>Raised with the image name (without extension) when a dropped image is ready.</summary>
     public event Action<string>? ImageFound;
+    /// <summary>Raised with the file path and error message when PNG conversion fails.</summary>
     public event Action<string, string>? ConversionFailed;
+    /// <summary>Raised with the file path and target name when AI verification rejects an image.</summary>
     public event Action<string, string>? VerificationFailed;
 
+    /// <summary>
+    ///     Gets or sets an optional AI verification callback that approves or rejects a file
+    ///     before it is renamed.
+    /// </summary>
     public Func<string, string, CancellationToken, Task<bool>>? VerifyImageAsync { get; set; }
 
     private void TryClearPendingRenameTarget(string? expectedValue)
@@ -134,6 +151,11 @@ public sealed class ImageFolderWatcher : IDisposable
         }
     }
 
+    /// <summary>
+    ///     Registers a file path that the application is about to write so the watcher ignores
+    ///     the resulting file event for the next minute.
+    /// </summary>
+    /// <param name="filePath">The file path expected to be created or renamed by the application.</param>
     public void PreRegisterExpectedFile(string filePath)
     {
         if (_disposed) return;
@@ -167,6 +189,10 @@ public sealed class ImageFolderWatcher : IDisposable
         LogService.Debug($"ImageFolderWatcher: pre-registered '{Path.GetFileName(filePath)}' so watcher will skip it");
     }
 
+    /// <summary>
+    ///     Removes a previously pre-registered file path so the watcher processes its events again.
+    /// </summary>
+    /// <param name="filePath">The file path to unregister.</param>
     public void UnregisterExpectedFile(string filePath)
     {
         if (string.IsNullOrWhiteSpace(filePath)) return;
@@ -176,6 +202,11 @@ public sealed class ImageFolderWatcher : IDisposable
                 $"ImageFolderWatcher: unregistered '{Path.GetFileName(filePath)}' after a failed save");
     }
 
+    /// <summary>
+    ///     Starts watching the specified folder for new and renamed image files.
+    /// </summary>
+    /// <param name="folderPath">The folder to watch.</param>
+    /// <returns>True when watching started; false when the folder is missing or cannot be watched.</returns>
     public bool Start(string folderPath)
     {
         if (_disposed) return false;
@@ -255,6 +286,7 @@ public sealed class ImageFolderWatcher : IDisposable
         }
     }
 
+    /// <summary>Stops watching the current folder.</summary>
     public void Stop()
     {
         // Invalidate any Start that is still in flight so a stopped watcher cannot

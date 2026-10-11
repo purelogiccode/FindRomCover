@@ -2,6 +2,10 @@ using System.Text.RegularExpressions;
 
 namespace FindRomCover.Services;
 
+/// <summary>
+///     Cleans ROM file names into search queries and sanitizes them for use as file
+///     names on disk.
+/// </summary>
 internal static partial class SearchQueryHelper
 {
     // Matches common patterns in parentheses or square brackets.
@@ -15,6 +19,11 @@ internal static partial class SearchQueryHelper
         "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
     };
 
+    /// <summary>
+    ///     Removes region/version tags in parentheses, brackets and braces from a file name.
+    /// </summary>
+    /// <param name="fileName">The raw ROM file name.</param>
+    /// <returns>The cleaned query, or the original name when cleaning removed everything.</returns>
     internal static string CleanSearchQuery(string fileName)
     {
         var cleanedName = TagPattern.Replace(fileName, "").Trim();
@@ -23,6 +32,12 @@ internal static partial class SearchQueryHelper
         return string.IsNullOrWhiteSpace(cleanedName) ? fileName : cleanedName;
     }
 
+    /// <summary>
+    ///     Makes a string safe to use as a file name on the current platform, avoiding
+    ///     reserved device names and path traversal sequences.
+    /// </summary>
+    /// <param name="fileName">The desired file name.</param>
+    /// <returns>A sanitized file name; "unnamed" when nothing usable remains.</returns>
     internal static string SanitizeFileName(string fileName)
     {
         if (string.IsNullOrWhiteSpace(fileName))

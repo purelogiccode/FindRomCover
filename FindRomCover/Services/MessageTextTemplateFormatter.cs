@@ -4,8 +4,17 @@ using Serilog.Formatting;
 
 namespace FindRomCover.Services;
 
-public class MessageTextTemplateFormatter : ITextFormatter
+/// <summary>
+///     Formats a Serilog event as a single plain-text line with timestamp, level,
+///     rendered message and exception, matching the layout of the log files.
+/// </summary>
+internal sealed class MessageTextTemplateFormatter : ITextFormatter
 {
+    /// <summary>
+    ///     Writes the formatted event to the given writer.
+    /// </summary>
+    /// <param name="logEvent">The event to format.</param>
+    /// <param name="output">The destination writer.</param>
     public void Format(LogEvent logEvent, TextWriter output)
     {
         var message = logEvent.RenderMessage(CultureInfo.InvariantCulture);

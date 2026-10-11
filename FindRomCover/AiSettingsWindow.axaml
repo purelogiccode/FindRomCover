@@ -10,9 +10,10 @@
     <Grid Margin="20" RowDefinitions="Auto,*,Auto">
 
         <TextBlock Grid.Row="0" TextWrapping="Wrap" Margin="0,0,0,10"
+                   ToolTip.Tip="Configure AI-assisted cover selection"
                    Text="AI Assist uses a vision-capable model to look at candidate images and pick the best cover for the selected game. Choose OpenRouter, OpenAI, Anthropic, Gemini or GLM (cloud), a local OpenAI-compatible server such as Ollama or LM Studio, or a custom OpenAI/Anthropic-compatible endpoint." />
 
-        <ScrollViewer Grid.Row="1">
+        <ScrollViewer Grid.Row="1" ToolTip.Tip="Scroll to view all AI settings">
             <StackPanel>
                 <GroupBox Header="AI Vision Assist" Margin="0,0,0,15"
                           ToolTip.Tip="Provider and model configuration">
@@ -21,14 +22,14 @@
                                   ToolTip.Tip="When enabled, the AI Pick Best button is available on the Local Files tab" />
 
                         <Grid Margin="0,5" ColumnDefinitions="170,*">
-                            <Label Grid.Column="0" Content="Provider:" VerticalAlignment="Center" />
+                            <Label Grid.Column="0" Content="Provider:" VerticalAlignment="Center" ToolTip.Tip="AI provider used for vision requests" />
                             <ComboBox Grid.Column="1" x:Name="CmbProvider"
                                       SelectionChanged="CmbProvider_SelectionChanged"
                                       ToolTip.Tip="Cloud providers need an API key; Local targets Ollama or LM Studio; custom endpoints need a Base URL and Model" />
                         </Grid>
 
                         <Grid Margin="0,5" ColumnDefinitions="170,*">
-                            <Label Grid.Column="0" Content="Base URL:" VerticalAlignment="Center" />
+                            <Label Grid.Column="0" Content="Base URL:" VerticalAlignment="Center" ToolTip.Tip="API endpoint of the selected provider" />
                             <TextBox Grid.Column="1" x:Name="TxtBaseUrl"
                                      PlaceholderText="https://openrouter.ai/api/v1"
                                      LostFocus="TxtBaseUrl_LostFocus"
@@ -36,20 +37,20 @@
                         </Grid>
 
                         <Grid Margin="0,5" ColumnDefinitions="170,*">
-                            <Label Grid.Column="0" Content="API Key:" VerticalAlignment="Center" />
+                            <Label Grid.Column="0" Content="API Key:" VerticalAlignment="Center" ToolTip.Tip="Secret API key for the provider" />
                             <TextBox Grid.Column="1" x:Name="TxtApiKey"
                                      PlaceholderText="Not required for local models or custom endpoints"
                                      ToolTip.Tip="Your provider API key. Stored encrypted in the settings database and never logged." />
                         </Grid>
 
                         <Grid Margin="0,5" ColumnDefinitions="170,*,Auto">
-                            <Label Grid.Column="0" Content="Model:" VerticalAlignment="Center" />
+                            <Label Grid.Column="0" Content="Model:" VerticalAlignment="Center" ToolTip.Tip="Vision-capable model name" />
                             <AutoCompleteBox Grid.Column="1" x:Name="CmbModel"
                                              FilterMode="Contains"
                                              MinimumPrefixLength="0"
                                              ToolTip.Tip="Vision-capable model name, e.g. google/gemma-4-26b-a4b-it (OpenRouter), claude-sonnet-4-5 (Anthropic), gemini-2.5-flash (Gemini) or qwen2.5vl:7b (Ollama)" />
                             <Button Grid.Column="2" x:Name="BtnTest" Content="Test / Load Models" Margin="5,0,0,0"
-                                    Padding="8,2" Click="BtnTest_Click"
+                                    Padding="8,2" Click="BtnTest_ClickAsync"
                                     ToolTip.Tip="Contact the provider, verify the key and load the available model list" />
                         </Grid>
 
@@ -64,15 +65,16 @@
                                       ToolTip.Tip="Hide models that most likely cannot analyze images" />
                         </Grid>
 
-                        <TextBlock x:Name="TxtModelCount" Margin="0,2,0,0" TextWrapping="Wrap" Opacity="0.8" />
+                        <TextBlock x:Name="TxtModelCount" Margin="0,2,0,0" TextWrapping="Wrap" Opacity="0.8" ToolTip.Tip="Number of models loaded from the provider" />
 
                         <TextBlock x:Name="TxtTestStatus" Margin="0,3,0,0" TextWrapping="Wrap"
-                                   Foreground="#FF0078D7" />
+                                   Foreground="#FF0078D7" ToolTip.Tip="Result of the connection test" />
 
-                        <TextBlock Margin="0,5,0,0">
+                        <TextBlock Margin="0,5,0,0" ToolTip.Tip="Open the provider console to create an API key">
                             <HyperlinkButton Content="Get an OpenRouter API key" Padding="0"
                                              Tag="https://openrouter.ai/keys"
-                                             Click="Hyperlink_Click" />
+                                             Click="Hyperlink_Click"
+                                             ToolTip.Tip="Open the OpenRouter API key page in the browser" />
                         </TextBlock>
                     </StackPanel>
                 </GroupBox>
@@ -81,42 +83,42 @@
                           ToolTip.Tip="Controls how many images are analyzed and when results are saved">
                     <StackPanel Margin="5">
                         <Grid Margin="0,5" ColumnDefinitions="170,*">
-                            <Label Grid.Column="0" Content="Timeout (seconds):" VerticalAlignment="Center" />
+                            <Label Grid.Column="0" Content="Timeout (seconds):" VerticalAlignment="Center" ToolTip.Tip="Maximum time to wait for an AI response" />
                             <TextBox Grid.Column="1" x:Name="TxtTimeout"
                                      PlaceholderText="90"
                                      ToolTip.Tip="How long to wait for the AI provider before giving up (10-300)" />
                         </Grid>
 
                         <Grid Margin="0,5" ColumnDefinitions="170,*">
-                            <Label Grid.Column="0" Content="Max candidates sent:" VerticalAlignment="Center" />
+                            <Label Grid.Column="0" Content="Max candidates sent:" VerticalAlignment="Center" ToolTip.Tip="How many top-ranked images are sent to the model" />
                             <TextBox Grid.Column="1" x:Name="TxtMaxCandidates"
                                      PlaceholderText="6"
                                      ToolTip.Tip="How many top-ranked local images are sent to the model (1-20)" />
                         </Grid>
 
                         <Grid Margin="0,5" ColumnDefinitions="170,*">
-                            <Label Grid.Column="0" Content="Candidate similarity (%):" VerticalAlignment="Center" />
+                            <Label Grid.Column="0" Content="Candidate similarity (%):" VerticalAlignment="Center" ToolTip.Tip="Minimum filename similarity before an image is sent to the AI" />
                             <TextBox Grid.Column="1" x:Name="TxtCandidateThreshold"
                                      PlaceholderText="70"
                                      ToolTip.Tip="Only local images whose filename similarity is at or above this value are sent to the AI (0-100). Uses the algorithm selected in the main window." />
                         </Grid>
 
                         <Grid Margin="0,5" ColumnDefinitions="170,*">
-                            <Label Grid.Column="0" Content="Image max size (px):" VerticalAlignment="Center" />
+                            <Label Grid.Column="0" Content="Image max size (px):" VerticalAlignment="Center" ToolTip.Tip="Maximum dimension of images sent to the model" />
                             <TextBox Grid.Column="1" x:Name="TxtImageMaxDimension"
                                      PlaceholderText="512"
                                      ToolTip.Tip="Images are downscaled to this maximum dimension before upload (128-2048)" />
                         </Grid>
 
                         <Grid Margin="0,5" ColumnDefinitions="170,*">
-                            <Label Grid.Column="0" Content="Min cover width (px):" VerticalAlignment="Center" />
+                            <Label Grid.Column="0" Content="Min cover width (px):" VerticalAlignment="Center" ToolTip.Tip="Minimum accepted width for downloaded covers" />
                             <TextBox Grid.Column="1" x:Name="TxtMinCoverWidth"
                                      PlaceholderText="200"
                                      ToolTip.Tip="Downloaded covers narrower than this are rejected as too low resolution (0 disables the check, max 2048)" />
                         </Grid>
 
                         <Grid Margin="0,5" ColumnDefinitions="170,*">
-                            <Label Grid.Column="0" Content="Auto-save threshold (%):" VerticalAlignment="Center" />
+                            <Label Grid.Column="0" Content="Auto-save threshold (%):" VerticalAlignment="Center" ToolTip.Tip="Minimum AI confidence required to save automatically" />
                             <TextBox Grid.Column="1" x:Name="TxtAutoSaveThreshold"
                                      PlaceholderText="80"
                                      ToolTip.Tip="Minimum AI confidence required for automatic saving (0-100)" />
@@ -136,10 +138,10 @@
                                   ToolTip.Tip="Batch Fill will not ask the AI twice for the same missing cover, even across restarts" />
                         <StackPanel Orientation="Horizontal" Margin="0,3">
                             <Button x:Name="BtnClearHistory" Content="Clear query history" Padding="8,2"
-                                    Click="BtnClearHistory_Click"
+                                    Click="BtnClearHistory_ClickAsync"
                                     ToolTip.Tip="Forget every missing cover that was already queried" />
                             <TextBlock x:Name="TxtHistoryCount" Margin="10,0,0,0" VerticalAlignment="Center"
-                                       TextWrapping="Wrap" Opacity="0.8" />
+                                       TextWrapping="Wrap" Opacity="0.8" ToolTip.Tip="Number of previously AI-queried covers" />
                         </StackPanel>
                     </StackPanel>
                 </GroupBox>
@@ -147,7 +149,7 @@
         </ScrollViewer>
 
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
-            <Button x:Name="BtnSave" Content="Save" Width="100" Margin="0,0,10,0" Click="BtnSave_Click"
+            <Button x:Name="BtnSave" Content="Save" Width="100" Margin="0,0,10,0" Click="BtnSave_ClickAsync"
                     ToolTip.Tip="Save the AI settings" />
             <Button x:Name="BtnCancel" Content="Cancel" Width="100" Click="BtnCancel_Click"
                     ToolTip.Tip="Discard changes and close this window" />

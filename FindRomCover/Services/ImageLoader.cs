@@ -3,9 +3,16 @@ using ImageMagick;
 
 namespace FindRomCover.Services;
 
+/// <summary>
+///     Loads image files with Magick.NET, retrying transient lock errors (antivirus,
+///     cloud sync) and normalizing the result to PNG bytes.
+/// </summary>
 public static class ImageLoader
 {
+    /// <summary>Default number of load attempts before giving up.</summary>
     public const int DefaultMaxRetries = 3;
+
+    /// <summary>Default delay, in milliseconds, between load attempts.</summary>
     public const int DefaultRetryDelayMilliseconds = 200;
 
     /// <summary>
@@ -33,14 +40,16 @@ public static class ImageLoader
             {
                 return LoadWithMagickNetInternal(imagePath);
             }
-            catch (MagickException)
+            catch (MagickException ex)
             {
                 try
                 {
                     return LoadWithMagickNetInternal(imagePath, true);
                 }
-                catch
+                catch (Exception retryEx)
                 {
+                    LogService.Debug($"Could not load image '{imagePath}': {retryEx.Message} (first error: {ex.Message})");
+
                     if (i < maxRetries - 1)
                         await Task.Delay(retryDelayMilliseconds, cancellationToken);
                     else
@@ -54,8 +63,9 @@ public static class ImageLoader
                 else
                     return null;
             }
-            catch
+            catch (Exception ex)
             {
+                LogService.Debug($"Unexpected error loading image '{imagePath}': {ex.Message}");
                 return null;
             }
         }
@@ -78,8 +88,9 @@ public static class ImageLoader
                 Math.Max(1, resolvedMaxRetries),
                 Math.Max(0, resolvedRetryDelay));
         }
-        catch
+        catch (Exception ex)
         {
+            LogService.Debug($"Could not resolve image loader settings: {ex.Message}");
             return (
                 maxRetries > 0 ? maxRetries : DefaultMaxRetries,
                 retryDelayMilliseconds > 0 ? retryDelayMilliseconds : DefaultRetryDelayMilliseconds);

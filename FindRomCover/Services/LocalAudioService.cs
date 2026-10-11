@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using FindRomCover.Interfaces;
 
 namespace FindRomCover.Services;
 
@@ -17,11 +18,16 @@ public sealed class LocalAudioService : IAudioService
 
     private bool _isSoundAvailable;
 
+    /// <summary>
+    ///     Initializes a new instance of the <see cref="LocalAudioService" /> class and checks
+    ///     whether the bundled click sound exists.
+    /// </summary>
     public LocalAudioService()
     {
         _isSoundAvailable = File.Exists(_soundPath);
     }
 
+    /// <summary>Plays the click sound, silently disabling playback if it fails.</summary>
     public void PlayClickSound()
     {
         if (!_isSoundAvailable) return;
@@ -36,6 +42,7 @@ public sealed class LocalAudioService : IAudioService
         }
     }
 
+    /// <summary>Releases resources used by the audio service.</summary>
     public void Dispose()
     {
     }

@@ -8,6 +8,9 @@ using FindRomCover.Services.Ai;
 
 namespace FindRomCover;
 
+/// <summary>
+///     Window for configuring the AI provider, model, thresholds and query history.
+/// </summary>
 public partial class AiSettingsWindow : Window
 {
     private const string ModelCacheFileName = "ai-models.json";
@@ -20,6 +23,10 @@ public partial class AiSettingsWindow : Window
     private AiVerdictCache? _modelCache;
     private AiQueryHistory? _queryHistory;
 
+    /// <summary>
+    ///     Initializes a new instance of the <see cref="AiSettingsWindow"/> class.
+    /// </summary>
+    /// <param name="settingsManager">The settings manager whose AI options are edited.</param>
     public AiSettingsWindow(SettingsManager settingsManager)
     {
         InitializeComponent();
@@ -118,7 +125,7 @@ public partial class AiSettingsWindow : Window
         if (_initialized) ApplyModelFilter();
     }
 
-    private async void BtnSave_Click(object? sender, RoutedEventArgs e)
+    private async void BtnSave_ClickAsync(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -219,7 +226,7 @@ public partial class AiSettingsWindow : Window
                 MessageIcon.Warning);
     }
 
-    private async void BtnTest_Click(object? sender, RoutedEventArgs e)
+    private async void BtnTest_ClickAsync(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -284,7 +291,7 @@ public partial class AiSettingsWindow : Window
         }
     }
 
-    private async void BtnClearHistory_Click(object? sender, RoutedEventArgs e)
+    private async void BtnClearHistory_ClickAsync(object? sender, RoutedEventArgs e)
     {
         try
         {

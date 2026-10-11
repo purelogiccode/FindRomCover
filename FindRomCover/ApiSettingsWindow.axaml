@@ -33,7 +33,8 @@
                                    ToolTip.Tip="Open the Google API key registration page in your browser">
                             <HyperlinkButton Content="Get Google API Key" Padding="0"
                                              Tag="https://developers.google.com/custom-search/v1/overview"
-                                             Click="Hyperlink_Click" />
+                                             Click="Hyperlink_Click"
+                                             ToolTip.Tip="Open the Google API key page in the browser" />
                         </TextBlock>
                     </StackPanel>
                 </GroupBox>

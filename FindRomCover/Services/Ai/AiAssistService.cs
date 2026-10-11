@@ -1,10 +1,15 @@
 using System.Security.Cryptography;
 using System.Text;
+using FindRomCover.Interfaces;
 using FindRomCover.Managers;
 using FindRomCover.Models;
 
 namespace FindRomCover.Services.Ai;
 
+/// <summary>
+///     Coordinates AI-assisted cover selection: filters local candidates, prepares images,
+///     calls the configured vision model, caches verdicts, and verifies covers on save.
+/// </summary>
 public sealed class AiAssistService : IDisposable
 {
     private const int RemoteImageTimeoutSeconds = 15;
@@ -16,6 +21,13 @@ public sealed class AiAssistService : IDisposable
     private readonly SemaphoreSlim _requestLock = new(1, 1);
     private bool _disposed;
 
+    /// <summary>
+    ///     Initializes a new instance of the <see cref="AiAssistService"/> class.
+    /// </summary>
+    /// <param name="settings">The settings manager providing the AI options.</param>
+    /// <param name="client">An optional pre-built vision model client; when <see langword="null"/>, one is created per request.</param>
+    /// <param name="cache">The verdict cache to use; defaults to the shared instance.</param>
+    /// <param name="imageHttpClient">The HTTP client used for image downloads; defaults to the shared helper client.</param>
     public AiAssistService(
         SettingsManager settings,
         IVisionModelClient? client = null,
@@ -28,8 +40,19 @@ public sealed class AiAssistService : IDisposable
         _imageHttpClient = imageHttpClient ?? HttpClientHelper.Client;
     }
 
+    /// <summary>
+    ///     Gets a value indicating whether AI assistance is enabled and this instance has not been disposed.
+    /// </summary>
     public bool IsEnabled => !_disposed && _settings.AiAssistEnabled;
 
+    /// <summary>
+    ///     Picks the best local candidate image for the given game using the vision model.
+    /// </summary>
+    /// <param name="romName">The ROM name used as the primary game title.</param>
+    /// <param name="searchName">The search name used as an alternate title.</param>
+    /// <param name="candidates">The local candidate images to consider.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <returns>The pick verdict, or <see langword="null"/> when AI assistance is disabled or no candidate qualifies.</returns>
     public async Task<AiPickResult?> PickBestAsync(
         string romName,
         string searchName,
@@ -70,6 +93,14 @@ public sealed class AiAssistService : IDisposable
             .ConfigureAwait(false);
     }
 
+    /// <summary>
+    ///     Picks the best cover among remote API search results using the vision model.
+    /// </summary>
+    /// <param name="romName">The ROM name used as the primary game title.</param>
+    /// <param name="searchName">The search name used as an alternate title.</param>
+    /// <param name="candidates">The remote candidate images to consider.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <returns>The pick verdict, or <see langword="null"/> when AI assistance is disabled or no image could be prepared.</returns>
     public async Task<AiPickResult?> PickBestForApiAsync(
         string romName,
         string searchName,
@@ -93,6 +124,14 @@ public sealed class AiAssistService : IDisposable
             .ConfigureAwait(false);
     }
 
+    /// <summary>
+    ///     Verifies that the image at the given path is cover art for the specified game.
+    /// </summary>
+    /// <param name="romName">The ROM name used as the primary game title.</param>
+    /// <param name="searchName">The search name used as an alternate title.</param>
+    /// <param name="imagePath">The path of the image to verify.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <returns>The verification verdict, or <see langword="null"/> when verification is disabled or the image cannot be prepared.</returns>
     public async Task<AiVerificationResult?> VerifyAsync(
         string romName,
         string searchName,
@@ -165,6 +204,9 @@ public sealed class AiAssistService : IDisposable
         }
     }
 
+    /// <summary>
+    ///     Releases the request lock and disposes the owned vision model client.
+    /// </summary>
     public void Dispose()
     {
         if (_disposed) return;
@@ -174,6 +216,13 @@ public sealed class AiAssistService : IDisposable
         _client?.Dispose();
     }
 
+    /// <summary>
+    ///     Prepares up to <paramref name="maxCandidates"/> existing local images for a vision request.
+    /// </summary>
+    /// <param name="candidates">The candidate images to prepare.</param>
+    /// <param name="maxCandidates">The maximum number of candidates to prepare.</param>
+    /// <param name="maxDimension">The maximum image dimension in pixels.</param>
+    /// <returns>The prepared image inputs whose source indexes refer to the supplied candidate list.</returns>
     internal static List<VisionImageInput> PrepareLocalCandidates(
         IReadOnlyList<ImageData> candidates,
         int maxCandidates,
@@ -205,6 +254,15 @@ public sealed class AiAssistService : IDisposable
         return inputs;
     }
 
+    /// <summary>
+    ///     Downloads and prepares remote candidate images, preferring thumbnails and falling back to full images.
+    /// </summary>
+    /// <param name="httpClient">The HTTP client used to download the images.</param>
+    /// <param name="candidates">The candidate images to prepare.</param>
+    /// <param name="maxCandidates">The maximum number of candidates to prepare.</param>
+    /// <param name="maxDimension">The maximum image dimension in pixels.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <returns>The prepared image inputs whose source indexes refer to the supplied candidate list.</returns>
     internal static async Task<List<VisionImageInput>> PrepareRemoteCandidatesAsync(
         HttpClient httpClient,
         IReadOnlyList<ImageData> candidates,

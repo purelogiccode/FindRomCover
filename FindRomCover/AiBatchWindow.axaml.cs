@@ -8,6 +8,9 @@ using FindRomCover.Services.Ai;
 
 namespace FindRomCover;
 
+/// <summary>
+///     Window that runs an AI-assisted batch fill for the missing covers of an image folder.
+/// </summary>
 public partial class AiBatchWindow : Window
 {
     private const int DefaultMaxItems = 25;
@@ -23,6 +26,15 @@ public partial class AiBatchWindow : Window
     private CancellationTokenSource? _cts;
     private bool _running;
 
+    /// <summary>
+    ///     Initializes a new instance of the <see cref="AiBatchWindow"/> class.
+    /// </summary>
+    /// <param name="settings">The settings manager that configures the AI requests.</param>
+    /// <param name="items">The missing cover items to process.</param>
+    /// <param name="imageFolderPath">The folder where resolved cover images are saved.</param>
+    /// <param name="preRegisterExpectedFile">Optional callback invoked before an expected file is written.</param>
+    /// <param name="extraQuery">Optional extra terms appended to each AI search query.</param>
+    /// <param name="unregisterExpectedFile">Optional callback invoked when an expected file is removed.</param>
     public AiBatchWindow(
         SettingsManager settings,
         IEnumerable<MissingImageItem> items,
@@ -57,9 +69,12 @@ public partial class AiBatchWindow : Window
             : $"{_items.Count} missing cover(s) available ({alreadyQueried} already queried).";
     }
 
+    /// <summary>
+    ///     Occurs when a missing cover has been resolved, passing the ROM name of the resolved item.
+    /// </summary>
     public event Action<string>? ItemResolved;
 
-    private async void BtnStart_Click(object? sender, RoutedEventArgs e)
+    private async void BtnStart_ClickAsync(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -125,7 +140,7 @@ public partial class AiBatchWindow : Window
         }
         catch (Exception ex)
         {
-            LogService.Warning(ex, "Error in method BtnStart_Click");
+            LogService.Warning(ex, "Error in method BtnStart_ClickAsync");
         }
     }
 

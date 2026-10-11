@@ -13,6 +13,17 @@ namespace FindRomCover.Services;
 /// </summary>
 public static class ButtonFactory
 {
+    /// <summary>
+    ///     Calculates similarity for the images in a folder and loads the best matches for display.
+    /// </summary>
+    /// <param name="selectedRomFileName">The ROM file name to compare against.</param>
+    /// <param name="imageFolderPath">The folder containing candidate images.</param>
+    /// <param name="similarityThreshold">Minimum similarity percentage required for a match.</param>
+    /// <param name="similarityAlgorithm">The algorithm used to score similarity.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <param name="onImageLoaded">Optional callback invoked for each successfully loaded image.</param>
+    /// <param name="ignoreBracketedText">True to strip bracketed annotations from names before comparing.</param>
+    /// <returns>The similarity result containing matched images and processing errors.</returns>
     public static Task<SimilarityCalculationResult> CreateSimilarImagesCollectionAsync(
         string selectedRomFileName,
         string imageFolderPath,
@@ -32,6 +43,14 @@ public static class ButtonFactory
             ignoreBracketedText: ignoreBracketedText);
     }
 
+    /// <summary>
+    ///     Builds or reuses the context menu for a cover image with actions to use, copy,
+    ///     reveal, and open the image file.
+    /// </summary>
+    /// <param name="imagePath">The image file path the menu actions operate on.</param>
+    /// <param name="useImageAction">Callback invoked when the user chooses "Use This Image".</param>
+    /// <param name="existingMenu">An optional existing menu to reuse instead of creating a new one.</param>
+    /// <returns>The context menu for the image.</returns>
     public static ContextMenu CreateContextMenu(string imagePath, Action<string?> useImageAction,
         ContextMenu? existingMenu = null)
     {

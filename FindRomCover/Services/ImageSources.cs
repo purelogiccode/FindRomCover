@@ -14,10 +14,16 @@ public static class ImageSources
     /// <summary>Creates the broken-image placeholder used when no image is available.</summary>
     public static Func<object?>? CreateBrokenImage { get; set; }
 
+    /// <summary>
+    ///     Creates a displayable image from PNG bytes using the installed factory.
+    /// </summary>
+    /// <param name="pngBytes">The PNG-encoded image data.</param>
+    /// <returns>The displayable image, or null when no factory is installed.</returns>
     public static object? FromPngBytes(byte[] pngBytes)
     {
         return CreateFromPngBytes?.Invoke(pngBytes);
     }
 
+    /// <summary>Gets the broken-image placeholder produced by the installed factory, if any.</summary>
     public static object? BrokenImage => CreateBrokenImage?.Invoke();
 }

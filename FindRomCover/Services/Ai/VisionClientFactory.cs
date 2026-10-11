@@ -1,11 +1,20 @@
+using FindRomCover.Interfaces;
 using FindRomCover.Models;
 
 namespace FindRomCover.Services.Ai;
 
+/// <summary>
+///     Creates the appropriate vision model client for the configured AI provider.
+/// </summary>
 public static class VisionClientFactory
 {
     private static readonly HttpClient SharedHttpClient = CreateSharedHttpClient();
 
+    /// <summary>
+    ///     Creates a vision model client matching the provider configured in the options.
+    /// </summary>
+    /// <param name="options">The AI vision options whose provider selects the client implementation.</param>
+    /// <returns>A client instance backed by a shared HTTP client.</returns>
     public static IVisionModelClient Create(AiVisionOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);

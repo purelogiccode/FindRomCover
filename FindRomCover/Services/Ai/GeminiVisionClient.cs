@@ -4,28 +4,54 @@ using FindRomCover.Models;
 
 namespace FindRomCover.Services.Ai;
 
+/// <summary>
+///     Vision model client that talks to the Google Gemini generateContent API.
+/// </summary>
 public sealed class GeminiVisionClient : VisionModelClientBase
 {
     private readonly HttpClient _httpClient;
 
+    /// <summary>
+    ///     Initializes a new instance using a dedicated default HTTP client owned by this instance.
+    /// </summary>
     public GeminiVisionClient()
         : this(CreateDefaultHttpClient(), true)
     {
     }
 
+    /// <summary>
+    ///     Initializes a new instance of the <see cref="GeminiVisionClient"/> class.
+    /// </summary>
+    /// <param name="httpClient">The HTTP client used to send requests.</param>
+    /// <param name="ownsClient">Whether this instance disposes <paramref name="httpClient"/>.</param>
     public GeminiVisionClient(HttpClient httpClient, bool ownsClient = false)
     {
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
         OwnsClient = ownsClient;
     }
 
+    /// <summary>
+    ///     Gets a value indicating whether this instance disposes the underlying HTTP client.
+    /// </summary>
     public bool OwnsClient { get; }
 
+    /// <summary>
+    ///     Disposes the underlying HTTP client when this instance owns it.
+    /// </summary>
     protected override void DisposeCore()
     {
         if (OwnsClient) _httpClient.Dispose();
     }
 
+    /// <summary>
+    ///     Sends a generateContent request to the Gemini API and returns the model text.
+    /// </summary>
+    /// <param name="options">The AI vision options (base URL, model, key, timeout).</param>
+    /// <param name="systemPrompt">The system prompt guiding the model.</param>
+    /// <param name="userPrompt">The user prompt describing the task.</param>
+    /// <param name="images">The prepared candidate images to attach.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <returns>The concatenated text content of the response.</returns>
     protected override async Task<string> SendRequestAsync(
         AiVisionOptions options,
         string systemPrompt,
@@ -53,6 +79,12 @@ public sealed class GeminiVisionClient : VisionModelClientBase
         return ExtractMessageContent(responseText);
     }
 
+    /// <summary>
+    ///     Builds the Gemini generateContent endpoint URL, stripping any "models/" prefix from the model identifier.
+    /// </summary>
+    /// <param name="baseUrl">The provider base URL.</param>
+    /// <param name="model">The configured model identifier.</param>
+    /// <returns>The absolute generateContent endpoint URL.</returns>
     internal static string BuildGenerateContentUrl(string baseUrl, string model)
     {
         if (string.IsNullOrWhiteSpace(baseUrl))
@@ -68,6 +100,14 @@ public sealed class GeminiVisionClient : VisionModelClientBase
         return $"{baseUrl.Trim().TrimEnd('/')}/models/{modelId}:generateContent";
     }
 
+    /// <summary>
+    ///     Serializes the Gemini request payload with the system instruction and inline base64 JPEG images.
+    /// </summary>
+    /// <param name="options">The AI vision options providing the model name.</param>
+    /// <param name="systemPrompt">The system prompt guiding the model.</param>
+    /// <param name="userPrompt">The user prompt describing the task.</param>
+    /// <param name="images">The prepared candidate images to attach.</param>
+    /// <returns>The JSON request body.</returns>
     internal static string BuildRequestBody(
         AiVisionOptions options,
         string systemPrompt,
@@ -96,6 +136,11 @@ public sealed class GeminiVisionClient : VisionModelClientBase
         return JsonSerializer.Serialize(payload);
     }
 
+    /// <summary>
+    ///     Extracts the concatenated text from a Gemini response, throwing when the request was blocked or produced no content.
+    /// </summary>
+    /// <param name="responseJson">The raw JSON response body.</param>
+    /// <returns>The model text.</returns>
     internal static string ExtractMessageContent(string responseJson)
     {
         using var doc = JsonDocument.Parse(responseJson);

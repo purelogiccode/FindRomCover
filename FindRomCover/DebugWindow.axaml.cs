@@ -9,11 +9,18 @@ using FindRomCover.Services;
 
 namespace FindRomCover;
 
+/// <summary>
+///     Log viewer window that shows the live application log and lets the user copy or clear it.
+/// </summary>
 public partial class DebugWindow : Window
 {
     private readonly ObservableCollection<LogEntry> _logMessages;
     private bool _isForceClosing;
 
+    /// <summary>
+    ///     Initializes a new instance of the <see cref="DebugWindow"/> class and populates it with
+    ///     the current log messages.
+    /// </summary>
     public DebugWindow()
     {
         InitializeComponent();
@@ -41,6 +48,9 @@ public partial class DebugWindow : Window
         LogService.Information("Log window initialized.");
     }
 
+    /// <summary>
+    ///     Marks the window so that the next close request is honored instead of being hidden.
+    /// </summary>
     public void ForceClose()
     {
         _isForceClosing = true;

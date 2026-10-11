@@ -9,6 +9,10 @@ using FindRomCover.Services;
 
 namespace FindRomCover.Managers;
 
+/// <summary>
+///     Loads, validates and persists the application settings in a SQLite database and raises
+///     change notifications for bound UI elements.
+/// </summary>
 public class SettingsManager : INotifyPropertyChanged
 {
     /// <summary>
@@ -126,11 +130,18 @@ public class SettingsManager : INotifyPropertyChanged
 
     // --- Constructor and Load/Save ---
 
+    /// <summary>
+    ///     Initializes a new instance of the <see cref="SettingsManager" /> class using the default settings location.
+    /// </summary>
     public SettingsManager()
         : this(null)
     {
     }
 
+    /// <summary>
+    ///     Initializes a new instance of the <see cref="SettingsManager" /> class with an optional custom settings directory.
+    /// </summary>
+    /// <param name="settingsDirectory">The directory that stores the settings database, or <c>null</c> to use the default location.</param>
     public SettingsManager(string? settingsDirectory)
     {
         _settingsDirectory = settingsDirectory;
@@ -149,6 +160,9 @@ public class SettingsManager : INotifyPropertyChanged
         LoadSettings();
     }
 
+    /// <summary>
+    ///     Gets the most recently created <see cref="SettingsManager" /> instance, or <c>null</c> when none exists.
+    /// </summary>
     public static SettingsManager? CurrentInstance
     {
         get
@@ -168,6 +182,9 @@ public class SettingsManager : INotifyPropertyChanged
         }
     }
 
+    /// <summary>
+    ///     Gets or sets the similarity threshold (0-100) used when comparing image names.
+    /// </summary>
     public double SimilarityThreshold
     {
         get => _similarityThreshold;
@@ -181,6 +198,9 @@ public class SettingsManager : INotifyPropertyChanged
         }
     }
 
+    /// <summary>
+    ///     Gets or sets the name of the similarity algorithm used to compare file names.
+    /// </summary>
     public string SelectedSimilarityAlgorithm
     {
         get => _selectedSimilarityAlgorithm;
@@ -193,6 +213,9 @@ public class SettingsManager : INotifyPropertyChanged
         }
     }
 
+    /// <summary>
+    ///     Gets or sets a value indicating whether text inside brackets is ignored during similarity comparison.
+    /// </summary>
     public bool IgnoreBracketedText
     {
         get => _ignoreBracketedText;
@@ -205,6 +228,9 @@ public class SettingsManager : INotifyPropertyChanged
         }
     }
 
+    /// <summary>
+    ///     Gets or sets the maximum number of images loaded per search (1-1000).
+    /// </summary>
     public int MaxImagesToLoad
     {
         get => _maxImagesToLoad;
@@ -218,6 +244,9 @@ public class SettingsManager : INotifyPropertyChanged
         }
     }
 
+    /// <summary>
+    ///     Gets or sets the maximum number of retry attempts for image downloads (0-20).
+    /// </summary>
     public int ImageLoaderMaxRetries
     {
         get => _imageLoaderMaxRetries;
@@ -231,6 +260,9 @@ public class SettingsManager : INotifyPropertyChanged
         }
     }
 
+    /// <summary>
+    ///     Gets or sets the delay in milliseconds between image download retry attempts (0-10000).
+    /// </summary>
     public int ImageLoaderRetryDelayMilliseconds
     {
         get => _imageLoaderRetryDelayMilliseconds;
@@ -244,6 +276,9 @@ public class SettingsManager : INotifyPropertyChanged
         }
     }
 
+    /// <summary>
+    ///     Gets or sets the timeout in seconds for image search API requests (1-300).
+    /// </summary>
     public int ApiTimeoutSeconds
     {
         get => _apiTimeoutSeconds;
@@ -257,6 +292,9 @@ public class SettingsManager : INotifyPropertyChanged
         }
     }
 
+    /// <summary>
+    ///     Gets or sets the path of the folder last used for image operations.
+    /// </summary>
     public string LastImageFolder
     {
         get => _lastImageFolder;
@@ -269,6 +307,9 @@ public class SettingsManager : INotifyPropertyChanged
         }
     }
 
+    /// <summary>
+    ///     Gets or sets the target image width in pixels (50-2000).
+    /// </summary>
     public int ImageWidth
     {
         get => _imageWidth;
@@ -282,6 +323,9 @@ public class SettingsManager : INotifyPropertyChanged
         }
     }
 
+    /// <summary>
+    ///     Gets or sets the target image height in pixels (50-2000).
+    /// </summary>
     public int ImageHeight
     {
         get => _imageHeight;
@@ -295,6 +339,9 @@ public class SettingsManager : INotifyPropertyChanged
         }
     }
 
+    /// <summary>
+    ///     Gets or sets the square thumbnail size; setting it updates both <see cref="ImageWidth" /> and <see cref="ImageHeight" />.
+    /// </summary>
     public int ThumbnailSize
     {
         get => Math.Max(_imageWidth, _imageHeight);
@@ -305,6 +352,9 @@ public class SettingsManager : INotifyPropertyChanged
         }
     }
 
+    /// <summary>
+    ///     Gets or sets the base theme name ("Light" or "Dark"); invalid values fall back to "Dark".
+    /// </summary>
     public string BaseTheme
     {
         get => _baseTheme;
@@ -319,6 +369,9 @@ public class SettingsManager : INotifyPropertyChanged
         }
     }
 
+    /// <summary>
+    ///     Gets or sets the accent color name; invalid values fall back to "Blue".
+    /// </summary>
     public string AccentColor
     {
         get => _accentColor;
@@ -333,6 +386,9 @@ public class SettingsManager : INotifyPropertyChanged
         }
     }
 
+    /// <summary>
+    ///     Gets or sets a value indicating whether MAME descriptions are used when naming images.
+    /// </summary>
     public bool UseMameDescriptions
     {
         get => _useMameDescriptions;
@@ -345,6 +401,9 @@ public class SettingsManager : INotifyPropertyChanged
         }
     }
 
+    /// <summary>
+    ///     Gets or sets the list of file extensions treated as supported ROM files.
+    /// </summary>
     public List<string> SupportedExtensions
     {
         get => _supportedExtensions;
@@ -357,6 +416,9 @@ public class SettingsManager : INotifyPropertyChanged
         }
     }
 
+    /// <summary>
+    ///     Gets or sets the name of the image search engine provider.
+    /// </summary>
     public string SearchEngine
     {
         get => _searchEngine;
@@ -369,6 +431,9 @@ public class SettingsManager : INotifyPropertyChanged
         }
     }
 
+    /// <summary>
+    ///     Gets or sets the API key used to submit bug reports.
+    /// </summary>
     public string BugReportApiKey
     {
         get => _bugReportApiKey;
@@ -381,6 +446,9 @@ public class SettingsManager : INotifyPropertyChanged
         }
     }
 
+    /// <summary>
+    ///     Gets or sets the endpoint URL used to submit bug reports.
+    /// </summary>
     public string BugReportApiUrl
     {
         get => _bugReportApiUrl;
@@ -393,6 +461,9 @@ public class SettingsManager : INotifyPropertyChanged
         }
     }
 
+    /// <summary>
+    ///     Gets or sets the Google Custom Search API key.
+    /// </summary>
     public string GoogleKey
     {
         get => _googleKey;
@@ -405,6 +476,9 @@ public class SettingsManager : INotifyPropertyChanged
         }
     }
 
+    /// <summary>
+    ///     Gets or sets a value indicating whether AI-assisted cover selection is enabled.
+    /// </summary>
     public bool AiAssistEnabled
     {
         get => _aiAssistEnabled;
@@ -417,6 +491,9 @@ public class SettingsManager : INotifyPropertyChanged
         }
     }
 
+    /// <summary>
+    ///     Gets or sets the configured AI provider; unknown values fall back to the default provider.
+    /// </summary>
     public string AiProvider
     {
         get => _aiProvider;
@@ -433,6 +510,9 @@ public class SettingsManager : INotifyPropertyChanged
         }
     }
 
+    /// <summary>
+    ///     Gets or sets the custom AI API base URL; empty means the provider default is used.
+    /// </summary>
     public string AiBaseUrl
     {
         get => _aiBaseUrl;
@@ -446,6 +526,9 @@ public class SettingsManager : INotifyPropertyChanged
         }
     }
 
+    /// <summary>
+    ///     Gets or sets the API key used for AI vision requests.
+    /// </summary>
     public string AiApiKey
     {
         get => _aiApiKey;
@@ -459,6 +542,9 @@ public class SettingsManager : INotifyPropertyChanged
         }
     }
 
+    /// <summary>
+    ///     Gets or sets the AI model name; empty means the provider default is used.
+    /// </summary>
     public string AiModel
     {
         get => _aiModel;
@@ -472,6 +558,9 @@ public class SettingsManager : INotifyPropertyChanged
         }
     }
 
+    /// <summary>
+    ///     Gets or sets the AI request timeout in seconds (10-300).
+    /// </summary>
     public int AiTimeoutSeconds
     {
         get => _aiTimeoutSeconds;
@@ -485,6 +574,9 @@ public class SettingsManager : INotifyPropertyChanged
         }
     }
 
+    /// <summary>
+    ///     Gets or sets the maximum number of cover candidates requested from the AI (1-20).
+    /// </summary>
     public int AiMaxCandidates
     {
         get => _aiMaxCandidates;
@@ -498,6 +590,9 @@ public class SettingsManager : INotifyPropertyChanged
         }
     }
 
+    /// <summary>
+    ///     Gets or sets the maximum dimension in pixels of images sent to the AI (128-2048).
+    /// </summary>
     public int AiImageMaxDimension
     {
         get => _aiImageMaxDimension;
@@ -511,6 +606,9 @@ public class SettingsManager : INotifyPropertyChanged
         }
     }
 
+    /// <summary>
+    ///     Gets or sets the minimum accepted cover width in pixels (0-2048).
+    /// </summary>
     public int AiMinCoverWidth
     {
         get => _aiMinCoverWidth;
@@ -524,6 +622,9 @@ public class SettingsManager : INotifyPropertyChanged
         }
     }
 
+    /// <summary>
+    ///     Gets or sets the similarity score (0-100) an AI candidate must reach to be accepted.
+    /// </summary>
     public double AiCandidateThreshold
     {
         get => _aiCandidateThreshold;
@@ -537,6 +638,9 @@ public class SettingsManager : INotifyPropertyChanged
         }
     }
 
+    /// <summary>
+    ///     Gets or sets the similarity score (0-100) at which an AI candidate is saved automatically.
+    /// </summary>
     public double AiAutoSaveThreshold
     {
         get => _aiAutoSaveThreshold;
@@ -550,6 +654,9 @@ public class SettingsManager : INotifyPropertyChanged
         }
     }
 
+    /// <summary>
+    ///     Gets or sets a value indicating whether accepted AI candidates are saved automatically.
+    /// </summary>
     public bool AiAutoSave
     {
         get => _aiAutoSave;
@@ -562,6 +669,9 @@ public class SettingsManager : INotifyPropertyChanged
         }
     }
 
+    /// <summary>
+    ///     Gets or sets a value indicating whether the AI cover search runs automatically.
+    /// </summary>
     public bool AiAutoRun
     {
         get => _aiAutoRun;
@@ -574,6 +684,9 @@ public class SettingsManager : INotifyPropertyChanged
         }
     }
 
+    /// <summary>
+    ///     Gets or sets a value indicating whether AI-selected covers are verified before saving.
+    /// </summary>
     public bool AiVerifyOnSave
     {
         get => _aiVerifyOnSave;
@@ -586,6 +699,9 @@ public class SettingsManager : INotifyPropertyChanged
         }
     }
 
+    /// <summary>
+    ///     Gets or sets a value indicating whether image names already queried in earlier AI searches are skipped.
+    /// </summary>
     public bool AiSkipPreviouslyQueried
     {
         get => _aiSkipPreviouslyQueried;
@@ -598,6 +714,10 @@ public class SettingsManager : INotifyPropertyChanged
         }
     }
 
+    /// <summary>
+    ///     Returns the AI base URL to use, falling back to the default URL of the selected provider.
+    /// </summary>
+    /// <returns>The configured base URL, or the provider-specific default URL.</returns>
     public string GetEffectiveAiBaseUrl()
     {
         if (!string.IsNullOrWhiteSpace(_aiBaseUrl)) return _aiBaseUrl.Trim();
@@ -615,6 +735,10 @@ public class SettingsManager : INotifyPropertyChanged
         };
     }
 
+    /// <summary>
+    ///     Returns the AI model name to use, falling back to the default model of the selected provider.
+    /// </summary>
+    /// <returns>The configured model name, or the provider-specific default model.</returns>
     public string GetEffectiveAiModel()
     {
         if (!string.IsNullOrWhiteSpace(_aiModel)) return _aiModel.Trim();
@@ -632,6 +756,10 @@ public class SettingsManager : INotifyPropertyChanged
         };
     }
 
+    /// <summary>
+    ///     Creates a snapshot of the AI-related settings for use by the vision client.
+    /// </summary>
+    /// <returns>An <see cref="AiVisionOptions" /> instance populated from the current settings.</returns>
     public AiVisionOptions GetAiVisionOptions()
     {
         return new AiVisionOptions(
@@ -650,6 +778,9 @@ public class SettingsManager : INotifyPropertyChanged
             AiCandidateThreshold);
     }
 
+    /// <summary>
+    ///     Occurs when a settings property value changes.
+    /// </summary>
     public event PropertyChangedEventHandler? PropertyChanged;
 
     private void OnPropertyChanged(string propertyName)
@@ -732,6 +863,10 @@ public class SettingsManager : INotifyPropertyChanged
         return result;
     }
 
+    /// <summary>
+    ///     Loads the settings from the SQLite database, migrating legacy settings files when necessary
+    ///     and falling back to defaults when no readable settings exist.
+    /// </summary>
     public void LoadSettings()
     {
         lock (_ioLock)
@@ -1072,9 +1207,10 @@ public class SettingsManager : INotifyPropertyChanged
             {
                 File.Move(legacyPath, legacyPath + ".migrated", true);
             }
-            catch
+            catch (Exception ex)
             {
                 // Best effort - not critical
+                LogService.Debug($"Could not rename migrated legacy settings file '{legacyPath}': {ex.Message}");
             }
 
             LogService.Information("Successfully migrated settings from settings.xml to settings.dat");
@@ -1099,8 +1235,9 @@ public class SettingsManager : INotifyPropertyChanged
         {
             return candidates.OrderByDescending(File.GetLastWriteTimeUtc).ToList();
         }
-        catch
+        catch (Exception ex)
         {
+            LogService.Debug($"Could not order legacy settings files by write time: {ex.Message}");
             return candidates;
         }
     }
@@ -1163,6 +1300,9 @@ public class SettingsManager : INotifyPropertyChanged
         }
     }
 
+    /// <summary>
+    ///     Persists the current settings to the SQLite settings database.
+    /// </summary>
     public void SaveSettings()
     {
         lock (_ioLock)
@@ -1287,6 +1427,11 @@ public class SettingsManager : INotifyPropertyChanged
 
     // --- Encryption/Decryption ---
 
+    /// <summary>
+    ///     Encrypts the specified bytes with the machine-derived AES key, prefixing the output with a random IV.
+    /// </summary>
+    /// <param name="data">The plaintext bytes to encrypt.</param>
+    /// <returns>The IV-prefixed AES ciphertext.</returns>
     internal static byte[] Encrypt(byte[] data)
     {
         using var aes = Aes.Create();

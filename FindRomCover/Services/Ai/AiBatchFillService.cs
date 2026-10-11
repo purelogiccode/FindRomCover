@@ -4,6 +4,9 @@ using FindRomCover.Models;
 
 namespace FindRomCover.Services.Ai;
 
+/// <summary>
+///     Runs AI-assisted cover selection over a batch of missing-image items and saves accepted covers.
+/// </summary>
 public sealed class AiBatchFillService
 {
     private readonly SettingsManager _settings;
@@ -12,6 +15,14 @@ public sealed class AiBatchFillService
     private readonly Action<string>? _preRegisterExpectedFile;
     private readonly Action<string>? _unregisterExpectedFile;
 
+    /// <summary>
+    ///     Initializes a new instance of the <see cref="AiBatchFillService"/> class.
+    /// </summary>
+    /// <param name="settings">The settings manager providing thresholds and API keys.</param>
+    /// <param name="aiAssist">The AI assist service used for picking and verifying covers.</param>
+    /// <param name="preRegisterExpectedFile">An optional callback invoked before a file is written so the file watcher can ignore it.</param>
+    /// <param name="queryHistory">The query history used to skip previously queried items; defaults to a new instance.</param>
+    /// <param name="unregisterExpectedFile">An optional callback invoked when a write fails so the file watcher can react again.</param>
     public AiBatchFillService(
         SettingsManager settings,
         AiAssistService aiAssist,
@@ -26,6 +37,17 @@ public sealed class AiBatchFillService
         _unregisterExpectedFile = unregisterExpectedFile;
     }
 
+    /// <summary>
+    ///     Processes each missing-image item in sequence, reporting progress and collecting results.
+    /// </summary>
+    /// <param name="items">The missing-image items to process.</param>
+    /// <param name="imageFolderPath">The folder where covers are stored and searched.</param>
+    /// <param name="useApiFallback">Whether to query the Google API when local candidates are insufficient.</param>
+    /// <param name="extraQuery">Optional extra search terms appended to the API query.</param>
+    /// <param name="progress">An optional progress sink receiving each item result.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <param name="skipPreviouslyQueried">Whether to skip items marked in the query history.</param>
+    /// <returns>The per-item results in input order.</returns>
     public async Task<List<AiBatchItemResult>> RunAsync(
         IReadOnlyList<MissingImageItem> items,
         string imageFolderPath,
@@ -282,6 +304,12 @@ public sealed class AiBatchFillService
         return pick is { HasPick: true } && pick.Confidence * 100 >= _settings.AiAutoSaveThreshold;
     }
 
+    /// <summary>
+    ///     Determines whether the pick selects a valid candidate and meets the configured confidence threshold.
+    /// </summary>
+    /// <param name="pick">The pick verdict to evaluate.</param>
+    /// <param name="candidateCount">The number of candidates the pick was made against.</param>
+    /// <returns><see langword="true"/> when the pick is usable; otherwise <see langword="false"/>.</returns>
     internal bool IsUsablePick(AiPickResult? pick, int candidateCount)
     {
         return pick != null && pick.BestIndex >= 0 && pick.BestIndex < candidateCount && IsConfident(pick);

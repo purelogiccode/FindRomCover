@@ -6,18 +6,43 @@ using Serilog.Formatting;
 
 namespace FindRomCover.Services;
 
-public class BugReportSink : ILogEventSink
+/// <summary>
+///     Serilog sink that forwards every Warning-or-higher event to the remote bug
+///     report API through <see cref="ErrorLogger" />. Known environmental failures
+///     (file-system watcher errors, network hiccups, ...) are suppressed so that a
+///     temporarily offline machine does not flood the bug tracker.
+/// </summary>
+internal sealed class BugReportSink : ILogEventSink
 {
     private readonly ITextFormatter? _formatter;
 
+    /// <summary>
+    ///     Creates the sink.
+    /// </summary>
+    /// <param name="formatter">Formatter used to render the log event into the bug report message.</param>
     public BugReportSink(ITextFormatter? formatter)
     {
         _formatter = formatter;
     }
 
+    /// <summary>
+    ///     Gets a value indicating whether an event at the given level should be forwarded
+    ///     to the bug report API. Every warning or higher is forwarded.
+    /// </summary>
+    /// <param name="level">The Serilog event level.</param>
+    /// <returns><see langword="true" /> when the event must be forwarded.</returns>
+    internal static bool IsForwardable(LogEventLevel level)
+    {
+        return level >= LogEventLevel.Warning;
+    }
+
+    /// <summary>
+    ///     Emits the log event. Events below Warning are ignored.
+    /// </summary>
+    /// <param name="logEvent">The Serilog event to process.</param>
     public void Emit(LogEvent logEvent)
     {
-        if (logEvent.Level < LogEventLevel.Error)
+        if (!IsForwardable(logEvent.Level))
             return;
 
         try
@@ -26,6 +51,9 @@ public class BugReportSink : ILogEventSink
             var ex = logEvent.Exception;
 
             if (IsTransientWatcherError(logEvent, ex, contextMessage))
+                return;
+
+            if (IsTransientEnvironmentError(logEvent))
                 return;
 
             if (ex == null && logEvent.Level >= LogEventLevel.Error) ex = new InvalidOperationException(contextMessage);
@@ -54,6 +82,18 @@ public class BugReportSink : ILogEventSink
         }
 
         return logEvent.RenderMessage(CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>
+    ///     Network and hardware dependent failures (the application stats endpoint,
+    ///     the GitHub update check, missing audio device, ...) are environmental and
+    ///     must never create automatic bug reports. Callers mark such events with
+    ///     <see cref="LogService.TransientErrorPropertyName" />.
+    /// </summary>
+    private static bool IsTransientEnvironmentError(LogEvent logEvent)
+    {
+        return logEvent.Properties.TryGetValue(LogService.TransientErrorPropertyName, out var property) &&
+               property is ScalarValue { Value: bool isTransient } && isTransient;
     }
 
     /// <summary>

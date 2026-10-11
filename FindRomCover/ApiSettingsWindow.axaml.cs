@@ -1,14 +1,22 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using FindRomCover.Managers;
+using FindRomCover.Models;
 using FindRomCover.Services;
 
 namespace FindRomCover;
 
+/// <summary>
+///     Window for configuring the Google API key used by the API cover search.
+/// </summary>
 public partial class ApiSettingsWindow : Window
 {
     private readonly SettingsManager _settingsManager;
 
+    /// <summary>
+    ///     Initializes a new instance of the <see cref="ApiSettingsWindow"/> class.
+    /// </summary>
+    /// <param name="settingsManager">The settings manager whose Google API key is edited.</param>
     public ApiSettingsWindow(SettingsManager settingsManager)
     {
         InitializeComponent();

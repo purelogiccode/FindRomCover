@@ -10,6 +10,10 @@ using FindRomCover.Services.Ai;
 
 namespace FindRomCover;
 
+/// <summary>
+///     Main application window. This part contains the Google/Bing web search, the Google API
+///     search and the AI-assisted pick of API results.
+/// </summary>
 public partial class MainWindow
 {
     private async Task HandleBingWebSearchAsync(string searchQuery)
