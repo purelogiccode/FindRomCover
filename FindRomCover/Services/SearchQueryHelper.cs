@@ -56,7 +56,8 @@ internal static partial class SearchQueryHelper
 
         sanitized = sanitized.Trim().TrimEnd('.');
 
-        if (string.IsNullOrWhiteSpace(sanitized))
+        if (string.IsNullOrWhiteSpace(sanitized) ||
+            sanitized.All(static c => c == '.' || char.IsWhiteSpace(c)))
             return "unnamed";
 
         var baseName = sanitized.Split('.', 2)[0];

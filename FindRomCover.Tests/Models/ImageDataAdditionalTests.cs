@@ -35,6 +35,27 @@ public class ImageDataAdditionalTests
     }
 
     [Fact]
+    public void ParameterizedConstructorWithNullNameShouldKeepTheDefaultName()
+    {
+        var data = new ImageData(@"C:\images\mario.png", null, 85.5);
+
+        data.ImageName.Should().Be("Unknown Filename");
+    }
+
+    [Fact]
+    public void ImageWidthShouldRaisePropertyChanged()
+    {
+        var data = new ImageData();
+        var raised = false;
+        data.PropertyChanged += (_, args) =>
+            raised |= string.Equals(args.PropertyName, nameof(ImageData.ImageWidth), StringComparison.Ordinal);
+
+        data.ImageWidth = 640;
+
+        raised.Should().BeTrue();
+    }
+
+    [Fact]
     public void ImageWidthShouldAcceptPositiveValue()
     {
         var data = new ImageData

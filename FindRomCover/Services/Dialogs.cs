@@ -124,7 +124,7 @@ public static class Dialogs
             panel.Children.Add(buttons);
             dialog.Content = panel;
 
-            return await ShowOwnedAsync<string?>(dialog, owner, null);
+            return await ShowOwnedAsync<string?>(dialog, owner, null, () => result);
         });
     }
 
@@ -173,17 +173,22 @@ public static class Dialogs
             };
 
             var isFirst = true;
-            foreach (var (text, result) in buttons)
+            var result = MessageResult.None;
+            foreach (var (text, buttonResult) in buttons)
             {
                 var button = new Button
                 {
                     Content = text,
                     MinWidth = 84,
                     IsDefault = isFirst,
-                    IsCancel = result is MessageResult.No or MessageResult.Cancel
+                    IsCancel = buttonResult is MessageResult.No or MessageResult.Cancel
                 };
-                var capturedResult = result;
-                button.Click += (_, _) => dialog.Close(capturedResult);
+                var capturedResult = buttonResult;
+                button.Click += (_, _) =>
+                {
+                    result = capturedResult;
+                    dialog.Close(capturedResult);
+                };
                 buttonPanel.Children.Add(button);
                 isFirst = false;
             }
@@ -204,18 +209,19 @@ public static class Dialogs
             root.Children.Add(grid);
             dialog.Content = root;
 
-            return await ShowOwnedAsync(dialog, owner, MessageResult.None);
+            return await ShowOwnedAsync(dialog, owner, MessageResult.None, () => result);
         });
     }
 
-    private static async Task<T> ShowOwnedAsync<T>(Window dialog, Window? owner, T fallback)
+    private static async Task<T> ShowOwnedAsync<T>(Window dialog, Window? owner, T fallback,
+        Func<T>? resultProvider = null)
     {
         var actualOwner = owner ?? GetMainWindow();
         if (actualOwner != null && actualOwner != dialog)
             return await dialog.ShowDialog<T>(actualOwner);
 
         var tcs = new TaskCompletionSource<T>();
-        dialog.Closed += (_, _) => tcs.TrySetResult(fallback);
+        dialog.Closed += (_, _) => tcs.TrySetResult(resultProvider != null ? resultProvider() : fallback);
         dialog.Show();
         return await tcs.Task;
     }

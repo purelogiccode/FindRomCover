@@ -290,15 +290,58 @@ public sealed class AiQueryHistory
         }.ToString();
 
         var connection = new SqliteConnection(connectionString);
-        connection.Open();
+        try
+        {
+            connection.Open();
+            CreateSchema(connection);
+            return connection;
+        }
+        catch (SqliteException ex)
+        {
+            // A non-SQLite or corrupt history file must not disable the feature
+            // forever: quarantine it and start a fresh database.
+            connection.Dispose();
+            LogService.WarningTransient(ex,
+                $"AI query history file '{_filePath}' is corrupt; quarantining it and recreating the database.");
+            QuarantineCorruptFile();
 
+            var recreated = new SqliteConnection(connectionString);
+            recreated.Open();
+            try
+            {
+                CreateSchema(recreated);
+            }
+            catch
+            {
+                recreated.Dispose();
+                throw;
+            }
+
+            return recreated;
+        }
+    }
+
+    private static void CreateSchema(SqliteConnection connection)
+    {
         using var command = connection.CreateCommand();
         command.CommandText =
             "CREATE TABLE IF NOT EXISTS QueryHistory (" +
             "TargetPath TEXT PRIMARY KEY COLLATE NOCASE, QueriedUtc TEXT NOT NULL, Outcome TEXT NOT NULL)";
         command.ExecuteNonQuery();
+    }
 
-        return connection;
+    private void QuarantineCorruptFile()
+    {
+        try
+        {
+            if (!File.Exists(_filePath)) return;
+
+            File.Move(_filePath, _filePath + ".corrupt", true);
+        }
+        catch (Exception ex)
+        {
+            LogService.WarningTransient(ex, $"Could not quarantine the corrupt AI query history file '{_filePath}'.");
+        }
     }
 
     private static string FormatTimestamp(DateTimeOffset value)

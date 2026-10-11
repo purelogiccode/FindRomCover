@@ -87,7 +87,7 @@ public class BugReportSinkTests : IDisposable
             var sink = new BugReportSink(new MessageTextTemplateFormatter());
             sink.Emit(CreateEvent(LogEventLevel.Information, marker));
 
-            await Task.Delay(300);
+            await WaitForForwardingToSettleAsync();
         });
 
         reports.Should().NotContain(report => report.ErrorMessage.Contains(marker, StringComparison.Ordinal));
@@ -105,7 +105,7 @@ public class BugReportSinkTests : IDisposable
             sink.Emit(CreateEvent(LogEventLevel.Warning, marker,
                 properties: [new LogEventProperty(LogService.TransientErrorPropertyName, new ScalarValue(true))]));
 
-            await Task.Delay(300);
+            await WaitForForwardingToSettleAsync();
         });
 
         reports.Should().NotContain(report => report.ErrorMessage.Contains(marker, StringComparison.Ordinal));
@@ -124,7 +124,7 @@ public class BugReportSinkTests : IDisposable
                 exception: new IOException("locked file"),
                 properties: [new LogEventProperty(LogService.WatcherErrorPropertyName, new ScalarValue(true))]));
 
-            await Task.Delay(300);
+            await WaitForForwardingToSettleAsync();
         });
 
         reports.Should().NotContain(report => report.ErrorMessage.Contains(marker, StringComparison.Ordinal));
@@ -182,5 +182,23 @@ public class BugReportSinkTests : IDisposable
             if (reports.Any(predicate)) return;
             await Task.Delay(25);
         }
+    }
+
+    /// <summary>
+    ///     Waits until the sink's fire-and-forget forwarding has actually started and
+    ///     completed, so "not forwarded" assertions are deterministic instead of relying
+    ///     on a fixed sleep.
+    /// </summary>
+    private static async Task WaitForForwardingToSettleAsync()
+    {
+        // Give the fire-and-forget LogAsync call a chance to start.
+        await Task.Delay(50);
+
+        var deadline = DateTime.UtcNow + WaitTimeout;
+        while (DateTime.UtcNow < deadline && ErrorLogger.PendingOperations > 0)
+            await Task.Delay(10);
+
+        // A second quiet period covers the gap between log-file write and API send.
+        await Task.Delay(50);
     }
 }

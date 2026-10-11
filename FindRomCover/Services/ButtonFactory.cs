@@ -56,23 +56,24 @@ public static class ButtonFactory
     {
         if (string.IsNullOrEmpty(imagePath)) return new ContextMenu();
 
-        if (existingMenu is { Items.Count: > 0 })
+        if (existingMenu is { Items.Count: > 0 } && existingMenu.Tag is ContextMenuState existingState)
         {
-            foreach (var item in existingMenu.Items)
-                if (item is MenuItem menuItem)
-                    menuItem.CommandParameter = imagePath;
-
+            // The menu is recycled with its list container: retarget the shared state so
+            // every action operates on the image that is actually displayed now.
+            existingState.ImagePath = imagePath;
             return existingMenu;
         }
 
         var contextMenu = existingMenu ?? new ContextMenu();
+        var state = new ContextMenuState { ImagePath = imagePath };
+        contextMenu.Tag = state;
 
         var useThisImageMenuItem = new MenuItem
         {
             Header = "Use This Image",
             Icon = CreateIcon("usethis.png")
         };
-        useThisImageMenuItem.Click += (_, _) => useImageAction(imagePath);
+        useThisImageMenuItem.Click += (_, _) => useImageAction(state.ImagePath);
         contextMenu.Items.Add(useThisImageMenuItem);
 
         var copyMenuItem = new MenuItem
@@ -80,7 +81,7 @@ public static class ButtonFactory
             Header = "Copy Image Filename",
             Icon = CreateIcon("copy.png")
         };
-        copyMenuItem.Click += (_, _) => CopyImageFilename(contextMenu, imagePath);
+        copyMenuItem.Click += (_, _) => CopyImageFilename(contextMenu, state.ImagePath);
         contextMenu.Items.Add(copyMenuItem);
 
         var openLocationMenuItem = new MenuItem
@@ -88,7 +89,7 @@ public static class ButtonFactory
             Header = "Open File Location",
             Icon = CreateIcon("folder.png")
         };
-        openLocationMenuItem.Click += (_, _) => OpenFileLocation(imagePath);
+        openLocationMenuItem.Click += (_, _) => OpenFileLocation(state.ImagePath);
         contextMenu.Items.Add(openLocationMenuItem);
 
         var openFileMenuItem = new MenuItem
@@ -96,10 +97,15 @@ public static class ButtonFactory
             Header = "Open File",
             Icon = CreateIcon("usethis.png")
         };
-        openFileMenuItem.Click += (_, _) => OpenFile(imagePath);
+        openFileMenuItem.Click += (_, _) => OpenFile(state.ImagePath);
         contextMenu.Items.Add(openFileMenuItem);
 
         return contextMenu;
+    }
+
+    private sealed class ContextMenuState
+    {
+        public string ImagePath { get; set; } = string.Empty;
     }
 
     private static Image CreateIcon(string fileName)

@@ -28,6 +28,11 @@ public sealed class TrayIconManager : IDisposable
     /// <summary>Creates the tray icon with its "Show" and "Exit" menu entries and click handling.</summary>
     public void Initialize()
     {
+        // Idempotent: a previous icon must be disposed before it is replaced, otherwise
+        // its native handle leaks and Clicked handlers accumulate.
+        _trayIcon?.Dispose();
+        _trayIcon = null;
+
         var showItem = new NativeMenuItem("Show FindRomCover");
         showItem.Click += (_, _) => RestoreRequested?.Invoke();
 

@@ -80,7 +80,7 @@ public static class ScreenshotService
 
         foreach (var folder in folders ?? GetCandidateFolders())
         {
-            var filePath = Path.Combine(folder, fileName);
+            var filePath = GetUniqueFilePath(folder, fileName);
 
             try
             {
@@ -98,5 +98,29 @@ public static class ScreenshotService
 
         LogService.Error("Screenshot: could not be saved to any candidate folder.");
         return null;
+    }
+
+    /// <summary>
+    ///     Builds a file path that does not collide with an existing file. Two captures
+    ///     within the same millisecond would otherwise silently overwrite each other.
+    /// </summary>
+    /// <param name="folder">The target folder.</param>
+    /// <param name="fileName">The preferred file name.</param>
+    /// <returns>A file path that does not exist yet, or the preferred name after 1000 attempts.</returns>
+    private static string GetUniqueFilePath(string folder, string fileName)
+    {
+        var filePath = Path.Combine(folder, fileName);
+        if (!File.Exists(filePath)) return filePath;
+
+        var name = Path.GetFileNameWithoutExtension(fileName);
+        var extension = Path.GetExtension(fileName);
+
+        for (var i = 1; i <= 1000; i++)
+        {
+            filePath = Path.Combine(folder, $"{name}_{i}{extension}");
+            if (!File.Exists(filePath)) return filePath;
+        }
+
+        return Path.Combine(folder, $"{name}_{Guid.NewGuid():N}{extension}");
     }
 }

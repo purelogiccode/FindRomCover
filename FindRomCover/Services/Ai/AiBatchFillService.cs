@@ -195,38 +195,49 @@ public sealed class AiBatchFillService
                 .ConfigureAwait(false);
 
             if (saved)
-            {
-                if (!await IsVerifiedAsync(item.RomName, item.SearchName, tempPath, cancellationToken)
-                        .ConfigureAwait(false))
+                try
                 {
-                    TryDelete(tempPath);
-                    _unregisterExpectedFile?.Invoke(targetPath);
-                    _queryHistory.MarkQueried(targetPath, "api-verification-rejected");
-                    return new AiBatchItemResult(item.RomName, item.SearchName, AiBatchOutcome.SkippedLowConfidence,
-                        "AI verification rejected the downloaded image.", targetPath);
-                }
+                    if (!await IsVerifiedAsync(item.RomName, item.SearchName, tempPath, cancellationToken)
+                            .ConfigureAwait(false))
+                    {
+                        TryDelete(tempPath);
+                        _unregisterExpectedFile?.Invoke(targetPath);
+                        _queryHistory.MarkQueried(targetPath, "api-verification-rejected");
+                        return new AiBatchItemResult(item.RomName, item.SearchName, AiBatchOutcome.SkippedLowConfidence,
+                            "AI verification rejected the downloaded image.", targetPath);
+                    }
 
-                if (File.Exists(targetPath))
-                {
-                    TryDelete(tempPath);
-                    _unregisterExpectedFile?.Invoke(targetPath);
-                    return new AiBatchItemResult(item.RomName, item.SearchName, AiBatchOutcome.SkippedAlreadyExists,
-                        "Cover already exists.", targetPath);
-                }
+                    if (File.Exists(targetPath))
+                    {
+                        TryDelete(tempPath);
+                        _unregisterExpectedFile?.Invoke(targetPath);
+                        return new AiBatchItemResult(item.RomName, item.SearchName, AiBatchOutcome.SkippedAlreadyExists,
+                            "Cover already exists.", targetPath);
+                    }
 
-                if (!await TryMoveIntoPlaceAsync(tempPath, targetPath).ConfigureAwait(false))
-                {
-                    TryDelete(tempPath);
-                    _unregisterExpectedFile?.Invoke(targetPath);
-                    return new AiBatchItemResult(item.RomName, item.SearchName, AiBatchOutcome.Failed,
-                        "The downloaded image could not be saved.", targetPath);
-                }
+                    // Refresh the expected-file registration: the download plus AI
+                    // verification can take longer than the watcher's 60 s window.
+                    _preRegisterExpectedFile?.Invoke(targetPath);
 
-                _queryHistory.Remove(targetPath);
-                if (apiPick != null)
+                    if (!await TryMoveIntoPlaceAsync(tempPath, targetPath, cancellationToken).ConfigureAwait(false))
+                    {
+                        TryDelete(tempPath);
+                        _unregisterExpectedFile?.Invoke(targetPath);
+                        return new AiBatchItemResult(item.RomName, item.SearchName, AiBatchOutcome.Failed,
+                            "The downloaded image could not be saved.", targetPath);
+                    }
+
+                    _queryHistory.Remove(targetPath);
                     return new AiBatchItemResult(item.RomName, item.SearchName, AiBatchOutcome.FilledFromApi,
-                        $"AI pick '{pickedApiImage.ImageName}' ({apiPick.Confidence:P0}).", targetPath);
-            }
+                        $"AI pick '{pickedApiImage.ImageName}' ({apiPick!.Confidence:P0}).", targetPath);
+                }
+                catch (OperationCanceledException)
+                {
+                    // Never leave a partial download or a stale pre-registration behind.
+                    TryDelete(tempPath);
+                    _unregisterExpectedFile?.Invoke(targetPath);
+                    throw;
+                }
 
             _unregisterExpectedFile?.Invoke(targetPath);
             return new AiBatchItemResult(item.RomName, item.SearchName, AiBatchOutcome.Failed,
@@ -262,7 +273,8 @@ public sealed class AiBatchFillService
         }
     }
 
-    private static async Task<bool> TryMoveIntoPlaceAsync(string tempPath, string targetPath)
+    private static async Task<bool> TryMoveIntoPlaceAsync(string tempPath, string targetPath,
+        CancellationToken cancellationToken)
     {
         const int maxAttempts = 5;
 
@@ -281,7 +293,7 @@ public sealed class AiBatchFillService
                     return false;
                 }
 
-                await Task.Delay(150 * attempt).ConfigureAwait(false);
+                await Task.Delay(150 * attempt, cancellationToken).ConfigureAwait(false);
             }
 
         return false;

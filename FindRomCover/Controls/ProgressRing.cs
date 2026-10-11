@@ -95,6 +95,17 @@ public class ProgressRing : Control
         }
     }
 
+    /// <summary>
+    ///     Stops the animation timer when the control is detached from the visual tree so
+    ///     an active ring does not stay rooted after its window is gone.
+    /// </summary>
+    /// <param name="e">The detach event arguments.</param>
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        _timer.Stop();
+        base.OnDetachedFromVisualTree(e);
+    }
+
     /// <summary>Draws the background track and the rotating arc of the progress ring.</summary>
     /// <param name="context">The drawing context to render the ring into.</param>
     public override void Render(DrawingContext context)

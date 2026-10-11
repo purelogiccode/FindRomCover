@@ -131,7 +131,12 @@ public static class ImageProcessor
             using var magickImage = new MagickImage(sourcePath, settings);
 
             if (magickImage.Width == 0 || magickImage.Height == 0)
-                throw new InvalidOperationException("Image has zero dimensions");
+                return new ImageSaveResult(false,
+                    "The image has zero width or height and cannot be processed.",
+                    "Image Processing Error",
+                    MessageIcon.Error,
+                    new InvalidOperationException("Image has zero dimensions"),
+                    $"Zero-dimension image: {sourcePath}");
 
             magickImage.AutoOrient();
             magickImage.Quality = 90;

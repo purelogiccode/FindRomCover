@@ -70,7 +70,7 @@ public class SimilarityCalculatorEdgeCaseTests
     public void CalculateLevenshteinSimilarityWithThresholdOfZeroShouldNotAffectResult()
     {
         var withoutThreshold = SimilarityCalculator.CalculateLevenshteinSimilarity("hello", "hallo");
-        var withZeroThreshold = SimilarityCalculator.CalculateLevenshteinSimilarity("hello", "hallo");
+        var withZeroThreshold = SimilarityCalculator.CalculateLevenshteinSimilarity("hello", "hallo", 0);
 
         withZeroThreshold.Should().Be(withoutThreshold);
     }
@@ -123,13 +123,13 @@ public class SimilarityCalculatorEdgeCaseTests
     [Fact]
     public void CalculateJaccardIndexShouldBeCaseInsensitive()
     {
-        // GetNgrams operates on the raw input, but CalculateJaccardIndex lowercases 'b'
-        // So to test case insensitivity, we need to lowercase the input to GetNgrams too
-        var setA = SimilarityCalculator.GetNgrams("hello", 2);
+        // Upper-case n-grams must score exactly like their lower-case equivalents.
+        var mixedCase = SimilarityCalculator.CalculateJaccardIndex(
+            SimilarityCalculator.GetNgrams("HELLO", 2), "hello", 2);
+        var lowerCase = SimilarityCalculator.CalculateJaccardIndex(
+            SimilarityCalculator.GetNgrams("hello", 2), "hello", 2);
 
-        var result = SimilarityCalculator.CalculateJaccardIndex(setA, "hello", 2);
-
-        result.Should().Be(100);
+        mixedCase.Should().Be(lowerCase);
     }
 
     [Fact]

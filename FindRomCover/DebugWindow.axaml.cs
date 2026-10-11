@@ -96,7 +96,21 @@ public partial class DebugWindow : Window
                 // ...clear our TextBox.
                 LogTextBox.Clear();
                 break;
+            // When the source collection trims old entries (LogService keeps the last
+            // 5000), the TextBox must drop them too or it would grow without bound.
+            case NotifyCollectionChangedAction.Remove:
+                RebuildLogText();
+                break;
         }
+    }
+
+    private void RebuildLogText()
+    {
+        var text = new StringBuilder();
+        foreach (var logEntry in _logMessages) text.AppendLine(logEntry.Message);
+
+        LogTextBox.Text = text.ToString();
+        ScrollLogToEnd();
     }
 
     private void ScrollLogToEnd()

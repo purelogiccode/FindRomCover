@@ -26,7 +26,7 @@ public static class UrlService
         {
             // Common on stripped-down systems with no default browser association
             // (Win32Exception 0x800401F5 "Application not found").
-            LogService.Warning(ex, $"Failed to open URL with the default browser: {url}");
+            LogService.WarningTransient(ex, $"Failed to open URL with the default browser: {url}");
         }
 
         try
@@ -39,7 +39,7 @@ public static class UrlService
         }
         catch (Exception ex)
         {
-            LogService.Warning(ex, $"Failed to open URL with explorer.exe fallback: {url}");
+            LogService.WarningTransient(ex, $"Failed to open URL with explorer.exe fallback: {url}");
             return false;
         }
     }

@@ -97,8 +97,14 @@ public static class LogService
 
     private static void AppendLogEntry(LogEntry logEntry)
     {
-        LogMessages.Add(logEntry);
-        while (LogMessages.Count > 5000) LogMessages.RemoveAt(0);
+        // Serilog observer callbacks can run on arbitrary threads (and concurrently
+        // when no UI dispatcher is installed), so the shared collection must be
+        // mutated under a lock.
+        lock (LogMessages)
+        {
+            LogMessages.Add(logEntry);
+            while (LogMessages.Count > 5000) LogMessages.RemoveAt(0);
+        }
     }
 
     /// <summary>

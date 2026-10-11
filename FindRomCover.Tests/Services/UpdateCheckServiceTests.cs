@@ -8,12 +8,21 @@ using Xunit;
 
 namespace FindRomCover.Tests.Services;
 
-public class UpdateCheckServiceTests
+public class UpdateCheckServiceTests : IDisposable
 {
+    private readonly Version? _originalVersionOverride;
+
     public UpdateCheckServiceTests()
     {
         // Pin the "current version" so the tests do not depend on the test host assembly.
+        _originalVersionOverride = UpdateCheckService.CurrentVersionOverride;
         UpdateCheckService.CurrentVersionOverride = new Version(3, 2, 2);
+    }
+
+    public void Dispose()
+    {
+        UpdateCheckService.CurrentVersionOverride = _originalVersionOverride;
+        GC.SuppressFinalize(this);
     }
 
     [Theory]

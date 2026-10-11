@@ -25,6 +25,7 @@ public partial class AiBatchWindow : Window
     private readonly SettingsManager _settings;
     private CancellationTokenSource? _cts;
     private bool _running;
+    private bool _closeRequested;
 
     /// <summary>
     ///     Initializes a new instance of the <see cref="AiBatchWindow"/> class.
@@ -136,6 +137,9 @@ public partial class AiBatchWindow : Window
                 BtnStart.IsEnabled = true;
                 BtnClose.IsEnabled = true;
                 BtnCancel.IsEnabled = false;
+
+                // Honor a close request that arrived while the batch was running.
+                if (_closeRequested) Close();
             }
         }
         catch (Exception ex)
@@ -197,6 +201,7 @@ public partial class AiBatchWindow : Window
         // while a cover is still being written.
         if (!_running) return;
 
+        _closeRequested = true;
         e.Cancel = true;
         _cts?.Cancel();
         BtnClose.IsEnabled = false;

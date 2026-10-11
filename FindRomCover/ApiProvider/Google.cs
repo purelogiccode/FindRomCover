@@ -61,20 +61,23 @@ public static class Google
     internal static List<ImageData> MapToImageData(GoogleSearchResult? searchResults)
     {
         if (searchResults?.Items != null)
-            return searchResults.Items.ConvertAll(static item => new ImageData
-            {
-                ImagePath = item.Link,
-                ThumbnailUrl = item.Image?.ThumbnailLink,
-                ImageName = FormatImageName(item.Title),
-                ImageFileSize = item.Image is { ByteSize: > 0 }
-                    ? Math.Round(item.Image.ByteSize / 1024.0, 2) + " KB"
-                    : "Unknown",
-                ImageEncodingFormat = item.Mime,
-                ImageWidth = item.Image is { Width: > 0 } ? item.Image.Width : 1,
-                ImageHeight = item.Image is { Height: > 0 } ? item.Image.Height : 1,
-                ThumbnailWidth = 0,
-                ThumbnailHeight = 0
-            });
+            return searchResults.Items
+                .Where(static item => !string.IsNullOrWhiteSpace(item.Link))
+                .Select(static item => new ImageData
+                {
+                    ImagePath = item.Link,
+                    ThumbnailUrl = item.Image?.ThumbnailLink,
+                    ImageName = FormatImageName(item.Title),
+                    ImageFileSize = item.Image is { ByteSize: > 0 }
+                        ? Math.Round(item.Image.ByteSize / 1024.0, 2).ToString(CultureInfo.InvariantCulture) + " KB"
+                        : "Unknown",
+                    ImageEncodingFormat = item.Mime,
+                    ImageWidth = item.Image is { Width: > 0 } ? item.Image.Width : 1,
+                    ImageHeight = item.Image is { Height: > 0 } ? item.Image.Height : 1,
+                    ThumbnailWidth = 0,
+                    ThumbnailHeight = 0
+                })
+                .ToList();
 
         return new List<ImageData>();
     }
@@ -234,10 +237,8 @@ public static class Google
         var keyEnd = url.IndexOf('&', keyStart);
         if (keyEnd < 0) keyEnd = url.Length;
 
-        var keyLength = keyEnd - keyStart;
-        if (keyLength <= 4) return url[..keyStart] + "****" + url[keyEnd..];
-
-        return url[..keyStart] + url[keyStart..(keyStart + 2)] + "****" + url[(keyEnd - 2)..keyEnd] + url[keyEnd..];
+        // Never emit any characters of the API key into logs, not even partial ones.
+        return url[..keyStart] + "****" + url[keyEnd..];
     }
 
     /// <summary>
@@ -256,7 +257,7 @@ public static class Google
                 var fileName = Path.GetFileNameWithoutExtension(uri.LocalPath);
                 if (!string.IsNullOrEmpty(fileName))
                 {
-                    var textInfo = CultureInfo.CurrentCulture.TextInfo;
+                    var textInfo = CultureInfo.InvariantCulture.TextInfo;
                     return textInfo.ToTitleCase(fileName.ToLower(CultureInfo.InvariantCulture)
                         .Replace("-", " ")
                         .Replace("_", " "));
@@ -268,7 +269,7 @@ public static class Google
                 LogService.Debug($"Could not derive image name from URL '{input}': {ex.Message}");
             }
 
-        var textInfoTitle = CultureInfo.CurrentCulture.TextInfo;
+        var textInfoTitle = CultureInfo.InvariantCulture.TextInfo;
         return textInfoTitle.ToTitleCase(input.ToLower(CultureInfo.InvariantCulture)
             .Replace("-", " ")
             .Replace("_", " "));

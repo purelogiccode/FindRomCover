@@ -60,12 +60,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         Settings = settingsManager;
         InitializeComponent();
-        DataContext = this;
 
         CheckForMissingImagesCommand = new DelegateCommand(
             _ => ExecuteCheckForMissingImagesCommand(),
             _ => BtnCheckForMissingImages?.IsEnabled ?? false);
         ExitCommand = new DelegateCommand(_ => Close());
+
+        // DataContext must be assigned after the commands exist: the F5/Escape key
+        // bindings in MainWindow.axaml resolve CheckForMissingImagesCommand/ExitCommand
+        // once, when the DataContext is attached.
+        DataContext = this;
 
         if (!string.IsNullOrEmpty(startupImageFolder)) TxtImageFolder.Text = startupImageFolder;
 
@@ -310,6 +314,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         _findSimilarCts?.Cancel();
         _loadMissingCts?.Cancel();
         _aiAssistCts?.Cancel();
+        _webSearchCts?.Cancel();
 
         // NOTE: never block the UI thread on the search/scan tasks here — they post
         // continuations back to this dispatcher. Cancellation is requested above and
@@ -321,10 +326,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         _loadMissingCts = null;
         _aiAssistCts?.Dispose();
         _aiAssistCts = null;
+        _webSearchCts?.Dispose();
+        _webSearchCts = null;
         _aiAssistService?.Dispose();
         _aiAssistService = null;
 
-        _findSimilarSemaphore.Dispose();
+        // The semaphore is intentionally not disposed: cancelled background tasks may
+        // still release it while settling, and SemaphoreSlim does not own OS handles
+        // unless AvailableWaitHandle is used.
         _imageFolderWatcher?.Dispose();
         _systemTrayIcon?.Dispose();
 
@@ -834,6 +843,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private void OnWindowClosing(object? sender, WindowClosingEventArgs e)
     {
+        PersistWindowSettings();
+
         if (_isExiting)
         {
             // Allow close when explicitly exiting
@@ -861,6 +872,26 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         // X button or Alt+F4: cancel the raw close and use the explicit shutdown path
         e.Cancel = true;
         ExitApplication();
+    }
+
+    /// <summary>
+    ///     Saves window-derived settings (last image folder) when the window closes, so a
+    ///     manually typed folder is persisted like a browsed one.
+    /// </summary>
+    private void PersistWindowSettings()
+    {
+        try
+        {
+            var imageFolder = TxtImageFolder.Text?.Trim();
+            if (!string.IsNullOrEmpty(imageFolder) && Directory.Exists(imageFolder))
+                Settings.LastImageFolder = imageFolder;
+
+            Settings.SaveSettings();
+        }
+        catch (Exception ex)
+        {
+            LogService.WarningTransient(ex, "Could not persist window settings on close.");
+        }
     }
 
     private void Exit_Click(object? sender, RoutedEventArgs e)
@@ -1487,6 +1518,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             _aiAssistCts?.Cancel();
             _aiAssistCts?.Dispose();
             _aiAssistCts = null;
+            IsSearching = false;
 
             if (LstMissingImages.SelectedItem is not MissingImageItem selectedItem)
             {
@@ -1739,6 +1771,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             LstMissingImages.IsEnabled = romPathValid && imagePathValid;
             if (!romPathValid || !imagePathValid)
             {
+                // Invalidate any running scan/search for the previous (now invalid)
+                // paths so stale results cannot repopulate the cleared lists.
+                _loadMissingCts?.Cancel();
+                _findSimilarCts?.Cancel();
+                _webSearchCts?.Cancel();
+
                 MissingImages.Clear();
                 SimilarImages.Clear();
                 UpdateMissingCount();

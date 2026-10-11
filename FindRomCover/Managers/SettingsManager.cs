@@ -16,7 +16,7 @@ namespace FindRomCover.Managers;
 public class SettingsManager : INotifyPropertyChanged
 {
     /// <summary>
-    ///     Set by the GUI head to display settings-save failures (title, message).
+    ///     Set by the GUI head to display settings-save failures (message, title).
     ///     When null, failures are only logged through <see cref="ErrorLogger" />.
     /// </summary>
     public static Action<string, string>? ErrorReporter { get; set; }
@@ -27,6 +27,12 @@ public class SettingsManager : INotifyPropertyChanged
     private static readonly string DefaultSettingsDirectory = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FindRomCover");
 
+    /// <summary>
+    ///     Overrides the default settings directory. Used by tests so they never touch the
+    ///     real user profile.
+    /// </summary>
+    internal static string? DefaultSettingsDirectoryOverride { get; set; }
+
     private static readonly string LegacyAppDirSettingsFilePath =
         Path.Combine(AppDomain.CurrentDomain.BaseDirectory, AppConstants.SettingsFileName);
 
@@ -35,7 +41,8 @@ public class SettingsManager : INotifyPropertyChanged
     private readonly string? _settingsDirectory;
 
     private string SettingsDatabasePath =>
-        Path.Combine(_settingsDirectory ?? DefaultSettingsDirectory, AppConstants.SettingsDatabaseFileName);
+        Path.Combine(_settingsDirectory ?? DefaultSettingsDirectoryOverride ?? DefaultSettingsDirectory,
+            AppConstants.SettingsDatabaseFileName);
 
     private static readonly byte[] SqliteHeader = "SQLite format 3\0"u8.ToArray();
 
@@ -148,12 +155,6 @@ public class SettingsManager : INotifyPropertyChanged
 
         lock (InstanceLock)
         {
-            if (_currentInstance != null)
-            {
-                LoadSettings();
-                return;
-            }
-
             _currentInstance = this;
         }
 
@@ -170,14 +171,6 @@ public class SettingsManager : INotifyPropertyChanged
             lock (InstanceLock)
             {
                 return _currentInstance;
-            }
-        }
-        // ReSharper disable once UnusedMember.Local
-        private set
-        {
-            lock (InstanceLock)
-            {
-                _currentInstance = value;
             }
         }
     }
@@ -347,6 +340,10 @@ public class SettingsManager : INotifyPropertyChanged
         get => Math.Max(_imageWidth, _imageHeight);
         set
         {
+            // Guard the round trip: assigning the current value must not silently
+            // normalize a non-square configuration.
+            if (value == Math.Max(_imageWidth, _imageHeight)) return;
+
             ImageWidth = value;
             ImageHeight = value;
         }
@@ -988,7 +985,7 @@ public class SettingsManager : INotifyPropertyChanged
         GoogleKey = data.GoogleKey;
         UseMameDescriptions = data.UseMameDescriptions;
         LastImageFolder = data.LastImageFolder;
-        SupportedExtensions = data.SupportedExtensions.Count > 0
+        SupportedExtensions = data.SupportedExtensions is { Count: > 0 }
             ? data.SupportedExtensions
             : GetDefaultExtensions();
         AiAssistEnabled = data.AiAssistEnabled;
@@ -1098,7 +1095,14 @@ public class SettingsManager : INotifyPropertyChanged
         return string.IsNullOrEmpty(decrypted) ? fallback : decrypted;
     }
 
-    private static string ProtectSecret(string secret)
+    /// <summary>
+    ///     Encrypts a secret for storage. Returns <see langword="null" /> when encryption
+    ///     fails so callers can skip persisting the key instead of overwriting the stored
+    ///     value with an empty string.
+    /// </summary>
+    /// <param name="secret">The plain-text secret; empty secrets return an empty string.</param>
+    /// <returns>The protected secret, an empty string for an empty secret, or null on failure.</returns>
+    private static string? ProtectSecretOrNull(string secret)
     {
         if (string.IsNullOrEmpty(secret)) return string.Empty;
 
@@ -1108,8 +1112,8 @@ public class SettingsManager : INotifyPropertyChanged
         }
         catch (Exception ex)
         {
-            LogService.Warning(ex, "Could not encrypt a settings secret.");
-            return string.Empty;
+            LogService.WarningTransient(ex, "Could not encrypt a settings secret; keeping the stored value.");
+            return null;
         }
     }
 
@@ -1170,7 +1174,7 @@ public class SettingsManager : INotifyPropertyChanged
                     ? parsedThreshold
                     : double.Parse(AppConstants.Messages.DefaultSimilarityThreshold, CultureInfo.InvariantCulture),
                 SimilarityAlgorithm = AppConstants.Algorithms.JaroWinkler,
-                BaseTheme = root.Element("BaseTheme")?.Value ?? "Light",
+                BaseTheme = root.Element("BaseTheme")?.Value ?? AppConstants.Themes.Dark,
                 AccentColor = root.Element("AccentColor")?.Value ?? "Blue",
                 ImageWidth = int.TryParse(root.Element("ThumbnailSize")?.Value, CultureInfo.InvariantCulture, out var w)
                     ? w
@@ -1200,7 +1204,16 @@ public class SettingsManager : INotifyPropertyChanged
             // Apply the migrated data and save it in the SQLite settings database
             SetDefaultSettings();
             ApplyData(legacyData);
-            SaveSettingsInternal();
+
+            if (!SaveSettingsInternal())
+            {
+                // Keep the legacy file so the migration is retried on the next start
+                // instead of losing all settings when the save failed (disk full,
+                // permissions, ...).
+                LogService.Warning(
+                    "Could not persist migrated settings; keeping the legacy settings.xml file for a retry.");
+                return false;
+            }
 
             // Rename old file so we don't migrate again
             try
@@ -1213,7 +1226,7 @@ public class SettingsManager : INotifyPropertyChanged
                 LogService.Debug($"Could not rename migrated legacy settings file '{legacyPath}': {ex.Message}");
             }
 
-            LogService.Information("Successfully migrated settings from settings.xml to settings.dat");
+            LogService.Information("Successfully migrated settings from settings.xml to Settings.dat");
             return true;
         }
         catch (Exception ex)
@@ -1328,16 +1341,13 @@ public class SettingsManager : INotifyPropertyChanged
                 ImageLoaderRetryDelayMilliseconds.ToString(CultureInfo.InvariantCulture),
             [nameof(ApiTimeoutSeconds)] = ApiTimeoutSeconds.ToString(CultureInfo.InvariantCulture),
             [nameof(SearchEngine)] = SearchEngine,
-            [nameof(BugReportApiKey)] = ProtectSecret(BugReportApiKey),
             [nameof(BugReportApiUrl)] = BugReportApiUrl,
-            [nameof(GoogleKey)] = ProtectSecret(GoogleKey),
             [nameof(UseMameDescriptions)] = UseMameDescriptions.ToString(CultureInfo.InvariantCulture),
             [nameof(LastImageFolder)] = LastImageFolder,
             [nameof(SupportedExtensions)] = JsonSerializer.Serialize(SupportedExtensions),
             [nameof(AiAssistEnabled)] = AiAssistEnabled.ToString(CultureInfo.InvariantCulture),
             [nameof(AiProvider)] = AiProvider,
             [nameof(AiBaseUrl)] = AiBaseUrl,
-            [nameof(AiApiKey)] = ProtectSecret(AiApiKey),
             [nameof(AiModel)] = AiModel,
             [nameof(AiTimeoutSeconds)] = AiTimeoutSeconds.ToString(CultureInfo.InvariantCulture),
             [nameof(AiMaxCandidates)] = AiMaxCandidates.ToString(CultureInfo.InvariantCulture),
@@ -1351,6 +1361,12 @@ public class SettingsManager : INotifyPropertyChanged
             [nameof(AiSkipPreviouslyQueried)] = AiSkipPreviouslyQueried.ToString(CultureInfo.InvariantCulture)
         };
 
+        // Secret values are only written when encryption succeeds, so a transient
+        // crypto failure cannot overwrite the stored ciphertext with an empty value.
+        AddProtectedSecret(values, nameof(BugReportApiKey), BugReportApiKey);
+        AddProtectedSecret(values, nameof(GoogleKey), GoogleKey);
+        AddProtectedSecret(values, nameof(AiApiKey), AiApiKey);
+
         if (!new SettingsDatabase(SettingsDatabasePath).SaveAll(values))
         {
             ShowSaveError("Could not save settings to the settings database. Your settings changes may be lost.");
@@ -1358,6 +1374,12 @@ public class SettingsManager : INotifyPropertyChanged
         }
 
         return true;
+    }
+
+    private static void AddProtectedSecret(Dictionary<string, string> values, string key, string secret)
+    {
+        var protectedSecret = ProtectSecretOrNull(secret);
+        if (protectedSecret != null) values[key] = protectedSecret;
     }
 
     private static void ShowSaveError(string message)

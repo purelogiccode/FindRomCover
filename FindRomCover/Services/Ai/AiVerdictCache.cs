@@ -18,7 +18,8 @@ public sealed class AiVerdictCache
     private Dictionary<string, CacheEntry>? _entries;
 
     private static readonly Lock SharedLock = new();
-    private static readonly Dictionary<string, AiVerdictCache> SharedInstances = new(StringComparer.Ordinal);
+    private static readonly Dictionary<string, AiVerdictCache> SharedInstances =
+        new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     ///     Initializes a new instance of the <see cref="AiVerdictCache"/> class.
@@ -39,6 +40,16 @@ public sealed class AiVerdictCache
     public static AiVerdictCache GetShared(string? filePath = null, TimeSpan? ttl = null)
     {
         var path = string.IsNullOrWhiteSpace(filePath) ? DefaultFilePath : filePath;
+        try
+        {
+            // Normalize so two spellings of the same file share one instance/lock.
+            path = Path.GetFullPath(path);
+        }
+        catch (Exception ex)
+        {
+            LogService.Debug($"Could not normalize AI verdict cache path '{path}': {ex.Message}");
+        }
+
         lock (SharedLock)
         {
             if (!SharedInstances.TryGetValue(path, out var cache))
@@ -137,7 +148,7 @@ public sealed class AiVerdictCache
         }
         catch (Exception ex)
         {
-            LogService.Warning(ex, "AI verdict cache could not be read; starting with an empty cache.");
+            LogService.WarningTransient(ex, "AI verdict cache could not be read; starting with an empty cache.");
             return new Dictionary<string, CacheEntry>(StringComparer.Ordinal);
         }
     }
@@ -166,11 +177,31 @@ public sealed class AiVerdictCache
             if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
                 Directory.CreateDirectory(directory);
 
-            File.WriteAllText(_filePath, JsonSerializer.Serialize(entries, JsonOptions));
+            // Write to a temp file and replace: a crash mid-write must never leave a
+            // truncated cache file that the next start would silently discard.
+            var tempPath = _filePath + ".tmp" + Guid.NewGuid().ToString("N")[..8];
+            try
+            {
+                File.WriteAllText(tempPath, JsonSerializer.Serialize(entries, JsonOptions));
+                File.Move(tempPath, _filePath, true);
+            }
+            catch
+            {
+                try
+                {
+                    if (File.Exists(tempPath)) File.Delete(tempPath);
+                }
+                catch
+                {
+                    /* best effort */
+                }
+
+                throw;
+            }
         }
         catch (Exception ex)
         {
-            LogService.Warning(ex, "AI verdict cache could not be saved.");
+            LogService.WarningTransient(ex, "AI verdict cache could not be saved.");
         }
     }
 

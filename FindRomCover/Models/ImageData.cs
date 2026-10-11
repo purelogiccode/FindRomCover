@@ -32,7 +32,7 @@ public class ImageData : INotifyPropertyChanged
     public ImageData(string? imagePath, string? imageName, double similarityScore)
     {
         ImagePath = imagePath;
-        ImageName = imageName;
+        ImageName = string.IsNullOrWhiteSpace(imageName) ? "Unknown Filename" : imageName;
         SimilarityScore = similarityScore;
     }
 
@@ -88,7 +88,7 @@ public class ImageData : INotifyPropertyChanged
         }
     }
 
-    /// <summary>Image width in pixels.</summary>
+    /// <summary>Image width in pixels; 0 only until a positive value is assigned.</summary>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when the assigned value is not positive.</exception>
     public int ImageWidth
     {
@@ -98,11 +98,14 @@ public class ImageData : INotifyPropertyChanged
             if (value <= 0)
                 throw new ArgumentOutOfRangeException(nameof(value), "Image width must be positive.");
 
+            if (_imageWidth == value) return;
+
             _imageWidth = value;
+            OnPropertyChanged();
         }
     }
 
-    /// <summary>Image height in pixels.</summary>
+    /// <summary>Image height in pixels; 0 only until a positive value is assigned.</summary>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when the assigned value is not positive.</exception>
     public int ImageHeight
     {
@@ -112,7 +115,10 @@ public class ImageData : INotifyPropertyChanged
             if (value <= 0)
                 throw new ArgumentOutOfRangeException(nameof(value), "Image height must be positive.");
 
+            if (_imageHeight == value) return;
+
             _imageHeight = value;
+            OnPropertyChanged();
         }
     }
 

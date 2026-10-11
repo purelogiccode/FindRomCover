@@ -67,7 +67,7 @@ public sealed class SettingsDatabase
             }
             catch (Exception ex)
             {
-                LogService.Warning(ex, "Settings database could not be read.");
+                LogService.WarningTransient(ex, "Settings database could not be read.");
                 values = new Dictionary<string, string>(StringComparer.Ordinal);
                 return false;
             }
@@ -113,7 +113,7 @@ public sealed class SettingsDatabase
             }
             catch (Exception ex)
             {
-                LogService.Warning(ex, "Settings database could not be saved.");
+                LogService.WarningTransient(ex, "Settings database could not be saved.");
                 return false;
             }
         }
@@ -133,12 +133,22 @@ public sealed class SettingsDatabase
         }.ToString();
 
         var connection = new SqliteConnection(connectionString);
-        connection.Open();
+        try
+        {
+            connection.Open();
 
-        using var command = connection.CreateCommand();
-        command.CommandText = "CREATE TABLE IF NOT EXISTS Settings (Key TEXT PRIMARY KEY, Value TEXT NOT NULL)";
-        command.ExecuteNonQuery();
+            using var command = connection.CreateCommand();
+            command.CommandText = "CREATE TABLE IF NOT EXISTS Settings (Key TEXT PRIMARY KEY, Value TEXT NOT NULL)";
+            command.ExecuteNonQuery();
 
-        return connection;
+            return connection;
+        }
+        catch
+        {
+            // Never leak the connection when schema creation fails on a read-only or
+            // corrupt database file.
+            connection.Dispose();
+            throw;
+        }
     }
 }

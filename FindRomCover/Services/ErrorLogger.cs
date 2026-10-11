@@ -53,6 +53,13 @@ public static class ErrorLogger
     /// </summary>
     internal static Func<BugReportModel, int, Task<bool>>? SendToApiOverride;
 
+    private static int _pendingOperations;
+
+    /// <summary>
+    ///     Number of <see cref="LogAsync" /> operations currently in flight. Exposed for tests.
+    /// </summary>
+    internal static int PendingOperations => Volatile.Read(ref _pendingOperations);
+
     /// <summary>
     ///     Marks the logger as disposed. Subsequent <see cref="LogAsync" /> calls return
     ///     immediately. Idempotent.
@@ -78,53 +85,28 @@ public static class ErrorLogger
     {
         if (IsDisposed) return;
 
-        apiTimeoutSeconds = ResolveApiTimeoutSeconds(apiTimeoutSeconds);
-
-        var bugReport = BugReportModel.FromException(ex, contextMessage);
-        var currentErrorMessage = bugReport.ToString();
-
-        // Append to the log files first, while holding the lock only for the local
-        // writes. The network send runs OUTSIDE the lock so that a burst of errors
-        // does not serialize behind a slow (up to 30 s) API call.
+        Interlocked.Increment(ref _pendingOperations);
         try
         {
-            AppDataPaths.EnsureBaseDirectory();
+            apiTimeoutSeconds = ResolveApiTimeoutSeconds(apiTimeoutSeconds);
 
-            await LogFileLock.WaitAsync();
+            var bugReport = BugReportModel.FromException(ex, contextMessage);
+            var currentErrorMessage = bugReport.ToString();
+
+            // Append to the log files first, while holding the lock only for the local
+            // writes. The network send runs OUTSIDE the lock so that a burst of errors
+            // does not serialize behind a slow (up to 30 s) API call.
             try
             {
-                if (IsDisposed) return;
+                AppDataPaths.EnsureBaseDirectory();
 
-                await File.AppendAllTextAsync(UserLogFilePath, currentErrorMessage);
-                await File.AppendAllTextAsync(ApiLogFilePath, currentErrorMessage);
-            }
-            finally
-            {
-                LogFileLock.Release();
-            }
-        }
-        catch (Exception loggingEx)
-        {
-            _ = WriteInternalLogAsync("Failed to write log files.", loggingEx);
-        }
-
-        var sendSuccess = false;
-        try
-        {
-            sendSuccess = await SendLogToApiAsync(bugReport, apiTimeoutSeconds);
-        }
-        catch (Exception loggingEx)
-        {
-            _ = WriteInternalLogAsync("Failed to send log to API.", loggingEx);
-        }
-
-        if (sendSuccess)
-            try
-            {
                 await LogFileLock.WaitAsync();
                 try
                 {
-                    if (File.Exists(ApiLogFilePath)) await File.WriteAllTextAsync(ApiLogFilePath, string.Empty);
+                    if (IsDisposed) return;
+
+                    await File.AppendAllTextAsync(UserLogFilePath, currentErrorMessage);
+                    await File.AppendAllTextAsync(ApiLogFilePath, currentErrorMessage);
                 }
                 finally
                 {
@@ -133,8 +115,59 @@ public static class ErrorLogger
             }
             catch (Exception loggingEx)
             {
-                _ = WriteInternalLogAsync("Failed to clear API log file.", loggingEx);
+                _ = WriteInternalLogAsync("Failed to write log files.", loggingEx);
             }
+
+            var sendSuccess = false;
+            try
+            {
+                sendSuccess = await SendLogToApiAsync(bugReport, apiTimeoutSeconds);
+            }
+            catch (Exception loggingEx)
+            {
+                _ = WriteInternalLogAsync("Failed to send log to API.", loggingEx);
+            }
+
+            if (sendSuccess)
+                try
+                {
+                    await ClearSentReportAsync(currentErrorMessage);
+                }
+                catch (Exception loggingEx)
+                {
+                    _ = WriteInternalLogAsync("Failed to clear the sent report from the API log file.", loggingEx);
+                }
+        }
+        finally
+        {
+            Interlocked.Decrement(ref _pendingOperations);
+        }
+    }
+
+    /// <summary>
+    ///     Removes only the report that was successfully sent from the pending API log
+    ///     file, preserving reports appended by concurrent or earlier failed sends.
+    /// </summary>
+    /// <param name="sentReport">The exact report text that the API accepted.</param>
+    private static async Task ClearSentReportAsync(string sentReport)
+    {
+        if (string.IsNullOrEmpty(sentReport)) return;
+
+        await LogFileLock.WaitAsync();
+        try
+        {
+            if (!File.Exists(ApiLogFilePath)) return;
+
+            var content = await File.ReadAllTextAsync(ApiLogFilePath);
+            var index = content.IndexOf(sentReport, StringComparison.Ordinal);
+            if (index < 0) return;
+
+            await File.WriteAllTextAsync(ApiLogFilePath, content.Remove(index, sentReport.Length));
+        }
+        finally
+        {
+            LogFileLock.Release();
+        }
     }
 
     private static int ResolveApiTimeoutSeconds(int apiTimeoutSeconds)

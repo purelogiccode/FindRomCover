@@ -135,6 +135,27 @@ public class ScreenshotServiceTests : IDisposable
     }
 
     [Fact]
+    public void SaveScreenshotShouldNotOverwriteAnExistingFile()
+    {
+        var timestamp = new DateTime(2026, 1, 2, 3, 4, 5, 678, DateTimeKind.Local);
+        var folder = Path.Combine(_testRoot, "collisions");
+        Directory.CreateDirectory(folder);
+
+        var expectedName = $"Screenshot_{timestamp.ToString("yyyyMMdd_HHmmss_fff", CultureInfo.InvariantCulture)}.png";
+        var existingPath = Path.Combine(folder, expectedName);
+        File.WriteAllText(existingPath, "existing");
+
+        var path = ScreenshotService.SaveScreenshot(p => File.WriteAllBytes(p, [9]), timestamp, [folder]);
+
+        path.Should().NotBeNull();
+        path.Should().NotBe(existingPath);
+        Path.GetFileName(path).Should().Be(
+            $"Screenshot_{timestamp.ToString("yyyyMMdd_HHmmss_fff", CultureInfo.InvariantCulture)}_1.png");
+        File.ReadAllText(existingPath).Should().Be("existing");
+        _createdPaths.Add(path!);
+    }
+
+    [Fact]
     public void SaveScreenshotShouldThrowForNullWriter()
     {
         var act = () => ScreenshotService.SaveScreenshot(null!, DateTime.Now, [_testRoot]);

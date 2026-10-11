@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using FindRomCover.Interfaces;
@@ -16,6 +17,7 @@ public sealed class AiAssistService : IDisposable
 
     private readonly SettingsManager _settings;
     private readonly IVisionModelClient? _client;
+    private readonly bool _ownsClient;
     private readonly AiVerdictCache _cache;
     private readonly HttpClient _imageHttpClient;
     private readonly SemaphoreSlim _requestLock = new(1, 1);
@@ -25,7 +27,7 @@ public sealed class AiAssistService : IDisposable
     ///     Initializes a new instance of the <see cref="AiAssistService"/> class.
     /// </summary>
     /// <param name="settings">The settings manager providing the AI options.</param>
-    /// <param name="client">An optional pre-built vision model client; when <see langword="null"/>, one is created per request.</param>
+    /// <param name="client">An optional pre-built vision model client; when <see langword="null"/>, one is created per request and owned by this service.</param>
     /// <param name="cache">The verdict cache to use; defaults to the shared instance.</param>
     /// <param name="imageHttpClient">The HTTP client used for image downloads; defaults to the shared helper client.</param>
     public AiAssistService(
@@ -36,6 +38,7 @@ public sealed class AiAssistService : IDisposable
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _client = client;
+        _ownsClient = client == null;
         _cache = cache ?? AiVerdictCache.GetShared();
         _imageHttpClient = imageHttpClient ?? HttpClientHelper.Client;
     }
@@ -205,15 +208,16 @@ public sealed class AiAssistService : IDisposable
     }
 
     /// <summary>
-    ///     Releases the request lock and disposes the owned vision model client.
+    ///     Disposes the vision model client when this service created it. The request
+    ///     semaphore is intentionally left undisposed because in-flight requests may
+    ///     still release it while the owner shuts down.
     /// </summary>
     public void Dispose()
     {
         if (_disposed) return;
 
         _disposed = true;
-        _requestLock.Dispose();
-        _client?.Dispose();
+        if (_ownsClient) _client?.Dispose();
     }
 
     /// <summary>
@@ -288,6 +292,7 @@ public sealed class AiAssistService : IDisposable
                 : candidates[i].ImagePath;
 
             PreparedVisionImage? prepared = null;
+            var usedUrl = preferredUrl;
             foreach (var url in new[] { preferredUrl, fallbackUrl })
             {
                 if (string.IsNullOrWhiteSpace(url)) continue;
@@ -296,7 +301,11 @@ public sealed class AiAssistService : IDisposable
                 {
                     prepared = await TryDownloadPreparedImageAsync(httpClient, url, maxDimension, cancellationToken)
                         .ConfigureAwait(false);
-                    if (prepared != null) break;
+                    if (prepared != null)
+                    {
+                        usedUrl = url;
+                        break;
+                    }
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {
@@ -311,7 +320,7 @@ public sealed class AiAssistService : IDisposable
             if (prepared == null) continue;
 
             var name = string.IsNullOrWhiteSpace(candidates[i].ImageName)
-                ? Path.GetFileNameWithoutExtension(preferredUrl) ?? preferredUrl ?? "image"
+                ? Path.GetFileNameWithoutExtension(usedUrl) ?? usedUrl ?? "image"
                 : candidates[i].ImageName!;
 
             inputs.Add(new VisionImageInput(name, prepared, i));
@@ -340,7 +349,23 @@ public sealed class AiAssistService : IDisposable
             return null;
         }
 
-        var bytes = await response.Content.ReadAsByteArrayAsync(timeoutCts.Token).ConfigureAwait(false);
+        var contentLength = response.Content.Headers.ContentLength;
+        if (contentLength is > ImageSaveService.MaxDownloadBytes)
+        {
+            LogService.Debug($"AI assist: image download exceeded the size limit for '{url}'.");
+            return null;
+        }
+
+        await using var stream = await response.Content.ReadAsStreamAsync(timeoutCts.Token).ConfigureAwait(false);
+        var bytes = await ImageSaveService
+            .ReadAllBytesBoundedAsync(stream, ImageSaveService.MaxDownloadBytes, timeoutCts.Token)
+            .ConfigureAwait(false);
+        if (bytes == null)
+        {
+            LogService.Debug($"AI assist: image download exceeded the size limit for '{url}'.");
+            return null;
+        }
+
         return VisionImagePreparer.Prepare(bytes, maxDimension);
     }
 
@@ -416,18 +441,31 @@ public sealed class AiAssistService : IDisposable
         string searchName,
         IReadOnlyList<VisionImageInput> inputs)
     {
-        var raw = string.Join(
-            '|',
-            AppConstants.AiProviders.PromptVersion,
-            kind,
-            options.Provider,
-            options.Model,
-            romName,
-            searchName,
-            string.Join(',', inputs.Select(static i => i.Image.Hash)),
-            string.Join(',', inputs.Select(static i => i.SourceIndex)));
+        // Length-prefix every free-form part so values containing the delimiter cannot
+        // collide with a different (romName, searchName) pair.
+        var builder = new StringBuilder();
+        AppendKeyPart(builder, AppConstants.AiProviders.PromptVersion);
+        AppendKeyPart(builder, kind);
+        AppendKeyPart(builder, options.Provider);
+        AppendKeyPart(builder, options.Model);
+        AppendKeyPart(builder, romName);
+        AppendKeyPart(builder, searchName);
 
-        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(raw)));
+        foreach (var input in inputs)
+        {
+            AppendKeyPart(builder, input.Image.Hash);
+            AppendKeyPart(builder, input.SourceIndex.ToString(CultureInfo.InvariantCulture));
+        }
+
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(builder.ToString())));
+    }
+
+    private static void AppendKeyPart(StringBuilder builder, string value)
+    {
+        builder.Append(value.Length.ToString(CultureInfo.InvariantCulture))
+            .Append(':')
+            .Append(value)
+            .Append('|');
     }
 
     private static string FriendlyMessage(Exception ex)

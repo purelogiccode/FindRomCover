@@ -57,6 +57,21 @@ public class SettingsManagerTests : IDisposable
     }
 
     [Fact]
+    public void ThumbnailSizeShouldNotChangeNonSquareDimensionsOnRoundTrip()
+    {
+        var settings = new SettingsManager(_settingsDirectory)
+        {
+            ImageWidth = 500,
+            ImageHeight = 400
+        };
+
+        settings.ThumbnailSize = settings.ThumbnailSize;
+
+        settings.ImageWidth.Should().Be(500);
+        settings.ImageHeight.Should().Be(400);
+    }
+
+    [Fact]
     public void DefaultValuesShouldBeCorrect()
     {
         var settings = new SettingsManager(_settingsDirectory);

@@ -117,17 +117,11 @@ public static class UpdateCheckService
             return new UpdateInfo { IsUpdateAvailable = false };
         }
 
-        var releaseUrl = root.TryGetProperty("html_url", out var htmlUrlProp)
-            ? htmlUrlProp.GetString() ?? ReleasesPageUrl
-            : ReleasesPageUrl;
+        var releaseUrl = GetStringOrEmpty(root, "html_url");
+        if (string.IsNullOrEmpty(releaseUrl)) releaseUrl = ReleasesPageUrl;
 
-        var releaseNotes = root.TryGetProperty("body", out var bodyProp)
-            ? bodyProp.GetString() ?? string.Empty
-            : string.Empty;
-
-        var publishedAt = root.TryGetProperty("published_at", out var publishedProp)
-            ? publishedProp.GetString() ?? string.Empty
-            : string.Empty;
+        var releaseNotes = GetStringOrEmpty(root, "body");
+        var publishedAt = GetStringOrEmpty(root, "published_at");
 
         var isUpdateAvailable = latestVersion > currentVersion;
 
@@ -145,6 +139,20 @@ public static class UpdateCheckService
             ReleaseNotes = releaseNotes,
             PublishedAt = publishedAt
         };
+    }
+
+    /// <summary>
+    ///     Reads a string property from a JSON object, returning an empty string when the
+    ///     property is missing, null or not a string (GetString would otherwise throw).
+    /// </summary>
+    /// <param name="root">The JSON object to read from.</param>
+    /// <param name="propertyName">The property name.</param>
+    /// <returns>The property value, or an empty string.</returns>
+    private static string GetStringOrEmpty(JsonElement root, string propertyName)
+    {
+        return root.TryGetProperty(propertyName, out var property) && property.ValueKind == JsonValueKind.String
+            ? property.GetString() ?? string.Empty
+            : string.Empty;
     }
 
     /// <summary>

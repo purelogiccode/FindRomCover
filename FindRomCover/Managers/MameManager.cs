@@ -29,7 +29,10 @@ public static class MameManager
         try
         {
             using var stream = File.OpenRead(datPath);
-            return MessagePackSerializer.Deserialize<List<MameData>>(stream);
+
+            // MessagePack returns null for a nil/empty payload; keep the non-nullable
+            // contract of this method and treat it as an empty catalog.
+            return MessagePackSerializer.Deserialize<List<MameData>>(stream) ?? [];
         }
         catch (MessagePackSerializationException ex)
         {

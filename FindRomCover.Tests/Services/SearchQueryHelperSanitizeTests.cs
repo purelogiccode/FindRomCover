@@ -78,8 +78,7 @@ public class SearchQueryHelperSanitizeTests
     {
         var result = SearchQueryHelper.SanitizeFileName("....");
 
-        // After removing ".." repeatedly and trimming, it may be empty
-        result.Should().NotBeNull();
+        result.Should().Be("unnamed");
     }
 
     [Fact]
@@ -155,7 +154,6 @@ public class SearchQueryHelperSanitizeTests
     {
         var result = SearchQueryHelper.SanitizeFileName(". . .");
 
-        // After replacing ".." (none here), trim, trimEnd('.')
-        result.Should().NotBeNull();
+        result.Should().Be("unnamed");
     }
 }

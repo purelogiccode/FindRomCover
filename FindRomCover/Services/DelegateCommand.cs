@@ -10,6 +10,7 @@ public class DelegateCommand : ICommand, IDisposable
 {
     private readonly Func<object?, bool>? _canExecute;
     private readonly Action<object?> _execute;
+    private bool _disposed;
 
     /// <summary>
     ///     Initializes a new instance of the <see cref="DelegateCommand" /> class.
@@ -29,7 +30,7 @@ public class DelegateCommand : ICommand, IDisposable
     /// <returns>True when execution is allowed; otherwise false.</returns>
     public bool CanExecute(object? parameter)
     {
-        return _canExecute?.Invoke(parameter) ?? true;
+        return !_disposed && (_canExecute?.Invoke(parameter) ?? true);
     }
 
     /// <summary>
@@ -38,6 +39,8 @@ public class DelegateCommand : ICommand, IDisposable
     /// <param name="parameter">The command parameter.</param>
     public void Execute(object? parameter)
     {
+        if (_disposed) return;
+
         _execute(parameter);
     }
 
@@ -50,9 +53,16 @@ public class DelegateCommand : ICommand, IDisposable
         CanExecuteChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    /// <summary>Releases resources used by the command.</summary>
+    /// <summary>
+    ///     Detaches all <see cref="CanExecuteChanged" /> subscribers and disables the
+    ///     command so a disposed command neither executes nor keeps handlers alive.
+    /// </summary>
     public void Dispose()
     {
+        if (_disposed) return;
+
+        _disposed = true;
+        CanExecuteChanged = null;
         GC.SuppressFinalize(this);
     }
 }

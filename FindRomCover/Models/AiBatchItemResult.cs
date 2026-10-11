@@ -7,7 +7,7 @@ namespace FindRomCover.Models;
 /// <param name="SearchName">Search name used to look for candidate images.</param>
 /// <param name="Outcome">Outcome describing what happened to the item.</param>
 /// <param name="Message">Human-readable detail about the outcome.</param>
-/// <param name="SavedPath">Path of the saved cover image, or <see langword="null" /> when nothing was saved.</param>
+/// <param name="SavedPath">Path associated with the outcome: the saved cover for filled results, the existing cover for skipped results, or the intended target for other outcomes; <see langword="null" /> when no path applies.</param>
 public sealed record AiBatchItemResult(
     string RomName,
     string SearchName,

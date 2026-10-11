@@ -160,7 +160,9 @@ public abstract class VisionModelClientBase : IVisionModelClient
     }
 
     /// <summary>
-    ///     Extracts the first balanced brace group that parses as JSON from the model response.
+    ///     Extracts the JSON verdict object from the model response. When the response
+    ///     contains several valid JSON objects (for example an example object printed
+    ///     before the real answer), the first object carrying verdict fields wins.
     /// </summary>
     /// <param name="content">The raw model response text.</param>
     /// <returns>The JSON object text.</returns>
@@ -171,7 +173,10 @@ public abstract class VisionModelClientBase : IVisionModelClient
 
         // Models sometimes wrap the JSON in prose or a markdown fence, and reasoning
         // models can mention braces (or example JSON) before the real answer. Try every
-        // balanced brace group and return the first one that is valid JSON.
+        // balanced brace group: prefer one that carries verdict fields, otherwise fall
+        // back to the first valid JSON object.
+        string? firstValid = null;
+
         for (var start = content.IndexOf('{'); start >= 0; start = content.IndexOf('{', start + 1))
         {
             var end = FindMatchingBrace(content, start);
@@ -180,14 +185,24 @@ public abstract class VisionModelClientBase : IVisionModelClient
             var candidate = content[start..(end + 1)];
             try
             {
-                using var _ = JsonDocument.Parse(candidate);
-                return candidate;
+                using var doc = JsonDocument.Parse(candidate);
+                var root = doc.RootElement;
+
+                if (root.ValueKind == JsonValueKind.Object &&
+                    (root.TryGetProperty("bestIndex", out _) ||
+                     root.TryGetProperty("isMatch", out _) ||
+                     root.TryGetProperty("confidence", out _)))
+                    return candidate;
+
+                firstValid ??= candidate;
             }
             catch (JsonException)
             {
                 // Not a JSON object (for example a brace inside prose); keep scanning.
             }
         }
+
+        if (firstValid != null) return firstValid;
 
         throw new InvalidOperationException("AI response did not contain a JSON object.");
     }
@@ -401,8 +416,14 @@ public abstract class VisionModelClientBase : IVisionModelClient
         return value.ValueKind switch
         {
             JsonValueKind.Number when value.TryGetInt32(out var number) => number,
+            // Accept integral reals too: models frequently emit {"bestIndex": 1.0}.
+            JsonValueKind.Number when value.TryGetDouble(out var real) && Math.Abs(real - Math.Round(real)) < 0.0001
+                => (int)Math.Round(real),
             JsonValueKind.String when int.TryParse(value.GetString(), NumberStyles.Integer, CultureInfo.InvariantCulture,
                 out var parsed) => parsed,
+            JsonValueKind.String when double.TryParse(value.GetString(), NumberStyles.Float,
+                    CultureInfo.InvariantCulture, out var parsedReal) &&
+                Math.Abs(parsedReal - Math.Round(parsedReal)) < 0.0001 => (int)Math.Round(parsedReal),
             _ => null
         };
     }

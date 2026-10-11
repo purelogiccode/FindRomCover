@@ -10,7 +10,8 @@ namespace FindRomCover.Services;
 /// </summary>
 public static class ImageSaveService
 {
-    private const int MaxDownloadBytes = 50 * 1024 * 1024;
+    /// <summary>Maximum accepted download size in bytes; larger payloads are rejected.</summary>
+    internal const int MaxDownloadBytes = 50 * 1024 * 1024;
 
     /// <summary>Browser-like User-Agent header used for image downloads.</summary>
     internal static readonly string BrowserUserAgent = BuildBrowserUserAgent();
@@ -96,14 +97,14 @@ public static class ImageSaveService
             if (!string.IsNullOrWhiteSpace(fallbackImageUrl) &&
                 !string.Equals(fallbackImageUrl, imageUrl, StringComparison.OrdinalIgnoreCase))
             {
-                LogService.Warning($"Primary image download failed; trying fallback thumbnail '{fallbackImageUrl}'.");
+                LogService.WarningTransient($"Primary image download failed; trying fallback thumbnail '{fallbackImageUrl}'.");
                 if (await TryDownloadAndSaveAsync(fallbackImageUrl, outputPath, minWidth, httpClient,
                             cancellationToken)
                         .ConfigureAwait(false))
                     return true;
             }
 
-            LogService.Warning($"Could not download image '{imageUrl}'.");
+            LogService.WarningTransient($"Could not download image '{imageUrl}'.");
             return false;
         }
         catch (OperationCanceledException)
@@ -155,7 +156,7 @@ public static class ImageSaveService
                 (!string.Equals(uri.Scheme, Uri.UriSchemeHttp, StringComparison.Ordinal) &&
                  !string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.Ordinal)))
             {
-                LogService.Warning($"Image download URL is not an absolute http(s) URI: '{imageUrl}'.");
+                LogService.WarningTransient($"Image download URL is not an absolute http(s) URI: '{imageUrl}'.");
                 return false;
             }
 
@@ -168,7 +169,7 @@ public static class ImageSaveService
 
             if (!response.IsSuccessStatusCode)
             {
-                LogService.Warning(
+                LogService.WarningTransient(
                     $"Image download returned {(int)response.StatusCode} ({response.StatusCode}) for '{imageUrl}'.");
                 return false;
             }
@@ -178,7 +179,7 @@ public static class ImageSaveService
                 !contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase) &&
                 !contentType.Equals("application/octet-stream", StringComparison.OrdinalIgnoreCase))
             {
-                LogService.Warning(
+                LogService.WarningTransient(
                     $"Image download for '{imageUrl}' returned Content-Type '{contentType}' instead of image data; the host may be blocking automated requests.");
                 return false;
             }
@@ -186,7 +187,7 @@ public static class ImageSaveService
             var contentLength = response.Content.Headers.ContentLength;
             if (contentLength is > MaxDownloadBytes)
             {
-                LogService.Warning(
+                LogService.WarningTransient(
                     $"Image download for '{imageUrl}' reports {contentLength} bytes, exceeding the {MaxDownloadBytes}-byte limit; rejected.");
                 return false;
             }
@@ -197,20 +198,20 @@ public static class ImageSaveService
                 .ConfigureAwait(false);
             if (bytes == null)
             {
-                LogService.Warning(
+                LogService.WarningTransient(
                     $"Image download for '{imageUrl}' exceeded the {MaxDownloadBytes}-byte limit; rejected.");
                 return false;
             }
 
             if (bytes.Length == 0)
             {
-                LogService.Warning($"Image download for '{imageUrl}' returned an empty response body.");
+                LogService.WarningTransient($"Image download for '{imageUrl}' returned an empty response body.");
                 return false;
             }
 
             if (!LooksLikeImageData(bytes))
             {
-                LogService.Warning(
+                LogService.WarningTransient(
                     $"Image download for '{imageUrl}' returned {bytes.Length} bytes of non-image data (Content-Type '{contentType ?? "unknown"}'); the host may be blocking automated requests. Payload starts with: {PreviewPayload(bytes)}");
                 return false;
             }
@@ -226,22 +227,22 @@ public static class ImageSaveService
         catch (OperationCanceledException ex)
         {
             // HttpClient.Timeout fires with a token the caller never cancelled.
-            LogService.Warning(ex, $"Image download timed out for '{imageUrl}'.");
+            LogService.WarningTransient(ex, $"Image download timed out for '{imageUrl}'.");
             return false;
         }
         catch (HttpRequestException ex)
         {
-            LogService.Warning(ex, $"Image download failed for '{imageUrl}'.");
+            LogService.WarningTransient(ex, $"Image download failed for '{imageUrl}'.");
             return false;
         }
         catch (IOException ex)
         {
-            LogService.Warning(ex, $"Image download aborted for '{imageUrl}'.");
+            LogService.WarningTransient(ex, $"Image download aborted for '{imageUrl}'.");
             return false;
         }
         catch (FormatException ex)
         {
-            LogService.Warning(ex, $"Image download URL is not valid: '{imageUrl}'.");
+            LogService.WarningTransient(ex, $"Image download URL is not valid: '{imageUrl}'.");
             return false;
         }
     }
@@ -285,14 +286,14 @@ public static class ImageSaveService
                 .ConfigureAwait(false);
             if (bytes == null)
             {
-                LogService.Warning(
+                LogService.WarningTransient(
                     $"Stream exceeds the {MaxDownloadBytes}-byte limit; skipping conversion to '{outputPath}'.");
                 return false;
             }
 
             if (!LooksLikeImageData(bytes))
             {
-                LogService.Warning(
+                LogService.WarningTransient(
                     $"Stream does not contain recognized image data ({bytes.Length} bytes); skipping conversion to '{outputPath}'.");
                 return false;
             }
@@ -302,7 +303,7 @@ public static class ImageSaveService
             {
                 if (minWidth > 0 && image.Width < minWidth)
                 {
-                    LogService.Warning(
+                    LogService.WarningTransient(
                         $"Downloaded image is only {image.Width}x{image.Height}px, below the {minWidth}px minimum width; rejecting '{outputPath}'.");
                     return false;
                 }
@@ -322,23 +323,23 @@ public static class ImageSaveService
         }
         catch (MagickMissingDelegateErrorException ex)
         {
-            LogService.Warning(ex, "Downloaded payload could not be decoded as an image.");
+            LogService.WarningTransient(ex, "Downloaded payload could not be decoded as an image.");
             return false;
         }
         catch (MagickException ex)
         {
-            LogService.Warning(ex, $"Downloaded payload could not be converted to PNG for '{outputPath}'.");
+            LogService.WarningTransient(ex, $"Downloaded payload could not be converted to PNG for '{outputPath}'.");
             return false;
         }
         catch (IOException ex)
         {
             // Locked/unwritable output is environmental — do not file bug reports.
-            LogService.Warning(ex, $"Could not write the converted image to '{outputPath}'.");
+            LogService.WarningTransient(ex, $"Could not write the converted image to '{outputPath}'.");
             return false;
         }
         catch (UnauthorizedAccessException ex)
         {
-            LogService.Warning(ex, $"Access denied writing the converted image to '{outputPath}'.");
+            LogService.WarningTransient(ex, $"Access denied writing the converted image to '{outputPath}'.");
             return false;
         }
         catch (Exception ex)
@@ -357,7 +358,7 @@ public static class ImageSaveService
                 }
                 catch (Exception cleanupEx)
                 {
-                    LogService.Warning(cleanupEx, $"Failed to clean up temporary file '{tempOutputPath}'.");
+                    LogService.WarningTransient(cleanupEx, $"Failed to clean up temporary file '{tempOutputPath}'.");
                 }
         }
     }
@@ -387,7 +388,7 @@ public static class ImageSaveService
     ///     Reads the stream fully but aborts (returns null) once <paramref name="maxBytes"/>
     ///     is exceeded, so a hostile or broken server can never OOM the process.
     /// </summary>
-    private static async Task<byte[]?> ReadAllBytesBoundedAsync(Stream stream, int maxBytes,
+    internal static async Task<byte[]?> ReadAllBytesBoundedAsync(Stream stream, int maxBytes,
         CancellationToken cancellationToken)
     {
         await using var buffer = new MemoryStream();

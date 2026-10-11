@@ -844,7 +844,12 @@ public sealed class ImageFolderWatcher : IDisposable
             elapsed += pollIntervalMs;
         }
 
-        return true;
+        // Timed out: only treat the file as ready when at least some content was
+        // readable. Returning true for an empty/never-readable file sends a file that
+        // is still being copied into conversion and produces spurious error popups.
+        LogService.Debug(
+            $"ImageFolderWatcher: file '{Path.GetFileName(filePath)}' was not stable after {maxWaitMs} ms (last size: {lastSize}).");
+        return lastSize > 0;
     }
 
     private static string GetFreeRenameTargetPath(string preferredPath)

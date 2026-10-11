@@ -85,9 +85,9 @@ public class DelegateCommandAdditionalTests : IDisposable
         var invoked = false;
         cmd.CanExecuteChanged += (_, _) => invoked = true;
 
-        // Trigger via CommandManager (may not fire in test context)
-        // We just verify the event handler is subscribable
-        invoked.Should().BeFalse(); // Not triggered yet
+        cmd.RaiseCanExecuteChanged();
+
+        invoked.Should().BeTrue();
     }
 
     [Fact]
@@ -155,7 +155,27 @@ public class DelegateCommandAdditionalTests : IDisposable
         cmd.CanExecuteChanged += (_, _) => count++;
         cmd.CanExecuteChanged += (_, _) => count++;
 
-        // Just verify subscriptions work
-        count.Should().Be(0);
+        cmd.RaiseCanExecuteChanged();
+
+        count.Should().Be(2);
+    }
+
+    [Fact]
+    public void DisposeShouldClearSubscribersAndDisableCommand()
+    {
+        var executed = false;
+        var cmd = new DelegateCommand(_ => executed = true);
+        var invoked = false;
+        cmd.CanExecuteChanged += (_, _) => invoked = true;
+
+        cmd.RaiseCanExecuteChanged();
+        invoked.Should().BeTrue();
+
+        cmd.Dispose();
+        cmd.RaiseCanExecuteChanged();
+        invoked.Should().BeTrue("the subscriber was detached by Dispose");
+        cmd.CanExecute(null).Should().BeFalse();
+        cmd.Execute(null);
+        executed.Should().BeFalse();
     }
 }

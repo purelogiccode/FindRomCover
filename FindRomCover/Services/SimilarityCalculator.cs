@@ -173,17 +173,33 @@ public static class SimilarityCalculator
         if (string.IsNullOrEmpty(imageFolderPath) || !Directory.Exists(imageFolderPath))
             return ([], processingErrors.ToList());
 
+        if (algorithm != AppConstants.Algorithms.Levenshtein &&
+            algorithm != AppConstants.Algorithms.Jaccard &&
+            algorithm != AppConstants.Algorithms.JaroWinkler)
+            return ([], [$"Algorithm '{algorithm}' is not implemented."]);
+
+        var effectiveMaxCandidates = Math.Max(0, maxCandidates);
+        if (effectiveMaxCandidates == 0) return ([], []);
+
         if (ignoreBracketedText) selectedFileName = StripAnnotations(selectedFileName);
 
         string[] imageExtensions =
         [
             "*.png", "*.jpg", "*.jpeg", "*.avif", "*.bmp", "*.gif", "*.webp", "*.tiff", "*.tif", "*.ico", "*.svg",
-            "*.jxl", "*.jp2"
+            "*.jxl", "*.jp2", "*.heic", "*.heif"
         ];
 
-        var allImageFiles = imageExtensions
-            .SelectMany(ext => Directory.EnumerateFiles(imageFolderPath, ext))
-            .ToList();
+        List<string> allImageFiles;
+        try
+        {
+            allImageFiles = imageExtensions
+                .SelectMany(ext => Directory.EnumerateFiles(imageFolderPath, ext))
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            return ([], [$"Could not enumerate the image folder '{imageFolderPath}': {ex.Message}"]);
+        }
 
         if (allImageFiles.Count == 0) return ([], processingErrors.ToList());
 
@@ -244,8 +260,7 @@ public static class SimilarityCalculator
                             similarityScore = CalculateJaroWinklerDistance(selectedFileName, comparableImageName);
                             break;
                         default:
-                            var errorMessage = $"Algorithm '{algorithm}' is not implemented.";
-                            processingErrors.Add(errorMessage);
+                            // Algorithms are validated before the loop; this is unreachable.
                             return ValueTask.CompletedTask;
                     }
 
@@ -278,7 +293,7 @@ public static class SimilarityCalculator
         var topCandidates = candidateFiles
             .OrderByDescending(static x => x.SimilarityScore)
             .ThenBy(static x => x.FilePath, StringComparer.OrdinalIgnoreCase)
-            .Take(Math.Max(1, maxCandidates))
+            .Take(effectiveMaxCandidates)
             .ToList();
 
         return (topCandidates, processingErrors.ToList());
