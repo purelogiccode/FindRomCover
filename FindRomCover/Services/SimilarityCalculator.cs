@@ -173,9 +173,9 @@ public static class SimilarityCalculator
         if (string.IsNullOrEmpty(imageFolderPath) || !Directory.Exists(imageFolderPath))
             return ([], processingErrors.ToList());
 
-        if (algorithm != AppConstants.Algorithms.Levenshtein &&
-            algorithm != AppConstants.Algorithms.Jaccard &&
-            algorithm != AppConstants.Algorithms.JaroWinkler)
+        if (!string.Equals(algorithm, AppConstants.Algorithms.Levenshtein, StringComparison.Ordinal) &&
+            !string.Equals(algorithm, AppConstants.Algorithms.Jaccard, StringComparison.Ordinal) &&
+            !string.Equals(algorithm, AppConstants.Algorithms.JaroWinkler, StringComparison.Ordinal))
             return ([], [$"Algorithm '{algorithm}' is not implemented."]);
 
         var effectiveMaxCandidates = Math.Max(0, maxCandidates);

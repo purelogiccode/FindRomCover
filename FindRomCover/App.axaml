@@ -89,6 +89,8 @@
                                 BoxShadow="3 3 5 0 #40000000"
                                 RenderTransformOrigin="50%,50%">
                             <ContentPresenter x:Name="ButtonContentPresenter"
+                                              Content="{TemplateBinding Content}"
+                                              ContentTemplate="{TemplateBinding ContentTemplate}"
                                               HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                               VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
                                               Margin="{TemplateBinding Padding}" />
