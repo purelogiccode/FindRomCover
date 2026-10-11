@@ -85,6 +85,7 @@ nav:
       - Google Custom Search API: user-guide/google-api.md
       - Image Handling: user-guide/image-handling.md
       - Missing Covers List: user-guide/missing-covers.md
+      - Screenshots: user-guide/screenshots.md
   - AI Vision Assist:
       - Overview: ai/index.md
       - Providers & Models: ai/providers.md
@@ -101,6 +102,8 @@ nav:
       - Supported Extensions: configuration/extensions.md
       - Data Storage: configuration/data-storage.md
       - Logs & Diagnostics: configuration/logs.md
+      - Bug Reports: configuration/bug-reports.md
+      - Privacy & Telemetry: configuration/privacy.md
   - Reference:
       - Command-Line Arguments: reference/command-line.md
       - Keyboard Shortcuts: reference/keyboard-shortcuts.md

@@ -5,29 +5,37 @@ FindRomCover accepts optional command-line arguments to pre-fill the ROM and ima
 ## Usage
 
 ```text
-FindRomCover.exe [ImageFolder] [RomFolder]
+FindRomCover [ImageFolder] [RomFolder]
 ```
+
+On Windows the executable is `FindRomCover.exe`; on Linux and macOS use the `FindRomCover` binary.
 
 | Arguments | Behavior |
 |-----------|----------|
-| none | Start with the folders from the last session |
+| none | Start with empty folder boxes; the previous session is not restored |
 | one | The argument is used as the **Image Folder** |
-| two | The first argument is the **Image Folder**, the second is the **ROM Folder**; a scan starts automatically |
+| two | The first argument is the **Image Folder**, the second is the **ROM Folder** |
 
-Only existing directories are accepted. If a path does not exist, it is ignored and the application starts with the stored folders instead.
+Only existing directories are accepted. A path that does not exist is ignored. With one or two valid arguments the folder boxes are prefilled; when both folders are valid (the usual two-argument case), the scan starts automatically.
 
 ## Examples
 
-Start with only the image folder:
+Start with only the image folder (Windows):
 
 ```text
 FindRomCover.exe "D:\Covers"
 ```
 
-Start with both folders and scan immediately:
+Start with both folders and scan immediately (Windows):
 
 ```text
 FindRomCover.exe "D:\Covers" "D:\ROMs"
+```
+
+The same on Linux or macOS:
+
+```bash
+./FindRomCover ~/covers ~/roms
 ```
 
 Use it from a shortcut or batch file:
@@ -41,10 +49,11 @@ start "" "C:\Tools\FindRomCover\FindRomCover.exe" "D:\Covers" "D:\ROMs"
 
 - Quote paths that contain spaces.
 - The scan uses the same logic as **Check for Missing Images**; the status bar shows the result.
-- Folder paths are stored, so the next start without arguments reuses them.
+- Folders passed on the command line are not restored on the next start. The ROM folder is not persisted at all, and the remembered image folder is used only for temporary-file cleanup at startup — see [Data Storage](../configuration/data-storage.md).
 - There are no other switches; all other behavior is configured through the application menus.
 
 ## Related pages
 
 - [Folders & Scanning](../user-guide/folders-and-scanning.md)
 - [Interface Overview](../user-guide/interface.md)
+- [Data Storage](../configuration/data-storage.md)

@@ -1,6 +1,6 @@
 # Settings Overview
 
-FindRomCover stores all settings in a single SQLite database (the database itself is not encrypted, but stored API keys are). Most settings are changed through menus and windows; there is no separate settings file to edit by hand.
+FindRomCover stores all settings in a single SQLite database (the database itself is not encrypted, but stored API keys are). Most settings are changed through menus and windows; there is no separate settings file to edit by hand. The database lives in the per-user data folder — see [Data Storage](data-storage.md) for the exact location on Windows, Linux, and macOS.
 
 ## Where settings are changed
 
@@ -26,17 +26,17 @@ FindRomCover stores all settings in a single SQLite database (the database itsel
 | Similarity algorithm | Jaro-Winkler Distance | — | Jaccard, Jaro-Winkler, or Levenshtein |
 | Ignore bracketed text | On | — | Ignore `()`, `[]`, and `{}` contents when matching |
 | Use MAME descriptions | Off | — | Use MAME descriptions instead of cleaned filenames |
-| Supported extensions | 120+ extensions | — | ROM file extensions that are scanned |
-| Last image folder | — | — | Restored on startup |
+| Supported extensions | 120 extensions | — | ROM file extensions that are scanned |
+| Last image folder | empty | — | Persisted when you browse for a folder or close the app, but never restored into the interface; used only for temporary-file cleanup at startup. The ROM folder is not persisted |
 
 ### Display
 
 | Setting | Default | Range | Description |
 |---------|---------|-------|-------------|
 | Base theme | Dark | Light, Dark | Window theme |
-| Accent color | Blue | 20+ colors | Theme accent |
-| Thumbnail size | 300 px | 100–500 | Google API thumbnail size |
-| Max images to load | 30 | — | Maximum results loaded per search |
+| Accent color | Blue | 23 colors | Theme accent |
+| Thumbnail size | 300 px | 100–500 | Preview size for Google API thumbnails and Local Files results |
+| Max images to load | 30 | — | Maximum Local Files results loaded per search; the Google API always requests 10 results |
 
 ### API and network
 
@@ -46,7 +46,7 @@ FindRomCover stores all settings in a single SQLite database (the database itsel
 | API timeout | 30 s | HTTP timeout for Google API requests |
 | Image loader retries | 3 | Retry attempts for image downloads |
 | Image loader retry delay | 200 ms | Delay between retries |
-| Bug report API key / URL | built-in | Used by the error reporting pipeline |
+| Bug report API key / URL | built-in | Used by the automatic bug-report pipeline |
 
 ### AI Vision Assist
 
@@ -74,7 +74,7 @@ See [AI Settings](../ai/settings.md) for the full AI reference.
 
 | Goal | Method |
 |------|--------|
-| Reset everything | Close FindRomCover and delete `%LocalAppData%\FindRomCover\Settings.dat`; defaults are recreated on the next start |
+| Reset everything | Close FindRomCover and delete `Settings.dat` from the per-user data folder; defaults are recreated on the next start |
 | Reset one area | Change the values through the menus/windows; there is no per-area reset |
 | Keep a backup | Copy `Settings.dat` while the application is closed |
 
@@ -86,3 +86,6 @@ See [AI Settings](../ai/settings.md) for the full AI reference.
 - [Similarity Algorithms](similarity.md)
 - [Supported Extensions](extensions.md)
 - [Data Storage](data-storage.md)
+- [Logs & Diagnostics](logs.md)
+- [Bug Reports](bug-reports.md)
+- [Privacy](privacy.md)

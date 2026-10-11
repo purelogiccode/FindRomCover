@@ -14,10 +14,10 @@ Thanks for considering a contribution to FindRomCover. This page explains how to
 Include:
 
 1. FindRomCover version (visible in `About`).
-2. Windows version and architecture (x64/ARM64).
+2. Operating system and architecture (Windows x64/ARM64, Linux, or macOS).
 3. Steps to reproduce.
 4. Expected and actual behavior.
-5. Relevant log entries (`app<yyyyMMdd>.log` in `%LocalAppData%\FindRomCover` or the log window). Remove anything you do not want to share.
+5. Relevant log entries (`app<yyyyMMdd>.log` in the per-user data folder — `%LocalAppData%\FindRomCover` on Windows — or the log window). Remove anything you do not want to share.
 6. Whether AI Assist or the Google API was involved.
 
 ## Development workflow
@@ -35,6 +35,8 @@ Include:
    dotnet test CSharp_FindRomCover.sln
    ```
 
+   The test project targets `net10.0-windows`, so run the test suite on Windows even though the application itself builds and runs cross-platform.
+
 3. Keep changes focused: one logical change per pull request.
 4. Add or update tests for behavior changes.
 5. Update documentation when user-visible behavior changes.
@@ -47,14 +49,22 @@ Include:
 - One top-level type per file.
 - Prefer small, focused methods and clear names over comments.
 - Use nullable reference types correctly; avoid suppressions.
+- Name asynchronous methods with an `Async` suffix.
+- Add XML documentation to public and internal members; the application project generates a documentation file.
 - Never log secrets or personal data.
+
+## Tests
+
+- New tests must be deterministic and independent of collection parallelization: `xunit.runner.json` disables parallel test collections, so do not rely on tests running concurrently.
+- Do not depend on the real settings folder or the bug-report API; use the seams set up by `TestBootstrap` (`SettingsManager.DefaultSettingsDirectoryOverride`, `ErrorLogger.SendToApiOverride`).
+- Every bug fix should come with a regression test. See [Testing](testing.md) for the full conventions.
 
 ## Commit messages
 
 Use short, descriptive messages in the imperative mood, optionally with a conventional prefix:
 
 ```text
-fix: handle missing WebView2 runtime on startup
+fix: handle missing WebView runtime on startup
 feat(ai): add Gemini provider
 docs: document batch fill outcomes
 ```

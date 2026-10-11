@@ -1,6 +1,6 @@
 # Themes & Appearance
 
-FindRomCover uses the MahApps.Metro theme engine. You can switch between light and dark base themes and choose from more than twenty accent colors. Both selections are stored in the settings database and restored on startup.
+FindRomCover uses the Avalonia Fluent theme with light and dark variants, plus a MahApps-compatible accent color map implemented in `ThemePalette`. You can switch between the two base themes and choose from 23 accent colors. Both selections are stored in the settings database and applied again on startup.
 
 ## Base themes
 
@@ -13,7 +13,7 @@ Change the theme under the **Theme** menu. The choice applies to the main window
 
 ## Accent colors
 
-The following accents are available under `Theme > Accent Colors`:
+The following 23 accents are available under `Theme > Accent Colors`:
 
 | Group | Colors |
 |-------|--------|
@@ -22,17 +22,17 @@ The following accents are available under `Theme > Accent Colors`:
 | Warm | Pink, Magenta, Crimson, Amber, Yellow |
 | Earthy | Brown, Olive, Steel, Mauve, Taupe, Sienna |
 
-The accent color is used for highlights, selected items, buttons, and progress indicators.
+The accent color is used for highlights, selected items, buttons, and progress indicators. The palette keeps the same color names as the MahApps.Metro accents the application historically used, so existing settings remain valid.
 
 ## Where the theme is applied
 
 - **Main window** — theme and accent.
 - **Dialogs** — API Settings, AI Settings, batch fill, settings, about, and the log window are themed when opened.
-- **Fallback** — if a theme fails to apply (for example after an unusual configuration), FindRomCover falls back to `Light.Blue` and logs the problem.
+- **Fallback** — an invalid base theme falls back to **Dark** and an invalid accent color falls back to **Blue**. At the palette level, any theme name other than `Dark` is rendered with the light variant.
 
 ## Persistence
 
-Theme and accent are saved in `%LocalAppData%\FindRomCover\Settings.dat`. They survive updates and application restarts.
+Theme and accent are saved in `Settings.dat` in the per-user data folder. They survive updates and application restarts.
 
 ## Troubleshooting
 
@@ -45,4 +45,5 @@ Theme and accent are saved in `%LocalAppData%\FindRomCover\Settings.dat`. They s
 ## Related pages
 
 - [Settings Overview](index.md)
+- [Data Storage](data-storage.md)
 - [Logs & Diagnostics](logs.md)

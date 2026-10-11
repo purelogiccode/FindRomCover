@@ -1,21 +1,31 @@
 # Project Structure
 
-The repository contains the WPF application, the test project, documentation, and CI workflows.
+The repository contains the Avalonia application, the test project, documentation, and CI workflows.
 
 ```text
 CSharp_FindRomCover/
-├── FindRomCover/                     # WPF application (net10.0-windows)
+├── FindRomCover/                     # Avalonia application (net10.0)
 │   ├── ApiProvider/                  # Google Custom Search integration
 │   │   └── Google.cs
+│   ├── Assets/                       # Bundled resources
+│   │   ├── audio/
+│   │   │   └── click.mp3             # UI click sound
+│   │   └── images/                   # UI images (logo, donate, broken image, ...)
+│   ├── Controls/                     # Custom Avalonia controls
+│   │   └── ProgressRing.cs
+│   ├── Interfaces/                   # Service abstractions
+│   │   ├── IAudioService.cs
+│   │   └── IVisionModelClient.cs
 │   ├── Managers/                     # Settings, settings database, MAME data
 │   │   ├── SettingsManager.cs
 │   │   ├── SettingsDatabase.cs
 │   │   └── MameManager.cs
-│   ├── models/                       # Data models and DTOs
+│   ├── Models/                       # Data models, DTOs, and enums
 │   │   ├── SettingsData.cs
 │   │   ├── AiVisionOptions.cs
 │   │   ├── AiBatchOutcome.cs
 │   │   ├── AiPickResult.cs
+│   │   ├── BugReportModel.cs
 │   │   ├── MissingImageItem.cs
 │   │   └── ...
 │   ├── Services/                     # Business logic and utilities
@@ -24,7 +34,6 @@ CSharp_FindRomCover/
 │   │   │   ├── AiBatchFillService.cs
 │   │   │   ├── AiQueryHistory.cs
 │   │   │   ├── AiVerdictCache.cs
-│   │   │   ├── IVisionModelClient.cs
 │   │   │   ├── VisionClientFactory.cs
 │   │   │   ├── VisionModelClientBase.cs
 │   │   │   ├── OpenAiCompatibleVisionClient.cs
@@ -32,35 +41,52 @@ CSharp_FindRomCover/
 │   │   │   ├── GeminiVisionClient.cs
 │   │   │   ├── VisionImagePreparer.cs
 │   │   │   └── VisionModelCatalog.cs
-│   │   ├── ImageProcessor.cs
+│   │   ├── AppDataPaths.cs
+│   │   ├── ApplicationStatsService.cs
+│   │   ├── BugReportSink.cs
+│   │   ├── CoverFileResolver.cs
+│   │   ├── ErrorLogger.cs
 │   │   ├── ImageFolderWatcher.cs
-│   │   ├── SimilarityCalculator.cs
+│   │   ├── ImageLoader.cs
+│   │   ├── ImageProcessor.cs
+│   │   ├── ImageSaveService.cs
+│   │   ├── LocalAudioService.cs
+│   │   ├── LogService.cs
 │   │   ├── NgramIndex.cs
-│   │   ├── SearchQueryHelper.cs
+│   │   ├── ScreenshotService.cs
+│   │   ├── SimilarityCalculator.cs
+│   │   ├── TrayIconManager.cs
 │   │   ├── UpdateCheckService.cs
-│   │   └── ...
-│   ├── audio/                        # UI sound assets
-│   ├── icon/                         # Application icon
-│   ├── images/                       # UI image assets
-│   ├── App.xaml / App.xaml.cs        # Startup, DI, themes, global handlers
+│   │   ├── UrlService.cs
+│   │   ├── WebSearchService.cs
+│   │   └── ...                       # dialogs, command and button helpers, HTTP helper
+│   ├── Styles/
+│   │   └── AppStyles.axaml           # Shared control styles
+│   ├── Program.cs                    # Avalonia bootstrap
+│   ├── App.axaml / App.axaml.cs      # Startup, DI, themes, global handlers
+│   ├── app.manifest                  # Windows application manifest
 │   ├── AppConstants.cs               # Constants and provider presets
-│   ├── MainWindow.xaml / .xaml.cs    # Main window and orchestration
+│   ├── ThemePalette.cs               # Theme and accent palette application
+│   ├── AssemblyInfo.cs               # InternalsVisibleTo FindRomCover.Tests
+│   ├── MainWindow.axaml / .axaml.cs  # Main window and orchestration
 │   ├── MainWindow.LocalSearch.cs     # Local Files tab logic
 │   ├── MainWindow.WebSearch.cs       # Web and Google API tab logic
-│   ├── AiSettingsWindow.xaml         # AI configuration dialog
-│   ├── AiBatchWindow.xaml            # Batch fill dialog
-│   ├── ApiSettingsWindow.xaml        # Google API key dialog
-│   ├── SettingsWindow.xaml           # Supported extensions dialog
-│   ├── DebugWindow.xaml              # Live log viewer
-│   └── AboutWindow.xaml
-├── FindRomCover.Tests/               # xUnit test project
+│   ├── AiSettingsWindow.axaml(.cs)   # AI configuration dialog
+│   ├── AiBatchWindow.axaml(.cs)      # Batch fill dialog
+│   ├── ApiSettingsWindow.axaml(.cs)  # Google API key dialog
+│   ├── SettingsWindow.axaml(.cs)     # Supported extensions dialog
+│   ├── DebugWindow.axaml(.cs)        # Live log viewer
+│   ├── AboutWindow.axaml(.cs)
+│   └── mame.dat                      # MAME machine data (copied to the output)
+├── FindRomCover.Tests/               # xUnit test project (net10.0-windows)
 │   ├── ApiProvider/
 │   ├── Managers/
 │   ├── Models/
 │   ├── Services/
 │   │   └── Ai/
 │   ├── AppConstantsTests.cs
-│   └── TestBootstrap.cs
+│   ├── TestBootstrap.cs              # Isolates tests from real settings and the API
+│   └── xunit.runner.json             # Disables collection parallelization
 ├── docs/                             # Documentation site (MkDocs Material)
 │   ├── index.md
 │   ├── getting-started/
@@ -79,6 +105,7 @@ CSharp_FindRomCover/
 ├── .github/workflows/
 │   ├── ci.yml                        # Build and test
 │   └── docs.yml                      # Publish GitHub Pages and wiki
+├── FindRomCover_Legacy/              # Old WPF project (NOT part of the solution)
 ├── mkdocs.yml                        # Documentation site configuration
 ├── CSharp_FindRomCover.sln
 ├── global.json                       # .NET SDK version
@@ -89,14 +116,17 @@ CSharp_FindRomCover/
 └── WhatsNew.md
 ```
 
+> **Note:** `FindRomCover_Legacy/` is kept on disk for historical reference only. `CSharp_FindRomCover.sln` contains just `FindRomCover` and `FindRomCover.Tests`, so the legacy WPF project is not built or tested.
+
 ## Key entry points
 
 | File | Role |
 |------|------|
-| `FindRomCover/App.xaml.cs` | Application startup, DI, theme, exception handling, update check |
-| `FindRomCover/MainWindow.xaml.cs` | Main window orchestration, scanning, tray, themes |
+| `FindRomCover/Program.cs` | Avalonia bootstrap and desktop lifetime |
+| `FindRomCover/App.axaml.cs` | Application startup, DI, theme, exception handling, update check |
+| `FindRomCover/MainWindow.axaml.cs` | Main window orchestration, scanning, tray, themes, screenshots |
 | `FindRomCover/MainWindow.LocalSearch.cs` | Local similarity search and AI pick |
-| `FindRomCover/MainWindow.WebSearch.cs` | WebView2 tabs and Google API tab |
+| `FindRomCover/MainWindow.WebSearch.cs` | Google/Bing web views and the Google API tab |
 | `FindRomCover/Managers/SettingsManager.cs` | Settings, encryption, migration |
 | `FindRomCover/Services/Ai/AiAssistService.cs` | Vision-model picking |
 | `FindRomCover/Services/Ai/AiBatchFillService.cs` | Batch fill orchestration |
@@ -104,10 +134,12 @@ CSharp_FindRomCover/
 
 ## Conventions
 
-- **One top-level type per file** (enforced by analyzer MA0048).
+- **One top-level type per file** — a project convention that keeps navigation predictable; it is not enforced by an analyzer rule.
 - **Nullable enabled**, implicit usings, C# 14.
-- **Analyzers**: Meziantou, Roslynator, Microsoft.CodeAnalysis — warnings are treated seriously; the CI build is expected to be warning-free.
+- **Analyzers**: Meziantou, Roslynator, Microsoft.CodeAnalysis — warnings are treated seriously; the CI build is expected to be warning-free. A few Meziantou rules are intentionally disabled in `.editorconfig` (`MA0004`, `MA0015`, `MA0016`, `MA0046`, `MA0051`).
 - **No comments** in code unless they add real value; names and structure should carry the intent.
+- **Async methods end with `Async`**; public and internal members carry XML documentation (the project generates a documentation file).
+- **`InternalsVisibleTo FindRomCover.Tests`** lets tests reach internal seams such as `SettingsManager.DefaultSettingsDirectoryOverride`.
 - Models are plain classes or records; services are sealed classes with static helpers where stateless.
 
 ## Related pages

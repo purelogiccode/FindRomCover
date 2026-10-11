@@ -3,10 +3,10 @@
 **Find and download missing cover art for your retro gaming ROM collection.**
 
 [![GitHub release](https://img.shields.io/github/v/release/purelogiccode/FindRomCover)](https://github.com/purelogiccode/FindRomCover/releases)
-[![Platform](https://img.shields.io/badge/platform-Windows%20x64%20%7C%20ARM64-blue)](https://github.com/purelogiccode/FindRomCover/releases)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-blue)](https://github.com/purelogiccode/FindRomCover/releases)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://github.com/purelogiccode/FindRomCover/blob/master/LICENSE.txt)
 
-FindRomCover is a Windows desktop application that scans your ROM folder, detects games that do not have a cover image yet, and helps you find and save the right artwork — from your own image collection, from Google or Bing image search, from the Google Custom Search API, or with the help of a vision-capable AI model.
+FindRomCover is a cross-platform desktop application (Avalonia 12 on .NET 10) that scans your ROM folder, detects games that do not have a cover image yet, and helps you find and save the right artwork — from your own image collection, from Google or Bing image search, from the Google Custom Search API, or with the help of a vision-capable AI model. It runs on Windows 10+, Linux, and macOS.
 
 ![FindRomCover main window](assets/images/screenshot.png)
 
@@ -15,11 +15,14 @@ FindRomCover is a Windows desktop application that scans your ROM folder, detect
 | Feature | Description |
 |---------|-------------|
 | Local similarity search | Matches ROM filenames against images already in your image folder using Jaccard, Jaro-Winkler, or Levenshtein similarity |
-| Web image search | Embedded Google and Bing search in a WebView2 browser |
+| Web image search | Embedded Google and Bing image search in a native web view: WebView2 on Windows, WKWebView on macOS, WebKitGTK on Linux |
 | Google Custom Search API | Programmatic image results as clickable thumbnails |
-| Automatic matching | A file-system watcher renames newly saved images to the selected game and converts them to PNG |
+| Automatic matching | A top-level file-system watcher renames newly saved images to the selected game and converts them to PNG without overwriting existing covers |
 | AI Vision Assist | OpenRouter, OpenAI, Anthropic, Gemini, GLM, local (Ollama/LM Studio), or custom endpoints pick the best cover |
 | AI Batch Fill | Fills the entire missing-covers list automatically with confidence thresholds and query history |
+| System tray | Minimizing the window hides it to the system tray; the tray menu restores or exits the application |
+| Screenshots | **F8** captures the main window to a PNG for bug reports and documentation |
+| Update check | Checks GitHub for a newer release at startup and offers to open the release page |
 | Themes | Light and dark base themes with 20+ accent colors |
 | Detailed diagnostics | Built-in log viewer plus a rolling `app<yyyyMMdd>.log` file |
 
@@ -42,6 +45,7 @@ FindRomCover is a Windows desktop application that scans your ROM folder, detect
 | [Installation](getting-started/installation.md) | Requirements, download, first run |
 | [Quick Start](getting-started/quick-start.md) | A five-minute walkthrough |
 | [User Guide](user-guide/interface.md) | Every window, tab, and workflow explained |
+| [Screenshots](user-guide/screenshots.md) | Capturing the interface for bug reports |
 | [AI Vision Assist](ai/index.md) | Providers, models, settings, batch fill, costs |
 | [Configuration](configuration/index.md) | Themes, similarity, extensions, storage, logs |
 | [Reference](reference/command-line.md) | Command line, shortcuts, file formats |
@@ -50,10 +54,18 @@ FindRomCover is a Windows desktop application that scans your ROM folder, detect
 
 ## Requirements
 
-- Windows 10 or later (x64 or ARM64)
-- [.NET 10.0 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0)
-- Microsoft Edge WebView2 Runtime (pre-installed on most Windows 10/11 systems)
-- Optional: a Google API key for the Google Custom Search API, and an API key for the AI provider of your choice
+| Platform | Requirements |
+|----------|--------------|
+| **Windows 10 or later** (x64 or ARM64) | [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0); Microsoft Edge WebView2 Runtime for the embedded web search tabs (pre-installed on most Windows 10/11 systems) |
+| **Linux** | A modern 64-bit desktop distribution; [.NET 10 runtime](https://dotnet.microsoft.com/download/dotnet/10.0); WebKitGTK for the embedded web search tabs |
+| **macOS 11 or later** | [.NET 10 runtime](https://dotnet.microsoft.com/download/dotnet/10.0); WKWebView is part of macOS |
+
+If the embedded web view runtime is not available, FindRomCover explains the problem in a dialog, offers to open the download page, and opens the search in your system browser instead.
+
+Optional: a Google API key for the Google Custom Search API, and an API key for the AI provider of your choice.
+
+!!! note "Anonymous usage statistics"
+    At every start FindRomCover sends an anonymous usage hit (application id and version only) to the Pure Logic Code statistics endpoint. It runs in the background with a 15-second timeout and never blocks the UI. See [Privacy](configuration/privacy.md) for details.
 
 See [Installation](getting-started/installation.md) for details.
 
@@ -63,6 +75,12 @@ See [Installation](getting-started/installation.md) for details.
 - **Discussions**: [github.com/purelogiccode/FindRomCover/discussions](https://github.com/purelogiccode/FindRomCover/discussions)
 - **Donations**: [purelogiccode.com/donate](https://www.purelogiccode.com/donate)
 
----
-
 Made with care by [Pure Logic Code](https://www.purelogiccode.com).
+
+## Related pages
+
+- [Installation](getting-started/installation.md)
+- [Quick Start](getting-started/quick-start.md)
+- [Interface Overview](user-guide/interface.md)
+- [Screenshots](user-guide/screenshots.md)
+- [Privacy](configuration/privacy.md)

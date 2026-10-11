@@ -6,10 +6,10 @@ This page describes how to build FindRomCover from source and produce release ar
 
 | Requirement | Notes |
 |-------------|-------|
-| Windows 10 or later | The application targets `net10.0-windows` and WPF |
+| Windows, Linux, or macOS | The application targets `net10.0` and uses Avalonia for the UI |
 | [.NET 10.0 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) | Version pinned by `global.json` with `rollForward: latestMajor` |
 | Visual Studio 2022+ or Rider | Optional; the CLI is sufficient |
-| Microsoft Edge WebView2 Runtime | Needed at runtime for the web tabs |
+| Web engine (runtime only) | On Windows, the Microsoft Edge WebView2 Runtime; on Linux, WebKitGTK from your distribution; macOS uses the built-in WKWebView. Missing engines only disable the embedded web tabs |
 
 ## Clone and build
 
@@ -43,28 +43,33 @@ See [Testing](testing.md) for details and the full test layout.
 
 ## Publish
 
-Release builds are framework-dependent and single-file:
+Published builds are framework-dependent. The output is written under `FindRomCover/bin/Release/net10.0/<rid>/publish`:
 
 ```bash
-dotnet publish FindRomCover/FindRomCover.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true
-dotnet publish FindRomCover/FindRomCover.csproj -c Release -r win-arm64 --self-contained false -p:PublishSingleFile=true
+dotnet publish FindRomCover/FindRomCover.csproj -c Release -r win-x64 --self-contained false
+dotnet publish FindRomCover/FindRomCover.csproj -c Release -r linux-x64 --self-contained false
+dotnet publish FindRomCover/FindRomCover.csproj -c Release -r osx-arm64 --self-contained false
 ```
 
-The output is written under `FindRomCover/bin/Release/net10.0-windows/<rid>/publish`. Zip the contents as `release_<version>_win-<rid>.zip` to match the naming used on the Releases page.
+Add `-p:PublishSingleFile=true` to bundle the managed assemblies into a single executable in the publish folder.
 
-> **Note:** Published builds are framework-dependent. Users need the [.NET 10.0 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0).
+Zip the contents as `release_<version>_<rid>.zip` (for example `release_3.3.0_win-x64.zip`) to match the naming used on the Releases page.
+
+> **Note:** Published builds are framework-dependent. Users need the [.NET 10.0 Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) — the Windows Desktop Runtime is **not** required, because the UI is Avalonia rather than WPF.
 
 ## Project settings worth knowing
 
 | Setting | Value |
 |---------|-------|
-| Target framework | `net10.0-windows` |
+| Target framework | `net10.0` |
 | Language version | C# 14 |
 | Nullable | Enabled |
-| WPF | Enabled |
-| Assembly/file version | `3.2.2` (kept in `FindRomCover.csproj`) |
+| UI framework | Avalonia `12.1.4` |
+| Assembly/file version | `3.3.0` (kept in `FindRomCover.csproj`) |
 | `mame.dat` | Copied to the output directory on every build |
 | `settings.dat` | Never copied to the output directory |
+
+> **Note:** The test project still declares version `3.2.2`; keep it in sync with the app project when preparing a release. See [CI/CD](ci-cd.md).
 
 ## Documentation build
 
@@ -100,7 +105,7 @@ The script rewrites links for wiki page names and writes `_Sidebar.md` and `_Foo
 | `NETSDK1045` / SDK not found | Install the .NET 10 SDK; check `global.json` |
 | Missing `mame.dat` at runtime | Rebuild; the file is copied automatically, or copy it manually |
 | Analyzer warnings fail the build | Fix the warnings; do not suppress them without a good reason |
-| WebView2 errors at runtime | Install the WebView2 Runtime |
+| Web tabs do not load | Install the WebView2 Runtime on Windows or WebKitGTK on Linux, then restart the application |
 
 ## Related pages
 

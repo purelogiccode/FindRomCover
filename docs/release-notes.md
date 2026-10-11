@@ -2,6 +2,53 @@
 
 Complete version history for FindRomCover. Download links for each release are available on the [Releases](https://github.com/purelogiccode/FindRomCover/releases) page.
 
+## 3.3.0 — 2026-10-11
+
+### Cross-Platform Release
+
+- **Avalonia UI** — the application was migrated from WPF to **Avalonia 12.1.4** and now runs on Windows, Linux, and macOS from a single codebase. Windows and views use the `.axaml`/`.axaml.cs` extensions, and the MahApps look (exact palette, accent colors, dark/light themes) is preserved.
+- **Embedded web views** — WebView2 was replaced by Avalonia's NativeWebView, which uses WebView2 on Windows, WKWebView on macOS, and WebKitGTK on Linux. When the engine is missing, the affected tab falls back to the system browser and a one-time prompt links to the correct runtime per operating system.
+- **Per-OS services** — click sounds (MCI on Windows, `afplay` on macOS, `paplay`/`ffplay`/`mpg123`/`aplay` on Linux, with a silent fallback when none is available), screenshots, and data paths all use platform-appropriate implementations.
+- **Solution cleanup** — the solution contains only `FindRomCover` and `FindRomCover.Tests`; the former WPF project is kept in `FindRomCover_Legacy` and is no longer built. Service interfaces moved to `Interfaces/` and models/enums to `Models/`; asynchronous methods now use the `Async` suffix throughout.
+
+### Logging and Diagnostics
+
+- **Full logging pipeline** — Serilog remains the logging core, now with a `BugReportSink` that forwards every **Warning-or-higher** event to the bug-report API while suppressing transient environmental failures (network errors, startup statistics, update checks, audio devices) and file-system watcher errors through structured markers.
+- **Richer bug reports** — automatic reports include the Windows, Linux, or macOS version; the error logger only removes the accepted report from its pending queue, so unsent reports are never wiped.
+- **Log collection hardened** — log collection is locked so entries cannot be lost or truncated during concurrent reporting.
+
+### Startup, Updates, and Screenshots
+
+- **Startup statistics** — `ApplicationStatsService` records an anonymous, best-effort startup hit; failures are transient and never filed as bugs.
+- **GitHub update check** — the application checks the latest GitHub release at startup and offers to open the download page when a newer version exists.
+- **F8 screenshots** — screenshots are saved to a `Screenshot` folder next to the application, falling back to `%LocalAppData%\FindRomCover` when that folder is not writable (for example a `Program Files` installation), with collision-safe file names.
+
+### UI Polish
+
+- Tooltips added to every control in every window.
+- A custom `ProgressRing` control and shared `AppStyles.axaml` replace the previous MahApps equivalents.
+- Lifecycle and threading fixes across `DelegateCommand`, `TrayIconManager`, `ProgressRing`, and the AI batch window.
+
+### AI Assist
+
+- **Atomic verdict cache** — `AiVerdictCache` writes atomically, normalizes keys, and is shared process-wide, so the main window and the batch window can never overwrite each other's entries; corrupt entries are discarded on read.
+- **Corrupt history quarantine** — a non-SQLite or corrupt `QueryHistory.dat` is moved to `QueryHistory.dat.corrupt` and a fresh database is created, so a bad file cannot disable the feature forever.
+- **Bounded downloads** — AI candidate image downloads enforce a maximum size and a timeout.
+- **Cancellation cleanup** — AI Batch Fill cleans up temporary files and pre-registration state on cancellation and refreshes registrations before moving files.
+- **Prompt and parse robustness** — verdict parsing prefers the JSON object in a response, accepts integral confidence values, and cancellation is handled consistently; malformed responses produce clear warnings instead of failures.
+
+### Settings and Reliability
+
+- **Safe secret encryption** — stored secrets are never overwritten with empty values, and encryption failures are reported as transient warnings instead of crashing the save pipeline.
+- **Migration safety** — a legacy `settings.xml` is kept until the migrated SQLite save succeeds, and null legacy values no longer break migration.
+- **UI fixes** — window commands are assigned before the bound data context (so F5 and Escape work), invalid folder paths cancel running scans, and the debug window trims removed entries.
+- **Dialog fallback** — the fallback dialog path returns the entered text instead of an empty result.
+
+### Under the Hood
+
+- **879 passing tests** (685 `[Fact]` plus 194 `[InlineData]` theory cases) across 68 files; `xunit.runner.json` disables collection parallelization, and `TestBootstrap` isolates tests from the real settings folder and the bug-report API.
+- Version bumped to **3.3.0**.
+
 ## 3.2.2 — 2026-09-25
 
 ### Improvements
@@ -107,7 +154,7 @@ Complete version history for FindRomCover. Download links for each release are a
 
 - **WebView2 graceful fallback** — when the runtime is missing, web search tabs are unavailable but the rest of the application works; no repeated error logs.
 - **Image conversion improvements** — corrupt or misformatted images are detected immediately and skipped without retries; retries remain for transient I/O failures.
-- **Less log noise** — benign events logged at Debug level; the bug-report sink only sends Error-level events.
+- **Less log noise** — benign events logged at Debug level; the bug-report sink only sends Error-level events *(changed in 3.3.0: the sink forwards Warning and higher events, with transient environmental failures suppressed)*.
 - Dependency updates: Magick.NET 14.15.0, MessagePack 3.1.8, WebView2 1.0.4078.44, Serilog 4.4.0.
 
 ## 3.0.0 — 2026-07-06
@@ -118,7 +165,7 @@ Major release that introduced the tabbed interface and local similarity search.
 
 - **Tabbed search interface** — Local Files, Google Web, Bing Web, and Google API tabs, each keeping its own results.
 - **Local file similarity search** — Jaro-Winkler, Levenshtein, and Jaccard algorithms with a 10–90% threshold and trigram indexing for large folders.
-- **System tray integration** — minimize to tray with restore/exit and balloon notifications.
+- **System tray integration** — minimize to tray with restore/exit and balloon notifications *(changed in 3.3.0: tray balloons are not supported by Avalonia cross-platform and are a no-op; restore and exit remain)*.
 - **Keyboard shortcuts** — F5 refresh and more.
 - **Image folder watcher** — detects new covers, converts them to PNG, renames them to the selected game, and updates the missing list.
 - **Delete ROM from missing list** — right-click to permanently delete the ROM/ISO after confirmation.

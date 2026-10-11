@@ -1,15 +1,15 @@
 # Supported Extensions
 
-FindRomCover scans the ROM folder for files whose extension is in the supported-extensions list. The default list covers cartridge, disk, tape, and archive formats from most retro platforms.
+FindRomCover scans the ROM folder for files whose extension is in the supported-extensions list. The default list contains **120 extensions** and covers cartridge, disk, tape, and archive formats from most retro platforms.
 
 ## Editing the list
 
 1. Open `Settings > Edit Supported Extensions...`.
-2. Add an extension (without the dot) and press Enter or click **Add**.
+2. Click **Add...** to open the input dialog, type the extension (without the dot), and confirm.
 3. Remove an extension by selecting it and clicking **Remove**.
 4. Click **Save**.
 
-Extensions are normalized to lower case and sorted alphabetically. Changing the list triggers an immediate re-scan so the missing covers list stays accurate.
+Extensions may contain letters, digits, and hyphens only. Dots are stripped from the input, duplicates are rejected case-insensitively, and valid entries are normalized to lower case and sorted alphabetically. Changing the list applies immediately: the settings are saved and the ROM folder is rescanned so the missing covers list stays accurate.
 
 ## Default extensions
 
@@ -40,7 +40,7 @@ xdf, z64, z80, zip, zso, gba, gbc, snes, md, smd, gen, 32x, sgg
 
 - Extensions are compared case-insensitively, so `.ZIP` matches `zip`.
 - Subfolders are scanned recursively.
-- A ROM is considered covered when an image with the same base name exists in the image folder, regardless of the image extension.
+- A ROM counts as covered only when an image with the same base name exists in the top level of the image folder **and uses one of the recognized image extensions** (`.png`, `.jpg`, `.jpeg`, `.bmp`, `.gif`, `.webp`, `.tiff`, `.tif`, `.avif`, `.heic`, `.heif`, `.jxl`, `.jp2`, `.ico`, `.svg`). An unrelated file with a non-image extension does not count.
 - Files with extensions outside the list are ignored entirely.
 
 ## Common problems

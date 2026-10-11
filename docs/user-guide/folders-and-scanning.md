@@ -6,35 +6,45 @@ FindRomCover compares two folders: the **ROM folder** with your game files and t
 
 1. Click **Browse...** next to **ROM Folder** and select the folder that contains your games. Subfolders are scanned recursively.
 2. Click **Browse...** next to **Image Folder** and select the folder where covers are stored.
-3. The scan starts automatically as soon as both paths are valid. You can also press **F5** or click **Check for Missing Images** at any time.
+3. The scan starts automatically as soon as a folder is chosen with a **Browse...** button and both paths are valid. You can also click **Check for Missing Images** or press **F5** at any time.
 
-Folder paths are validated before scanning. If a path does not exist, a warning is shown and the path is not saved.
+Typing a path into a folder box and pressing **Enter** only validates the path and enables the **Check for Missing Images** button; it does not start a scan. Invalid paths are rejected with a warning.
 
 ## What the scan does
 
-1. Enumerates every file under the ROM folder whose extension is in the [supported extensions](../configuration/extensions.md) list.
-2. For each ROM file, looks for a cover image with the same base name in the image folder. Recognized image formats include `.png`, `.jpg`, `.jpeg`, `.bmp`, `.gif`, `.tiff`, `.tif`, `.webp`, `.avif`, `.heic`, `.heif`, `.ico`, `.svg`, `.jxl`, and `.jp2`.
-3. Adds every ROM without a matching image to the **Missing Covers** list.
+1. Enumerates every file under the ROM folder (including subfolders) whose extension is in the [supported extensions](../configuration/extensions.md) list.
+2. For each ROM file, looks for a cover image with the same base name in the **top level** of the image folder. Recognized image formats are `.png`, `.jpg`, `.jpeg`, `.avif`, `.bmp`, `.gif`, `.webp`, `.tiff`, `.tif`, `.ico`, `.svg`, `.jxl`, `.jp2`, `.heic`, and `.heif`.
+3. Adds every ROM without a matching image to the **Missing Covers** list, sorted alphabetically.
 
 The status bar reports the outcome:
 
 | Message | Meaning |
 |---------|---------|
-| `Found n ROM files, m missing covers` | Scan completed; `m` games need artwork |
-| `No ROM files found matching the supported extensions` | The ROM folder is empty or the extensions do not match; check `Settings > Edit Supported Extensions...` |
-| `No missing covers found` | Every ROM already has a cover |
+| `Found {n} ROM file(s) matching the supported extensions; {m} missing cover(s).` | Scan completed; `n` files matched, `m` games need artwork |
+| `No ROM files found in "{path}" matching the supported extensions.` | The ROM folder is empty or no file matched; check `Settings > Edit Supported Extensions...` |
 
-> **Note:** A ROM is considered covered when an image with the same base name exists in the image folder. The comparison is case-insensitive and ignores the image extension, so `Sonic (USA).zip` is matched by `Sonic (USA).png`.
+!!! note "Matching details"
+    - Only the top level of the image folder is checked. A cover stored in a subfolder does not count.
+    - The lookup tries the sanitized ROM base name first, then the original base name, against every recognized image extension.
+    - The comparison is case-insensitive on Windows, where the file system is case-insensitive. On Linux and macOS it is case-sensitive, so `Sonic (USA).ZIP` is matched by `Sonic (USA).png` but not by `sonic (usa).png`.
+
+## Folder persistence
+
+- The ROM folder is not persisted. It is empty again on the next start unless you pass it on the command line.
+- The image folder is saved as the last-used folder when you browse for it or when the window closes, but it is **not** restored into the interface on the next start.
+- With command-line arguments the boxes are pre-filled, and a scan starts when both paths are valid — see [Command-Line Arguments](../reference/command-line.md).
 
 ## Automatic re-scan triggers
 
 The list is refreshed automatically after:
 
-- selecting a new ROM or image folder;
-- editing the supported extensions;
+- choosing a folder with a **Browse...** button;
+- editing and saving the supported extensions;
 - saving a cover through the Local Files or Google API tabs;
 - the image folder watcher renaming a new image to the selected game;
 - a completed AI Batch Fill run.
+
+Press **F5** or click **Check for Missing Images** for a manual refresh.
 
 ## Command-line pre-fill
 
@@ -64,3 +74,5 @@ When `Settings > Use MAME Descriptions` is enabled, searches use the full MAME g
 - [Supported Extensions](../configuration/extensions.md)
 - [Local Files Search](local-files.md)
 - [Image Handling](image-handling.md)
+- [Missing Covers List](missing-covers.md)
+- [Command-Line Arguments](../reference/command-line.md)

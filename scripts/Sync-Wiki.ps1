@@ -175,7 +175,8 @@ $sidebarSections = [ordered]@{
         'user-guide/web-search.md',
         'user-guide/google-api.md',
         'user-guide/image-handling.md',
-        'user-guide/missing-covers.md'
+        'user-guide/missing-covers.md',
+        'user-guide/screenshots.md'
     )
     'AI Vision Assist' = @(
         'ai/index.md',
@@ -193,7 +194,9 @@ $sidebarSections = [ordered]@{
         'configuration/similarity.md',
         'configuration/extensions.md',
         'configuration/data-storage.md',
-        'configuration/logs.md'
+        'configuration/logs.md',
+        'configuration/bug-reports.md',
+        'configuration/privacy.md'
     )
     'Reference' = @(
         'reference/command-line.md',

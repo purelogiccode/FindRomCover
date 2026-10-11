@@ -32,21 +32,20 @@ FindRomCover builds on excellent open-source projects:
 
 | Component | License / project |
 |-----------|-------------------|
-| MahApps.Metro | MIT — modern WPF UI framework |
-| ControlzEx | MIT — window chrome and theming |
+| Avalonia (UI, desktop, Fluent theme, WebView) | MIT — cross-platform .NET UI framework |
 | Magick.NET (ImageMagick) | Apache-2.0 / ImageMagick license |
-| Microsoft.Web.WebView2 | Microsoft license |
-| NAudio | MIT — audio playback |
 | Serilog and sinks | Apache-2.0 — structured logging |
 | Microsoft.Extensions.DependencyInjection | MIT |
 | Microsoft.Data.Sqlite | MIT |
 | MessagePack | MIT |
+| WebView engine | Platform-provided: WebView2 (Microsoft) on Windows, WKWebView (Apple) on macOS, WebKitGTK (LGPL) on Linux |
 | xUnit | Apache-2.0 |
 | FluentAssertions | Xceed community license (non-commercial) |
 | Moq | BSD-3-Clause |
 | coverlet | MIT |
+| Meziantou.Analyzer, Roslynator.Analyzers, Microsoft.CodeAnalysis.Analyzers | MIT / Apache-2.0 — build-time analyzers (not shipped) |
 
-Refer to each project's repository for the exact license terms.
+Refer to each project's repository for the exact license terms. The WPF-era application is preserved in the `FindRomCover_Legacy` folder, which is not part of the shipped solution and retains its own dependencies (MahApps.Metro, ControlzEx, NAudio, WebView2).
 
 ## MAME data
 

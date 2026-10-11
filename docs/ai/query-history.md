@@ -12,8 +12,10 @@ AI requests cost money and time. When a game has no good cover in your local fol
 |-------|----------------|
 | Manual AI pick that finds a pick | Recorded as `manual` |
 | Manual AI pick that finds no match | Not recorded |
+| Manual AI pick that fails before producing a verdict | Not recorded |
 | Batch item where the model found no confident local match | Recorded as `local-no-match` |
 | Batch item where the model found no confident API match | Recorded as `api-no-match` |
+| Batch API download rejected by AI verification | Recorded as `api-verification-rejected` |
 | Cover saved by Batch Fill (local or API) | Removed from the history |
 | Cover saved manually | Not removed — the entry stays until it expires |
 | Failed item (API error, download or save failure) | Not recorded — safe to retry |
@@ -26,12 +28,16 @@ The key is the full target cover path, matched case-insensitively.
 | Property | Value |
 |----------|-------|
 | File | `%LocalAppData%\FindRomCover\QueryHistory.dat` |
-| Format | SQLite database |
+| Format | SQLite database (non-pooled connections) |
 | Retention | 180 days |
 | Maximum entries | 100,000 (oldest entries are trimmed automatically) |
 | Table | `QueryHistory(TargetPath, QueriedUtc, Outcome)` |
 
-The database uses non-pooled connections, so the file is never locked and can be backed up or inspected with any SQLite tool.
+Every operation opens a fresh non-pooled connection, and access is serialized by a process-wide lock. The database is still locked while a write is in progress, so close FindRomCover before backing it up or inspecting it with a SQLite tool.
+
+Expired rows are pruned lazily: a lookup that finds only an expired entry deletes it, and writing a new entry removes all expired rows and trims the table to 100,000 rows. Until then, the file may temporarily contain entries older than the retention period.
+
+If `QueryHistory.dat` is not a valid SQLite database, it is quarantined to `QueryHistory.dat.corrupt` and a fresh, empty database is created automatically.
 
 ## Controlling the history
 

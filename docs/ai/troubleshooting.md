@@ -30,11 +30,12 @@ This page covers problems specific to AI Vision Assist. For general application 
 ## "Test / Load Models" fails
 
 1. Check the Base URL — it must include the API version, for example `https://openrouter.ai/api/v1`.
-2. Verify the key is pasted completely, with no leading or trailing spaces.
-3. For local servers, confirm the server is running (`ollama serve`) and reachable at the configured port.
-4. Check the [log window](../configuration/logs.md) for the exact HTTP status and message.
+2. Make sure the provider exposes a model list at `<Base URL>/models`; custom gateways must implement that endpoint in the OpenAI (`data`) or Gemini (`models`) shape.
+3. Verify the key is pasted completely, with no leading or trailing spaces.
+4. For local servers, confirm the server is running (`ollama serve`) and reachable at the configured port.
+5. Check the [log window](../configuration/logs.md) for the exact HTTP status and message.
 
-A cached model list can still be used if the provider is temporarily offline — the list is kept for 7 days.
+The model list is cached per provider and lowercased base URL in `%LocalAppData%\FindRomCover\ai-models.json` for 7 days. If the provider is temporarily offline, the previously cached list stays loaded. Changing the base URL by even one character selects a different cache entry, so the list appears empty until **Test / Load Models** succeeds.
 
 ## Rate limits and quota errors (429)
 
@@ -74,11 +75,29 @@ Symptoms: the model ignores the image, describes only the text, or returns nonse
 - Ensure **Automatically save the AI pick** is enabled.
 - Verify the image folder is writable and the log shows no save errors.
 
+## A manual save asks for confirmation
+
+- The AI verification disagreed with the save. Confirm the prompt ("Save it anyway?") to keep the image, or pick a different candidate.
+- Disable **Verify images with AI before renaming or saving** if you do not want these checks.
+
 ## The same cover is queried repeatedly
 
 - Enable **Skip missing covers already queried in previous sessions** in AI Settings.
 - Batch Fill skips items in the history and reports them as **SkippedAlreadyQueried**.
 - Clear the history with **Clear query history** if you want a fresh attempt.
+
+## An item is skipped although nothing was ever found
+
+A downloaded API image that AI verification rejected is recorded in the query history as `api-verification-rejected`. With **Skip covers already queried in previous sessions** enabled, the item is skipped on later runs instead of being retried.
+
+To try again:
+
+1. Click **Clear query history** in AI Settings, or
+2. Uncheck **Skip covers already queried in previous sessions** for the run.
+
+## The query history is corrupt
+
+If `QueryHistory.dat` cannot be opened as a SQLite database, FindRomCover quarantines it as `QueryHistory.dat.corrupt` and creates a fresh, empty history automatically. Nothing else is affected; earlier skips are simply forgotten. Delete the `.corrupt` file manually if you do not need it.
 
 ## High costs
 
@@ -88,9 +107,10 @@ Symptoms: the model ignores the image, describes only the text, or returns nonse
 - Keep the query history enabled (180 days).
 - Disable the Google API fallback in Batch Fill unless you need it.
 
-## Where to look next
+## Related pages
 
-- [Logs & Diagnostics](../configuration/logs.md) — exact error messages
-- [Providers & Models](providers.md) — correct base URLs and defaults
+- [AI Vision Assist overview](index.md) — capabilities and defaults
 - [AI Settings](settings.md) — every setting explained
+- [Providers & Models](providers.md) — correct base URLs and defaults
 - [Recommended Models](recommended-models.md) — cheaper or stronger models
+- [Logs & Diagnostics](../configuration/logs.md) — exact error messages

@@ -17,18 +17,20 @@ The window is the fastest way to understand what the application is doing and wh
 
 | File | Contents |
 |------|----------|
-| `app<yyyyMMdd>.log` | Full application log, rolling daily, 7-day retention |
-| `ApiLogError.txt` | Error entries sent to the automatic bug-report API |
+| `app<yyyyMMdd>.log` | Full application log, rolling daily, 7 files retained |
+| `ApiLogError.txt` | Reports queued for the automatic bug-report API; an accepted report is removed after a successful send |
 | `UserLogError.txt` | Simplified error list intended for user reference |
 | `InternalLog.txt` | Internal diagnostics from the error logger |
 
-All four are written to `%LocalAppData%\FindRomCover` (the same folder as `Settings.dat`), not next to the executable.
+All four are written to the per-user data folder (the same folder as `Settings.dat`) — see [Data Storage](data-storage.md) for the location on each operating system. They are never written next to the executable.
 
 ## Severity levels
 
+Only the levels below exist; there is no `Verbose` level. The minimum level is `Debug`.
+
 | Level | Meaning | Examples |
 |-------|---------|----------|
-| Verbose / Debug | Fine-grained diagnostics | File watcher events, conversion skips |
+| Debug | Fine-grained diagnostics | File watcher events, conversion skips |
 | Information | Normal operations | Application start, settings saved |
 | Warning | Recoverable problems | AI request failure, file disappeared after wait, access denied on the watched folder |
 | Error | Failed operations | Image conversion failure, API errors, unhandled dispatcher exceptions |
@@ -51,11 +53,14 @@ All four are written to `%LocalAppData%\FindRomCover` (the same folder as `Setti
 
 ## The error reporting pipeline
 
-Error-level events are collected and can be sent to the Pure Logic Code bug-report API, which helps the developer fix crashes.
+Events at **Warning level and above** are collected and can be sent to the Pure Logic Code bug-report API, which helps the developer fix problems. Two categories are never forwarded:
 
-- Only **Error**-level events trigger reports; warnings are not sent.
-- AI failures are logged as warnings and never trigger the pipeline.
-- Reports contain the exception, a stack trace, and environment information — no personal files.
+- **Transient warnings** logged through `LogService.WarningTransient` — expected environmental failures such as network errors, the update check, the screenshot folder fallback, settings and AI cache I/O, and secret encryption.
+- **Watcher errors** logged through `LogService.ErrorWatcher` — per-file image-folder watcher failures such as corrupt or locked images.
+
+These entries stay in the local log file and log window but do not create automatic reports. Reports contain the exception, a stack trace, and environment information — no personal files or images.
+
+See [Bug Reports](bug-reports.md) for the full trigger rules and payload, and [Privacy](privacy.md) for every network request the application makes.
 
 ## Reading a log entry
 
@@ -79,12 +84,14 @@ The timestamp and level tell you when and how serious the problem is; the messag
 
 | Symptom | Solution |
 |---------|----------|
-| No log files | The `%LocalAppData%\FindRomCover` folder could not be created; check permissions for your user profile |
+| No log files | The per-user data folder could not be created; check permissions for your user profile |
 | Log window is empty | Logging initializes on startup; restart the application |
-| Log grows very large | Files roll over automatically and are kept for 7 days |
+| Log grows very large | Files roll over automatically and 7 files are retained |
 
 ## Related pages
 
+- [Bug Reports](bug-reports.md)
+- [Privacy](privacy.md)
 - [Troubleshooting](../troubleshooting.md)
 - [AI Troubleshooting](../ai/troubleshooting.md)
 - [Data Storage](data-storage.md)

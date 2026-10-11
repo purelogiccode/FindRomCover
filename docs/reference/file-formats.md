@@ -35,7 +35,7 @@ All of these are recognized when checking whether a ROM already has a cover. Non
 |----------|-------|
 | Format | PNG |
 | Name | `<rom base name>.png` |
-| Location | Image folder |
+| Location | Top level of the image folder |
 
 Examples:
 
@@ -44,18 +44,30 @@ Examples:
 | `Sonic the Hedgehog (USA).zip` | `Sonic the Hedgehog (USA).png` |
 | `Super Mario World.sfc` | `Super Mario World.png` |
 
+## Screenshots
+
+Pressing **F8** saves a PNG screenshot of the main window:
+
+| Property | Value |
+|----------|-------|
+| Format | PNG |
+| Name | `Screenshot_yyyyMMdd_HHmmss_fff.png` (a `_1`, `_2`, ... suffix is added if the name already exists) |
+| Location | `Screenshot` folder next to the executable; when that folder is not writable, the `Screenshot` folder inside the per-user data folder is used |
+
 ## Application files
 
 | File | Format | Purpose |
 |------|--------|---------|
 | `Settings.dat` | SQLite | All settings, secrets encrypted |
 | `QueryHistory.dat` | SQLite | AI query history |
+| `QueryHistory.dat.corrupt` | SQLite | Quarantined query-history database |
 | `ai-cache.json` | JSON | AI verdict cache |
 | `ai-models.json` | JSON | Cached model lists |
 | `mame.dat` | MAME database | Arcade game descriptions |
 | `app<yyyyMMdd>.log`, `ApiLogError.txt`, `UserLogError.txt`, `InternalLog.txt` | Text | Diagnostics |
 | `settings.dat.legacy` | Encrypted legacy | Backup of the old settings file |
 | `settings.dat.corrupt` | Quarantined | Unreadable settings database |
+| `settings.xml.migrated` | XML | Legacy settings file moved aside after a successful migration |
 
 See [Data Storage](../configuration/data-storage.md) for details.
 
@@ -64,7 +76,7 @@ See [Data Storage](../configuration/data-storage.md) for details.
 | Asset | Format | Purpose |
 |-------|--------|---------|
 | `click.mp3` | MP3 | UI sound effect |
-| Icons and images | PNG/ICO | Application UI |
+| Icons and images | PNG | Application UI |
 
 ## Related pages
 

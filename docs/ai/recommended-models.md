@@ -5,6 +5,8 @@ Cheapest vision-capable models suitable for FindRomCover's AI Assist (synchronou
 Source: OpenRouter `GET /api/v1/models` — 446 models total, 275 accept image input (checked 2026-09-20).
 Prices are USD per million tokens (input / output), ordered by input price. FindRomCover's current OpenRouter default is **`google/gemma-4-26b-a4b-it`**.
 
+> **Warning:** This page is a snapshot of an external catalog dated 2026-09-20. Prices, model availability, context windows, and free tiers change frequently and without notice. Treat the figures below as guidance only and verify current details on the provider's website before running large batches.
+
 ## Models
 
 | # | Model ID | Input $/M | Output $/M | Context | JSON mode | Notes |

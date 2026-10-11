@@ -8,7 +8,7 @@ Yes. FindRomCover is free software licensed under the GNU General Public License
 
 ### Which platforms are supported?
 
-Windows 10 and later, both x64 and ARM64. The application is built with WPF on .NET 10 and does not run on Linux or macOS.
+Windows 10 and later, Linux, and macOS. Version 3.3.0 is built with Avalonia 12.1.4 on .NET 10, so the same application runs on all three platforms. The embedded browser uses the native web view of each platform: WebView2 on Windows, WKWebView on macOS, and WebKitGTK on Linux.
 
 ### Does it download ROMs?
 
@@ -16,19 +16,19 @@ No. FindRomCover only works with ROM files you already have and only downloads c
 
 ### Does it send my data anywhere?
 
-Only when you use features that require it:
+Only through the requests below:
 
-- the update check contacts GitHub;
+- an anonymous startup statistics hit with the application id and version is sent at every launch;
+- the update check contacts the public GitHub Releases API;
 - the Google Custom Search API is called only when you use that tab;
-- AI providers are contacted only when AI Assist is enabled and used;
-- anonymous, best-effort usage statistics are recorded at startup;
-- error-level events may be sent to the bug-report API.
+- AI providers are contacted only when AI Assist is enabled and used, and then the candidate images are sent to your configured provider;
+- automatic bug reports are sent for Warning-level events and above and contain environment details and log messages, which can include local file paths and URLs.
 
-Filenames and image contents are never uploaded except to your configured AI provider when AI Assist runs.
+Images are never uploaded except to your configured AI provider when AI Assist runs. See [Privacy](configuration/privacy.md) for the full list.
 
 ### Can I use it offline?
 
-Yes, with Local Files search and the embedded browser. Google API, cloud AI providers, and update checks require internet access. Local AI models (Ollama, LM Studio) work offline.
+Yes, with Local Files search and the embedded browser. Google API, cloud AI providers, and the update check require internet access and simply fail quietly when offline. Local AI models (Ollama, LM Studio) work offline. The startup statistics and automatic bug reports are also skipped while offline.
 
 ## Setup
 
@@ -38,17 +38,25 @@ Only for the **Google API** tab and for cloud **AI providers**. Local Files, Goo
 
 ### Where are my settings stored?
 
-In `%LocalAppData%\FindRomCover\Settings.dat` (SQLite). See [Data Storage](configuration/data-storage.md).
+In `Settings.dat` (SQLite) inside the per-user data folder:
+
+| Platform | Folder |
+|----------|--------|
+| Windows | `%LocalAppData%\FindRomCover` |
+| Linux | `~/.local/share/FindRomCover` |
+| macOS | `~/Library/Application Support/FindRomCover` |
+
+See [Data Storage](configuration/data-storage.md).
 
 ### How do I move FindRomCover to a new PC?
 
-Copy the application folder and the `%LocalAppData%\FindRomCover` folder. API keys may need to be re-entered because encryption is tied to the Windows user and machine.
+Copy the application folder and the per-user data folder. The settings encryption key is derived from the machine name, so copying `Settings.dat` to another user account on the same machine still decrypts your API keys, but on a different machine the secrets cannot be decrypted and must be entered again.
 
 ## Usage
 
 ### Why is a game listed as missing when I have a cover?
 
-The cover name must match the ROM base name (case-insensitive, any recognized image extension). Rename the image to match the ROM, or let the watcher rename it while the game is selected, then press **F5**.
+The cover name must match the ROM base name and use a recognized image extension. On Windows the check is case-insensitive; on Linux and macOS the file system is case-sensitive, so `sonic (usa).png` does not cover `Sonic (USA).zip`. Rename the image to match the ROM, or let the watcher rename it while the game is selected, then press **F5**.
 
 ### How do I stop a game from reappearing in the list?
 
@@ -61,6 +69,14 @@ Yes — edit the **Extra Query** field, or enable `Settings > Use MAME Descripti
 ### How do I delete a ROM from disk?
 
 Right-click the entry and choose **Delete corresponding ROM or ISO**. This is permanent and asks for confirmation first.
+
+### How do I take a screenshot?
+
+Press **F8**. The screenshot captures the **main window** (not a dialog or the embedded browser) and is saved as `Screenshot_yyyyMMdd_HHmmss_fff.png` in the `Screenshot` folder next to the executable, falling back to the `Screenshot` folder in the per-user data folder when the application folder is not writable. The status bar shows the saved path. See [Screenshots](user-guide/screenshots.md).
+
+### What happens when I minimize the window?
+
+Minimizing hides the window to the system tray. Click the tray icon or choose **Show FindRomCover** to bring it back, and use **Exit** to quit. Some Linux desktop environments do not display tray icons; in that case use the taskbar or close the window to exit.
 
 ## AI Assist
 
@@ -78,7 +94,7 @@ Yes. Run Ollama or LM Studio and select the **Local** provider. See [Providers &
 
 ### Why does the AI sometimes return no answer?
 
-Reasoning models can exhaust their output budget before writing an answer. FindRomCover now allows 4,096 output tokens and reports a clear error if that still happens; switching to a non-reasoning model usually solves it. See [AI Troubleshooting](ai/troubleshooting.md).
+Reasoning models can exhaust their output budget before writing an answer. FindRomCover allows 4,096 output tokens and reports a clear error if that still happens; switching to a non-reasoning model usually solves it. See [AI Troubleshooting](ai/troubleshooting.md).
 
 ### Does AI ever delete or overwrite my files?
 
@@ -92,7 +108,7 @@ Keep **Skip missing covers already queried in previous sessions** enabled. Use *
 
 ### The embedded browser is blank.
 
-Install the Microsoft Edge WebView2 Runtime when prompted, then restart the application.
+Install the web view runtime for your platform — Microsoft Edge WebView2 on Windows, WebKitGTK on Linux (WKWebView is part of macOS) — then restart the application. If the runtime is unavailable, FindRomCover explains the problem and can open the runtime download page or the system browser instead.
 
 ### Google API says the key is invalid.
 
@@ -100,15 +116,17 @@ Verify the key in `Settings > API Settings...`, ensure the Custom Search JSON AP
 
 ### Where are the logs?
 
-In `%LocalAppData%\FindRomCover` (`app<yyyyMMdd>.log`, `ApiLogError.txt`, `UserLogError.txt`) and in the live log window under `Settings > Show/Hide Log Window`. See [Logs & Diagnostics](configuration/logs.md).
+In the per-user data folder (`app<yyyyMMdd>.log`, `ApiLogError.txt`, `UserLogError.txt`, `InternalLog.txt`) and in the live log window under `Settings > Show/Hide Log Window`. See [Logs & Diagnostics](configuration/logs.md).
 
 ### How do I reset all settings?
 
-Close FindRomCover and delete `%LocalAppData%\FindRomCover\Settings.dat`. Defaults are recreated on the next start. Stored API keys are removed too.
+Close FindRomCover and delete `Settings.dat` from the per-user data folder. Defaults are recreated on the next start. Stored API keys are removed too.
 
-## Still stuck?
+## Related pages
 
 - [Troubleshooting](troubleshooting.md)
 - [AI Troubleshooting](ai/troubleshooting.md)
+- [Bug Reports](configuration/bug-reports.md)
+- [Privacy](configuration/privacy.md)
 - [GitHub Issues](https://github.com/purelogiccode/FindRomCover/issues)
 - [GitHub Discussions](https://github.com/purelogiccode/FindRomCover/discussions)

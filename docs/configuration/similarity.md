@@ -1,6 +1,6 @@
 # Similarity Algorithms
 
-Local Files search compares the cleaned ROM name with every image filename in your image folder. Three algorithms are available, selectable under `Set Similarity Algorithm`.
+Local Files search compares the cleaned ROM name with every image filename in your image folder. Three algorithms are available, selectable under `Set Similarity Algorithm`. The default is **Jaro-Winkler Distance** with a threshold of **70%**.
 
 ## The algorithms
 
@@ -14,10 +14,10 @@ Measures how similar two strings are, with extra weight for a common prefix. It 
 
 ### Jaccard Similarity
 
-Compares the sets of character n-grams (trigrams) in both names: the size of the intersection divided by the size of the union.
+Compares the sets of character **bigrams** (two-character sequences) in both names: the size of the intersection divided by the size of the union. Names shorter than two characters fall back to single characters (unigrams). Trigrams are used only by the separate pre-filter index described under [Performance](#performance), not by the score itself.
 
 - **Best for:** filenames with reordered words, for example `Mario Bros, The` vs `The Mario Bros`
-- **Strengths:** order-insensitive, fast with the trigram index
+- **Strengths:** order-insensitive; the trigram pre-filter keeps large folders responsive
 - **Weaknesses:** less sensitive to small edits than Levenshtein
 
 ### Levenshtein Distance
@@ -59,7 +59,7 @@ For web and API searches, the query is built from the cleaned name: bracketed re
 
 ## Performance
 
-For image folders with 50 or more files, a trigram index pre-filters candidates before the full similarity comparison. The index is built per search and keeps large collections responsive.
+For image folders with **more than 50 files**, a trigram index pre-filters candidates before the full similarity comparison. The index is used only when it returns at least **5% of all files**; if it returns fewer candidates, the full scan runs instead. The index is built per search and keeps large collections responsive.
 
 Additional optimizations:
 

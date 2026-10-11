@@ -1,6 +1,6 @@
 # AI Settings
 
-`Settings > AI Settings...` configures the provider, the model, and how AI picks behave. All values are stored in the encrypted settings database.
+`Settings > AI Settings...` configures the provider, the model, and how AI picks behave. Only the **API key** is stored encrypted; the other AI settings are stored as plain configuration values in the settings database.
 
 ## Provider and model
 
@@ -8,14 +8,25 @@
 |-------|-------------|
 | **Enable AI-assisted image selection** | Master switch; without it no AI features are available |
 | **Provider** | OpenRouter, OpenAI, Anthropic, Gemini, GLM, Local, or a custom endpoint |
-| **Base URL** | Editable API base URL; preset per provider |
-| **API Key** | Provider key; stored encrypted and never logged |
+| **Base URL** | Editable API base URL; preset per provider. Custom (OpenAI-compatible) has no preset and requires one |
+| **API Key** | Provider key; stored encrypted and never logged. Required for OpenRouter, OpenAI, Anthropic, Gemini and GLM; optional for Local and custom endpoints |
 | **Model** | Model identifier; use **Test / Load Models** to pick from the provider list |
-| **Test / Load Models** | Verifies the connection and loads the model list |
+| **Test / Load Models** | Verifies the connection and loads the model list from `<Base URL>/models` |
 | **Filter box** | Narrows the loaded model list by text |
 | **Vision-capable only** | Hides models that most likely cannot analyze images (default on) |
 
-The loaded list is cached per provider and base URL for 7 days, so it is available instantly on later visits.
+A **Get an OpenRouter API key** hyperlink below the API Key field opens the OpenRouter key page in your browser.
+
+### Validation rules
+
+When you save with AI Assist enabled:
+
+- The Base URL must be an absolute URL if you entered one (for example `https://openrouter.ai/api/v1` or `http://localhost:11434/v1`).
+- Custom providers require both a Base URL and a Model.
+- OpenRouter, OpenAI, Anthropic, Gemini, and GLM require an API key.
+- Local never requires an API key.
+
+The loaded model list is cached per provider and lowercased base URL for 7 days in `%LocalAppData%\FindRomCover\ai-models.json`. If a connection test fails, the previously cached list stays loaded; after changing the base URL the list is empty until you click **Test / Load Models**.
 
 ## Limits & behavior
 
@@ -33,8 +44,8 @@ The loaded list is cached per provider and base URL for 7 days, so it is availab
 | Toggle | Default | Effect |
 |--------|---------|--------|
 | **Automatically save the AI pick when confidence is above the threshold** | Off | The AI-selected image is saved and the game leaves the missing list without further clicks |
-| **Run AI Pick automatically when a game is selected** | Off | Starts the AI analysis right after the local search finishes |
-| **Verify images with AI before renaming or saving** | Off | The watcher asks the model to confirm that a newly saved image matches the selected game |
+| **Run AI Pick automatically when a game is selected** | Off | Starts the AI analysis right after a local search on the Local Files tab or a Google API search on the Google API tab |
+| **Verify images with AI before renaming or saving** | Off | Applies to the image folder watcher, manual local saves, manual Google API saves, and batch API downloads. Manual saves show a confirmation prompt when the AI considers the image a mismatch; Batch Fill rejects the download automatically and remembers it in the query history |
 | **Skip missing covers already queried in previous sessions** | On | Batch Fill will not ask the AI twice for the same cover, even across restarts |
 
 ## Query history
@@ -55,7 +66,7 @@ The **Clear query history** button forgets every cover that was already queried.
 
 ## Where settings live
 
-All AI settings — including provider, base URL, model, and the encrypted API key — are stored in `%LocalAppData%\FindRomCover\Settings.dat`. See [Data Storage](../configuration/data-storage.md).
+AI settings are stored in `%LocalAppData%\FindRomCover\Settings.dat`. Only the API key (`AiApiKey`) is AES-encrypted; the provider, base URL, model, timeouts, thresholds, and toggles are plain key/value rows. The provider model list lives in `ai-models.json`, AI verdicts in `ai-cache.json`, and skipped covers in `QueryHistory.dat`. See [Data Storage](../configuration/data-storage.md).
 
 ## Related pages
 

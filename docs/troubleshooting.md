@@ -1,28 +1,35 @@
 # Troubleshooting
 
-This page covers general problems. For AI-specific issues see [AI Troubleshooting](ai/troubleshooting.md).
+This page covers general problems on Windows, Linux, and macOS. For AI-specific issues see [AI Troubleshooting](ai/troubleshooting.md).
 
 ## The application does not start
 
 | Check | Action |
 |-------|--------|
-| .NET Desktop Runtime | Install the [.NET 10.0 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) |
-| Log file | Read the rolling `app<yyyyMMdd>.log` in `%LocalAppData%\FindRomCover` for the exact failure |
-| Corrupt settings | Delete `%LocalAppData%\FindRomCover\Settings.dat` to reset to defaults |
-| Permissions | Move the application to a user-writable folder such as `C:\Tools\FindRomCover` |
+| .NET runtime | Install the [.NET 10.0 runtime](https://dotnet.microsoft.com/download/dotnet/10.0) (on Windows choose **.NET Desktop Runtime**) |
+| Log file | Read the rolling `app<yyyyMMdd>.log` in the per-user data folder for the exact failure |
+| Corrupt settings | Delete `Settings.dat` from the per-user data folder to reset to defaults |
+| Permissions | Screenshots are the only files written next to the executable; if saving them fails, move the application to a user-writable folder such as `~/apps/FindRomCover` or rely on the fallback to the per-user data folder. Logs and settings already live in the per-user data folder |
 | Antivirus | Some scanners flag single-file .NET executables; allow the file if you trust it |
+| Linux/macOS | Ensure the binary is executable (`chmod +x FindRomCover`) and start it from a terminal once to see any startup message |
 
 A fatal startup error is shown in a dialog and written to the log.
 
-## "WebView2 Runtime Missing" or "WebView2 component is not ready"
+## The embedded web view is missing or blank
 
-The Google Web and Bing Web tabs need the Microsoft Edge WebView2 Runtime.
+The Google Web and Bing Web tabs use the platform web view:
 
-1. Follow the in-app prompt to download the runtime from Microsoft.
-2. Install it and restart FindRomCover.
-3. If the problem persists, update Windows and reinstall the runtime.
+| Platform | Runtime | Notes |
+|----------|---------|-------|
+| Windows | Microsoft Edge WebView2 Runtime | Pre-installed on most Windows 10/11 systems |
+| macOS | WKWebView | Part of the operating system |
+| Linux | WebKitGTK | Install the WebKitGTK runtime from your distribution's package manager |
 
-All other features keep working without WebView2.
+If the runtime is unavailable, FindRomCover explains the problem and can open the runtime download page or the system browser instead; all other features keep working. To recover the embedded tabs:
+
+1. Follow the in-app prompt to open the runtime download page (or install WebKitGTK on Linux).
+2. Install the runtime and restart FindRomCover.
+3. If the problem persists, update your operating system and reinstall the runtime.
 
 ## No search results
 
@@ -59,20 +66,22 @@ This is a host-side block, not an application bug — try another result, anothe
 
 `mame.dat` ships with the application and is copied to the output folder on build.
 
-- If it is missing, copy a fresh one next to `FindRomCover.exe`.
+- If it is missing, copy a fresh one next to the `FindRomCover` executable.
 - If it is corrupt, replace it with a fresh copy.
 - Without it, MAME descriptions are unavailable and searches fall back to cleaned filenames.
 
 ## Settings were reset unexpectedly
 
-FindRomCover quarantines unreadable settings instead of failing:
+FindRomCover quarantines unreadable files instead of failing:
 
 | File | Meaning |
 |------|---------|
+| `Settings.dat.corrupt` | Settings database that could not be read; defaults were restored |
 | `settings.dat.legacy` | Backup of the old encrypted settings file after SQLite migration |
-| `settings.dat.corrupt` | Settings database that could not be read; defaults were restored |
+| `settings.xml.migrated` | Legacy `settings.xml` moved aside after a successful migration |
+| `QueryHistory.dat.corrupt` | Query-history database that could not be read; a fresh one was created |
 
-To recover, restore a backup of `%LocalAppData%\FindRomCover`. See [Data Storage](configuration/data-storage.md).
+The quarantine file appears in the folder that held the unreadable file (the per-user data folder or the application folder). To recover, restore a backup of the per-user data folder. See [Data Storage](configuration/data-storage.md).
 
 ## The application is slow
 
@@ -94,16 +103,25 @@ To recover, restore a backup of `%LocalAppData%\FindRomCover`. See [Data Storage
 
 Include:
 
-- FindRomCover version and Windows version/architecture;
+- the application version and OS/architecture;
 - steps to reproduce;
 - the relevant log entries;
 - whether Google API or AI Assist was involved.
 
-Remove any paths or information you do not want to share before posting.
+Remove any paths or information you do not want to share before posting. Automatic bug reports and their privacy implications are described in [Bug Reports](configuration/bug-reports.md).
+
+## Linux and macOS notes
+
+- **Case-sensitive file systems** — cover filenames must match the ROM base name exactly. On Windows the check is case-insensitive; on Linux and macOS `sonic.png` does not cover `Sonic.zip`.
+- **Web view** — install WebKitGTK from your distribution's package manager; WKWebView is included with macOS.
+- **Tray icon** — minimizing hides the window to the tray; some Linux desktop environments do not display tray icons, so use the taskbar or close the window instead.
+- **Screenshots** — the `Screenshot` folder next to the executable is tried first; the per-user data folder is used when the application folder is not writable.
+- **Settings encryption** — the key is derived from the machine name, so copying `Settings.dat` between machines invalidates stored API keys.
 
 ## Related pages
 
 - [FAQ](faq.md)
+- [Bug Reports](configuration/bug-reports.md)
 - [AI Troubleshooting](ai/troubleshooting.md)
 - [Logs & Diagnostics](configuration/logs.md)
 - [Data Storage](configuration/data-storage.md)
