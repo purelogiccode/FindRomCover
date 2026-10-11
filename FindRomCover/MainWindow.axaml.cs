@@ -52,7 +52,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         DataContext = this;
 
         CheckForMissingImagesCommand = new DelegateCommand(
-            _ => _ = CheckForMissingImagesSafeAsync(),
+            _ => ExecuteCheckForMissingImagesCommand(),
             _ => BtnCheckForMissingImages?.IsEnabled ?? false);
         ExitCommand = new DelegateCommand(_ => Close());
 
@@ -858,6 +858,37 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
     }
 
+    private void ExecuteCheckForMissingImagesCommand()
+    {
+        _ = CheckForMissingImagesSafeAsync();
+    }
+
+    private async void BtnAiPickApi_Click(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            await RunAiPickApiAsync();
+        }
+        catch (Exception ex)
+        {
+            LogService.Warning(ex, "Error in BtnAiPickApi_Click");
+        }
+    }
+
+    private async void SaveApiImage_ClickAsync(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (sender is not Control { DataContext: ImageData { ImagePath: not null } imageData }) return;
+
+            await SaveApiImageAsync(_selectedRomFileName, imageData);
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "Error saving API image");
+        }
+    }
+
     private async Task CheckForMissingImagesSafeAsync()
     {
         try
@@ -1359,6 +1390,114 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         catch (Exception ex)
         {
             LogService.Error(ex, "Error in UpdateThumbnailSizeMenuChecks");
+        }
+    }
+
+    private void LstMissingImages_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        try
+        {
+            if (_aiBatchRunning) return;
+
+            // Cancel any pending searches
+            _findSimilarCts?.Cancel();
+            _findSimilarCts?.Dispose();
+            _findSimilarCts = null;
+            _webSearchCts?.Cancel();
+            _webSearchCts?.Dispose();
+            _webSearchCts = null;
+            _aiAssistCts?.Cancel();
+            _aiAssistCts?.Dispose();
+            _aiAssistCts = null;
+
+            if (LstMissingImages.SelectedItem is not MissingImageItem selectedItem)
+            {
+                // No ROM selected anymore — the watcher must not rename a future dropped
+                // file onto the previously selected (possibly already filled) ROM.
+                _imageFolderWatcher?.PendingRenameTarget = null;
+
+                SimilarImages.Clear();
+                PanelImages.Clear();
+                LblLocalSearchQuery.Content = null;
+                LblApiSearchQuery.Content = null;
+                IsFindingSimilar = false;
+                IsSearching = false;
+                HasSearchedSimilar = false;
+                HasSearchedApi = false;
+                return;
+            }
+
+            var selectedItemRomName = selectedItem.RomName;
+            var selectedItemSearchName = selectedItem.SearchName;
+            _selectedRomFileName = selectedItemRomName;
+            _imageFolderWatcher?.PendingRenameTarget = selectedItemRomName;
+
+            try
+            {
+                var clipboard = GetTopLevel(this)?.Clipboard;
+                if (clipboard != null) _ = clipboard.SetTextAsync(selectedItemRomName);
+            }
+            catch
+            {
+                // Clipboard may be locked by another process
+            }
+
+            // Always do local search
+            _findSimilarTask = RunLocalSearchAsync(selectedItemSearchName, selectedItemRomName);
+            _ = _findSimilarTask;
+
+            TriggerActiveTabSearch(selectedItemSearchName);
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "Error in LstMissingImages_SelectionChanged");
+        }
+    }
+
+    private void ImageCell_Click(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var romName = _selectedRomFileName;
+
+            if (sender is Control { DataContext: ImageData { ImagePath: not null } imageData })
+                _ = UseImageAsync(romName, imageData.ImagePath);
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "Error in ImageCell_Click");
+        }
+    }
+
+    private void Image_ContextMenuOpening(object? sender, CancelEventArgs e)
+    {
+        try
+        {
+            if (sender is not ContextMenu contextMenu) return;
+            if (contextMenu.PlacementTarget is not { DataContext: ImageData imageData }) return;
+
+            if (imageData.ImagePath != null)
+            {
+                var romName = _selectedRomFileName;
+                ButtonFactory.CreateContextMenu(imageData.ImagePath,
+                    path => _ = UseImageAsync(romName, path), contextMenu);
+            }
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "Error in Image_ContextMenuOpening");
+        }
+    }
+
+    private async void BtnAiPickLocal_Click(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            await RunAiPickAsync();
+        }
+        catch (Exception ex)
+        {
+            LogService.Warning(ex, "Error in BtnAiPickLocal_Click");
         }
     }
 

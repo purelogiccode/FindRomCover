@@ -1,7 +1,6 @@
 using System.Globalization;
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
-using Avalonia.Interactivity;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using FindRomCover.ApiProvider;
@@ -193,20 +192,6 @@ public partial class MainWindow
         return Google.FetchImagesFromGoogleAsync(searchQuery, Settings, token);
     }
 
-    private async void SaveApiImage_ClickAsync(object? sender, RoutedEventArgs e)
-    {
-        try
-        {
-            if (sender is not Control { DataContext: ImageData { ImagePath: not null } imageData }) return;
-
-            await SaveApiImageAsync(_selectedRomFileName, imageData);
-        }
-        catch (Exception ex)
-        {
-            LogService.Error(ex, "Error saving API image");
-        }
-    }
-
     private async Task SaveApiImageAsync(string romName, ImageData imageData)
     {
         var imageFolderPath = GetValidatedImageFolderPath(false);
@@ -367,18 +352,6 @@ public partial class MainWindow
         {
             LogService.Debug($"API thumbnail decode failed: {ex.Message}");
             return null;
-        }
-    }
-
-    private async void BtnAiPickApi_Click(object? sender, RoutedEventArgs e)
-    {
-        try
-        {
-            await RunAiPickApiAsync();
-        }
-        catch (Exception ex)
-        {
-            LogService.Warning(ex, "Error in BtnAiPickApi_Click");
         }
     }
 

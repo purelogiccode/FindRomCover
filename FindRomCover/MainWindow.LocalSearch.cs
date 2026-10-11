@@ -1,8 +1,5 @@
-using System.ComponentModel;
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
-using Avalonia.Input.Platform;
-using Avalonia.Interactivity;
 using Avalonia.Threading;
 using FindRomCover.Models;
 using FindRomCover.Services;
@@ -13,67 +10,6 @@ namespace FindRomCover;
 public partial class MainWindow
 {
     private CancellationTokenSource? _webSearchCts;
-
-    private void LstMissingImages_SelectionChanged(object? sender, SelectionChangedEventArgs e)
-    {
-        try
-        {
-            if (_aiBatchRunning) return;
-
-            // Cancel any pending searches
-            _findSimilarCts?.Cancel();
-            _findSimilarCts?.Dispose();
-            _findSimilarCts = null;
-            _webSearchCts?.Cancel();
-            _webSearchCts?.Dispose();
-            _webSearchCts = null;
-            _aiAssistCts?.Cancel();
-            _aiAssistCts?.Dispose();
-            _aiAssistCts = null;
-
-            if (LstMissingImages.SelectedItem is not MissingImageItem selectedItem)
-            {
-                // No ROM selected anymore — the watcher must not rename a future dropped
-                // file onto the previously selected (possibly already filled) ROM.
-                _imageFolderWatcher?.PendingRenameTarget = null;
-
-                SimilarImages.Clear();
-                PanelImages.Clear();
-                LblLocalSearchQuery.Content = null;
-                LblApiSearchQuery.Content = null;
-                IsFindingSimilar = false;
-                IsSearching = false;
-                HasSearchedSimilar = false;
-                HasSearchedApi = false;
-                return;
-            }
-
-            var selectedItemRomName = selectedItem.RomName;
-            var selectedItemSearchName = selectedItem.SearchName;
-            _selectedRomFileName = selectedItemRomName;
-            _imageFolderWatcher?.PendingRenameTarget = selectedItemRomName;
-
-            try
-            {
-                var clipboard = GetTopLevel(this)?.Clipboard;
-                if (clipboard != null) _ = clipboard.SetTextAsync(selectedItemRomName);
-            }
-            catch
-            {
-                // Clipboard may be locked by another process
-            }
-
-            // Always do local search
-            _findSimilarTask = RunLocalSearchAsync(selectedItemSearchName, selectedItemRomName);
-            _ = _findSimilarTask;
-
-            TriggerActiveTabSearch(selectedItemSearchName);
-        }
-        catch (Exception ex)
-        {
-            LogService.Error(ex, "Error in LstMissingImages_SelectionChanged");
-        }
-    }
 
     private void TriggerActiveTabSearch(string searchName)
     {
@@ -288,18 +224,6 @@ public partial class MainWindow
         }
     }
 
-    private async void BtnAiPickLocal_Click(object? sender, RoutedEventArgs e)
-    {
-        try
-        {
-            await RunAiPickAsync();
-        }
-        catch (Exception ex)
-        {
-            LogService.Warning(ex, "Error in BtnAiPickLocal_Click");
-        }
-    }
-
     private async Task RunAiPickAsync()
     {
         if (!Settings.AiAssistEnabled)
@@ -408,21 +332,6 @@ public partial class MainWindow
         }
     }
 
-    private void ImageCell_Click(object? sender, RoutedEventArgs e)
-    {
-        try
-        {
-            var romName = _selectedRomFileName;
-
-            if (sender is Control { DataContext: ImageData { ImagePath: not null } imageData })
-                _ = UseImageAsync(romName, imageData.ImagePath);
-        }
-        catch (Exception ex)
-        {
-            LogService.Error(ex, "Error in ImageCell_Click");
-        }
-    }
-
     private async Task UseImageAsync(string romName, string? imagePath)
     {
         var imageFolderPath = GetValidatedImageFolderPath(false);
@@ -469,26 +378,6 @@ public partial class MainWindow
             _imageFolderWatcher?.UnregisterExpectedFile(newFileName);
             Dialogs.ShowMessage(this, $"Unexpected error saving image: {ex.Message}", "Error", MessageIcon.Error);
             LogService.Error(ex, $"Unexpected error in UseImage: {imagePath}");
-        }
-    }
-
-    private void Image_ContextMenuOpening(object? sender, CancelEventArgs e)
-    {
-        try
-        {
-            if (sender is not ContextMenu contextMenu) return;
-            if (contextMenu.PlacementTarget is not { DataContext: ImageData imageData } element) return;
-
-            if (imageData.ImagePath != null)
-            {
-                var romName = _selectedRomFileName;
-                ButtonFactory.CreateContextMenu(imageData.ImagePath,
-                    path => _ = UseImageAsync(romName, path), contextMenu);
-            }
-        }
-        catch (Exception ex)
-        {
-            LogService.Error(ex, "Error in Image_ContextMenuOpening");
         }
     }
 }

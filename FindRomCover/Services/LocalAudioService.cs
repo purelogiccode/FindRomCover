@@ -38,7 +38,6 @@ public sealed class LocalAudioService : IAudioService
 
     public void Dispose()
     {
-        GC.SuppressFinalize(this);
     }
 
     private static void Play(string path)
