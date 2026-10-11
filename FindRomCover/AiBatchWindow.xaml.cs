@@ -1,7 +1,6 @@
-using System.ComponentModel;
 using System.Globalization;
-using System.IO;
-using System.Windows;
+using Avalonia.Controls;
+using Avalonia.Interactivity;
 using FindRomCover.Managers;
 using FindRomCover.Models;
 using FindRomCover.Services;
@@ -9,12 +8,12 @@ using FindRomCover.Services.Ai;
 
 namespace FindRomCover;
 
-public partial class AiBatchWindow
+public partial class AiBatchWindow : Window
 {
     private const int DefaultMaxItems = 25;
     private const int HardMaxItems = 500;
 
-    private readonly string? _extraQuery;
+    private readonly string _extraQuery;
     private readonly string _imageFolderPath;
     private readonly List<MissingImageItem> _items;
     private readonly Action<string>? _preRegisterExpectedFile;
@@ -38,7 +37,7 @@ public partial class AiBatchWindow
         _items = items?.ToList() ?? throw new ArgumentNullException(nameof(items));
         _imageFolderPath = imageFolderPath;
         _preRegisterExpectedFile = preRegisterExpectedFile;
-        _extraQuery = extraQuery;
+        _extraQuery = extraQuery ?? string.Empty;
         _unregisterExpectedFile = unregisterExpectedFile;
 
         Closing += AiBatchWindow_Closing;
@@ -60,7 +59,7 @@ public partial class AiBatchWindow
 
     public event Action<string>? ItemResolved;
 
-    private async void BtnStart_Click(object sender, RoutedEventArgs e)
+    private async void BtnStart_Click(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -68,9 +67,9 @@ public partial class AiBatchWindow
 
             if (!_settings.AiAssistEnabled)
             {
-                MessageBox.Show(
+                await Dialogs.ShowMessageAsync(this,
                     "AI Assist is disabled.\n\nEnable it in Settings > AI Settings... to use this feature.",
-                    "AI Batch Fill", MessageBoxButton.OK, MessageBoxImage.Information);
+                    "AI Batch Fill", MessageIcon.Information);
                 return;
             }
 
@@ -112,7 +111,7 @@ public partial class AiBatchWindow
             catch (Exception ex)
             {
                 LogService.Warning(ex, "AI batch fill failed.");
-                MessageBox.Show(ex.Message, "AI Batch Fill", MessageBoxButton.OK, MessageBoxImage.Warning);
+                await Dialogs.ShowMessageAsync(this, ex.Message, "AI Batch Fill", MessageIcon.Warning);
             }
             finally
             {
@@ -135,7 +134,7 @@ public partial class AiBatchWindow
         Progress.Value = Math.Min(Progress.Maximum, Progress.Value + 1);
 
         LstResults.Items.Add($"{result.RomName}: {result.Outcome} — {result.Message}");
-        if (LstResults.Items.Count > 0) LstResults.ScrollIntoView(LstResults.Items[^1]);
+        if (LstResults.Items.Count > 0) LstResults.ScrollIntoView(LstResults.Items[^1]!);
 
         if (result.Outcome is AiBatchOutcome.FilledFromLocal or AiBatchOutcome.FilledFromApi
             or AiBatchOutcome.SkippedAlreadyExists)
@@ -155,7 +154,7 @@ public partial class AiBatchWindow
         LogService.Information($"AI batch fill finished: {filled} filled, {skipped} skipped, {failed} failed.");
     }
 
-    private void BtnCancel_Click(object sender, RoutedEventArgs e)
+    private void BtnCancel_Click(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -168,14 +167,14 @@ public partial class AiBatchWindow
         }
     }
 
-    private void BtnClose_Click(object sender, RoutedEventArgs e)
+    private void BtnClose_Click(object? sender, RoutedEventArgs e)
     {
         if (_running) return;
 
         Close();
     }
 
-    private void AiBatchWindow_Closing(object? sender, CancelEventArgs e)
+    private void AiBatchWindow_Closing(object? sender, WindowClosingEventArgs e)
     {
         // Closing the window (X button, Alt+F4) while a batch is running must stop the
         // batch — otherwise downloads/saves keep running against a dead window. Keep the

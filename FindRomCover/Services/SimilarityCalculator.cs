@@ -1,7 +1,6 @@
 using System.Buffers;
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
-using System.IO;
 using System.Text;
 using FindRomCover.Managers;
 using FindRomCover.Models;
@@ -55,13 +54,13 @@ public static class SimilarityCalculator
                 try
                 {
                     var (maxRetries, retryDelayMilliseconds) = GetConfiguredImageLoaderSettings();
-                    var imageSource = await ImageLoader.LoadImageToMemoryAsync(
+                    var imageBytes = await ImageLoader.LoadImageToMemoryAsync(
                         candidate.FilePath,
                         ct,
                         maxRetries,
                         retryDelayMilliseconds);
 
-                    if (imageSource == null)
+                    if (imageBytes == null)
                     {
                         processingErrors.Add(
                             $"Image '{Path.GetFileName(candidate.FilePath)}' could not be loaded (corrupted or empty).");
@@ -70,7 +69,7 @@ public static class SimilarityCalculator
 
                     var imageData = new ImageData(candidate.FilePath, candidate.ImageName, candidate.SimilarityScore)
                     {
-                        ImageSource = imageSource
+                        ImageSource = ImageSources.FromPngBytes(imageBytes)
                     };
                     imageList.Add(imageData);
                     onImageLoaded?.Invoke(imageData);

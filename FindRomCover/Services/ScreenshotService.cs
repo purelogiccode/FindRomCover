@@ -1,86 +1,44 @@
-using System.Drawing;
-using System.Drawing.Imaging;
-using System.Globalization;
-using System.IO;
-using System.Runtime.InteropServices;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Media.Imaging;
 
 namespace FindRomCover.Services;
 
+/// <summary>
+///     Cross-platform replacement for the Windows-only screen capture service.
+///     Renders the application window to a PNG file.
+/// </summary>
 public static class ScreenshotService
 {
-    private const int DwmwaExtendedFrameBounds = 9;
     private static readonly string ScreenshotFolder = Path.Combine(AppDataPaths.BaseDirectory, "Screenshot");
 
-    [DllImport("user32.dll")]
-    private static extern IntPtr GetForegroundWindow();
-
-    [DllImport("user32.dll")]
-    private static extern bool GetWindowRect(IntPtr hWnd, out Rect lpRect);
-
-    [DllImport("dwmapi.dll")]
-    private static extern int
-        DwmGetWindowAttribute(IntPtr hwnd, int dwAttribute, out Rect pvAttribute, int cbAttribute);
-
-    public static string? CaptureActiveWindow()
+    public static string? CaptureWindow(Window window)
     {
         try
         {
-            var hWnd = GetForegroundWindow();
-            if (hWnd == IntPtr.Zero)
-            {
-                LogService.Warning("Screenshot: No foreground window found.");
-                return null;
-            }
-
-            if (!TryGetWindowBounds(hWnd, out var rect))
-            {
-                LogService.Warning("Screenshot: Failed to get window bounds.");
-                return null;
-            }
-
-            var width = rect.Right - rect.Left;
-            var height = rect.Bottom - rect.Top;
+            var width = (int)Math.Ceiling(window.Bounds.Width);
+            var height = (int)Math.Ceiling(window.Bounds.Height);
 
             if (width <= 0 || height <= 0)
             {
-                LogService.Warning("Screenshot: Window has invalid dimensions.");
+                LogService.Warning("Screenshot: window has no size.");
                 return null;
             }
 
-            if (!Directory.Exists(ScreenshotFolder)) Directory.CreateDirectory(ScreenshotFolder);
+            using var bitmap = new RenderTargetBitmap(new PixelSize(width, height), new Vector(96, 96));
+            bitmap.Render(window);
 
-            var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss_fff", CultureInfo.InvariantCulture);
-            var filePath = Path.Combine(ScreenshotFolder, $"Screenshot_{timestamp}.png");
+            Directory.CreateDirectory(ScreenshotFolder);
+            var filePath = Path.Combine(ScreenshotFolder, $"Screenshot_{DateTime.Now:yyyyMMdd_HHmmss}.png");
+            bitmap.Save(filePath, new PngBitmapEncoderOptions());
 
-            using var bitmap = new Bitmap(width, height);
-            using var graphics = Graphics.FromImage(bitmap);
-            graphics.CopyFromScreen(rect.Left, rect.Top, 0, 0, new Size(width, height));
-
-            bitmap.Save(filePath, ImageFormat.Png);
-
-            LogService.Information($"Screenshot: Saved to '{filePath}'.");
+            LogService.Information($"Screenshot saved: {filePath}");
             return filePath;
         }
         catch (Exception ex)
         {
-            LogService.Error(ex, "Error capturing screenshot.");
+            LogService.Warning(ex, "Screenshot: capture failed.");
             return null;
         }
-    }
-
-    private static bool TryGetWindowBounds(IntPtr hWnd, out Rect rect)
-    {
-        if (DwmGetWindowAttribute(hWnd, DwmwaExtendedFrameBounds, out rect, Marshal.SizeOf<Rect>()) == 0) return true;
-
-        return GetWindowRect(hWnd, out rect);
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct Rect
-    {
-        public int Left;
-        public int Top;
-        public int Right;
-        public int Bottom;
     }
 }

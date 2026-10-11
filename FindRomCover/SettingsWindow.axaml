@@ -1,0 +1,40 @@
+<Window x:Class="FindRomCover.SettingsWindow"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Edit Supported Extensions"
+        Height="450"
+        Width="400"
+        WindowStartupLocation="CenterScreen"
+        CanResize="False"
+        Icon="avares://FindRomCover/Assets/images/logo.png"
+        ToolTip.Tip="Manage which ROM file extensions the application will scan for">
+    <Grid Margin="15" RowDefinitions="Auto,*,Auto,Auto">
+
+        <TextBlock Grid.Row="0" TextWrapping="Wrap" Margin="0,0,0,10"
+                   Text="Manage the list of supported ROM file extensions."
+                   ToolTip.Tip="Instructions for managing ROM file extensions" />
+
+        <ListBox Grid.Row="1"
+                 x:Name="LstSupportedExtensions"
+                 BorderBrush="{DynamicResource Gray6Brush}"
+                 BorderThickness="1"
+                 ItemsSource="{Binding SupportedExtensions}"
+                 ToolTip.Tip="List of ROM file extensions currently supported. Select an extension to remove it." />
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,10,0,0">
+            <Button x:Name="BtnAdd" Content="Add..." Width="100" Margin="0,0,10,0" Click="BtnAdd_ClickAsync"
+                    ToolTip.Tip="Add a new ROM file extension to the supported list" />
+            <Button x:Name="BtnRemove" Content="Remove" Width="100" Click="BtnRemove_Click"
+                    IsEnabled="{Binding #LstSupportedExtensions.SelectedItem, Converter={x:Static ObjectConverters.IsNotNull}}"
+                    ToolTip.Tip="Remove the selected extension from the supported list" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+            <Button x:Name="BtnSave" Content="Save" Width="100" Margin="0,0,10,0" Click="BtnSave_Click"
+                    IsDefault="True"
+                    ToolTip.Tip="Save changes to the supported extensions list" />
+            <Button x:Name="BtnCancel" Content="Cancel" Width="100" IsCancel="True" Click="BtnCancel_Click"
+                    ToolTip.Tip="Discard changes and close this window" />
+        </StackPanel>
+    </Grid>
+</Window>

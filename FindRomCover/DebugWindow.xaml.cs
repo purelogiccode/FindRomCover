@@ -1,14 +1,15 @@
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
-using System.ComponentModel;
 using System.Text;
-using System.Windows;
+using Avalonia.Controls;
+using Avalonia.Input.Platform;
+using Avalonia.Interactivity;
 using FindRomCover.Models;
 using FindRomCover.Services;
 
 namespace FindRomCover;
 
-public partial class DebugWindow
+public partial class DebugWindow : Window
 {
     private readonly ObservableCollection<LogEntry> _logMessages;
     private bool _isForceClosing;
@@ -24,7 +25,13 @@ public partial class DebugWindow
         foreach (var logEntry in _logMessages) initialLogText.AppendLine(logEntry.Message);
 
         LogTextBox.Text = initialLogText.ToString();
-        LogTextBox.ScrollToEnd();
+        ScrollLogToEnd();
+
+        LogTextBox.PropertyChanged += (_, args) =>
+        {
+            if (string.Equals(args.Property.Name, "SelectedText", StringComparison.Ordinal))
+                LogTextBox_SelectionChanged();
+        };
 
         // Subscribe to collection changes to append new logs
         if (_logMessages is INotifyCollectionChanged incc) incc.CollectionChanged += LogMessages_CollectionChanged;
@@ -39,7 +46,7 @@ public partial class DebugWindow
         _isForceClosing = true;
     }
 
-    private void OnLogWindowClosing(object? sender, CancelEventArgs e)
+    private void OnLogWindowClosing(object? sender, WindowClosingEventArgs e)
     {
         if (_isForceClosing)
             // Allow the window to close if the application is shutting down.
@@ -70,8 +77,8 @@ public partial class DebugWindow
                 foreach (LogEntry item in e.NewItems) newText.AppendLine(item.Message);
 
                 // ...append it to our TextBox.
-                LogTextBox.AppendText(newText.ToString());
-                LogTextBox.ScrollToEnd();
+                LogTextBox.Text += newText.ToString();
+                ScrollLogToEnd();
                 break;
             }
             // When the source collection is cleared...
@@ -82,14 +89,20 @@ public partial class DebugWindow
         }
     }
 
-    private void CopyLog_Click(object sender, RoutedEventArgs e)
+    private void ScrollLogToEnd()
+    {
+        LogTextBox.CaretIndex = LogTextBox.Text?.Length ?? 0;
+    }
+
+    private void CopyLog_Click(object? sender, RoutedEventArgs e)
     {
         LogService.Information("Copy All button clicked.");
         try
         {
-            if (LogTextBox.Text.Length > 0)
+            if (LogTextBox.Text is { Length: > 0 } text)
             {
-                Clipboard.SetText(LogTextBox.Text);
+                var clipboard = GetTopLevel(this)?.Clipboard;
+                if (clipboard != null) _ = clipboard.SetTextAsync(text);
                 LogService.Information("Entire log content copied to clipboard.");
             }
             else
@@ -103,7 +116,7 @@ public partial class DebugWindow
         }
     }
 
-    private void ClearLog_Click(object sender, RoutedEventArgs e)
+    private void ClearLog_Click(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -118,14 +131,15 @@ public partial class DebugWindow
         }
     }
 
-    private void CopySelection_Click(object sender, RoutedEventArgs e)
+    private void CopySelection_Click(object? sender, RoutedEventArgs e)
     {
         if (string.IsNullOrEmpty(LogTextBox.SelectedText)) return;
 
         LogService.Information("Copy Selection clicked.");
         try
         {
-            Clipboard.SetText(LogTextBox.SelectedText);
+            var clipboard = GetTopLevel(this)?.Clipboard;
+            if (clipboard != null) _ = clipboard.SetTextAsync(LogTextBox.SelectedText);
             LogService.Information("Selected log text copied to clipboard.");
         }
         catch (Exception ex)
@@ -134,7 +148,7 @@ public partial class DebugWindow
         }
     }
 
-    private void LogTextBox_SelectionChanged(object sender, RoutedEventArgs e)
+    private void LogTextBox_SelectionChanged()
     {
         try
         {

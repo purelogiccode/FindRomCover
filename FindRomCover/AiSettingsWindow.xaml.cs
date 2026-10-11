@@ -1,9 +1,6 @@
 using System.Globalization;
-using System.IO;
-using System.Net.Http;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Navigation;
+using Avalonia.Controls;
+using Avalonia.Interactivity;
 using FindRomCover.Managers;
 using FindRomCover.Models;
 using FindRomCover.Services;
@@ -11,7 +8,7 @@ using FindRomCover.Services.Ai;
 
 namespace FindRomCover;
 
-public partial class AiSettingsWindow
+public partial class AiSettingsWindow : Window
 {
     private const string ModelCacheFileName = "ai-models.json";
     private static readonly TimeSpan ModelCacheTtl = TimeSpan.FromDays(7);
@@ -34,7 +31,7 @@ public partial class AiSettingsWindow
 
     private string SelectedProvider => CmbProvider.SelectedItem as string ?? AppConstants.AiProviders.OpenRouter;
 
-    private string ModelCacheKey => $"{SelectedProvider}|{TxtBaseUrl.Text.Trim().ToLowerInvariant()}";
+    private string ModelCacheKey => $"{SelectedProvider}|{(TxtBaseUrl.Text ?? string.Empty).Trim().ToLowerInvariant()}";
 
     private AiVerdictCache ModelCache => _modelCache ??= AiVerdictCache.GetShared(
         Path.Combine(
@@ -82,7 +79,7 @@ public partial class AiSettingsWindow
         }
     }
 
-    private void CmbProvider_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private void CmbProvider_SelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
         try
         {
@@ -90,11 +87,11 @@ public partial class AiSettingsWindow
 
             var provider = SelectedProvider;
 
-            var currentBaseUrl = TxtBaseUrl.Text.Trim();
+            var currentBaseUrl = (TxtBaseUrl.Text ?? string.Empty).Trim();
             if (string.IsNullOrEmpty(currentBaseUrl) || IsKnownDefaultBaseUrl(currentBaseUrl))
                 TxtBaseUrl.Text = DefaultBaseUrl(provider);
 
-            var currentModel = CmbModel.Text.Trim();
+            var currentModel = (CmbModel.Text ?? string.Empty).Trim();
             if (string.IsNullOrEmpty(currentModel) || IsKnownDefaultModel(currentModel))
                 CmbModel.Text = DefaultModel(provider);
 
@@ -106,35 +103,35 @@ public partial class AiSettingsWindow
         }
     }
 
-    private void TxtBaseUrl_LostFocus(object sender, RoutedEventArgs e)
+    private void TxtBaseUrl_LostFocus(object? sender, RoutedEventArgs e)
     {
         if (_initialized) LoadCachedModels();
     }
 
-    private void TxtModelFilter_TextChanged(object sender, TextChangedEventArgs e)
+    private void TxtModelFilter_TextChanged(object? sender, TextChangedEventArgs e)
     {
         if (_initialized) ApplyModelFilter();
     }
 
-    private void ChkVisionOnly_Changed(object sender, RoutedEventArgs e)
+    private void ChkVisionOnly_Changed(object? sender, RoutedEventArgs e)
     {
         if (_initialized) ApplyModelFilter();
     }
 
-    private void BtnSave_Click(object sender, RoutedEventArgs e)
+    private async void BtnSave_Click(object? sender, RoutedEventArgs e)
     {
         try
         {
             var provider = SelectedProvider;
-            var baseUrl = TxtBaseUrl.Text.Trim();
-            var apiKey = TxtApiKey.Text.Trim();
+            var baseUrl = (TxtBaseUrl.Text ?? string.Empty).Trim();
+            var apiKey = (TxtApiKey.Text ?? string.Empty).Trim();
             var enabled = ChkAiEnabled.IsChecked == true;
 
             if (!string.IsNullOrEmpty(baseUrl) && !Uri.TryCreate(baseUrl, UriKind.Absolute, out _))
             {
-                MessageBox.Show(
+                await Dialogs.ShowMessageAsync(this,
                     "Please enter a valid AI Base URL, for example:\n\nhttps://openrouter.ai/api/v1\nhttp://localhost:11434/v1",
-                    "Invalid Base URL", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    "Invalid Base URL", MessageIcon.Warning);
                 return;
             }
 
@@ -144,9 +141,9 @@ public partial class AiSettingsWindow
             if (enabled && isCustomProvider &&
                 (string.IsNullOrWhiteSpace(baseUrl) || string.IsNullOrWhiteSpace(CmbModel.Text)))
             {
-                MessageBox.Show(
+                await Dialogs.ShowMessageAsync(this,
                     "A Base URL and a Model are required for custom providers.",
-                    "Configuration Required", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    "Configuration Required", MessageIcon.Warning);
                 return;
             }
 
@@ -154,29 +151,35 @@ public partial class AiSettingsWindow
                 !string.Equals(provider, AppConstants.AiProviders.Local, StringComparison.Ordinal) &&
                 string.IsNullOrEmpty(apiKey))
             {
-                MessageBox.Show(
+                await Dialogs.ShowMessageAsync(this,
                     "An API key is required for OpenRouter, OpenAI, Anthropic, Gemini and GLM.\n\n" +
                     "Enter your key or switch the provider to Local.",
-                    "API Key Required", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    "API Key Required", MessageIcon.Warning);
                 return;
             }
 
-            if (!TryParseIntInRange(TxtTimeout.Text, 10, 300, "Request timeout (seconds)", out var timeout) ||
-                !TryParseIntInRange(TxtMaxCandidates.Text, 1, 20, "Max candidates", out var maxCandidates) ||
-                !TryParseIntInRange(TxtImageMaxDimension.Text, 128, 2048, "Image max dimension",
-                    out var imageMaxDimension) ||
-                !TryParseIntInRange(TxtMinCoverWidth.Text, 0, 2048, "Minimum cover width", out var minCoverWidth) ||
-                !TryParseDoubleInRange(TxtCandidateThreshold.Text, 0, 100, "Candidate similarity",
-                    out var candidateThreshold) ||
-                !TryParseDoubleInRange(TxtAutoSaveThreshold.Text, 0, 100, "Auto-save threshold",
-                    out var autoSaveThreshold))
+            var (timeoutOk, timeout) = TryParseIntInRange(TxtTimeout.Text, 10, 300,
+                "Request timeout (seconds)");
+            var (maxCandidatesOk, maxCandidates) = TryParseIntInRange(TxtMaxCandidates.Text, 1, 20,
+                "Max candidates");
+            var (imageMaxDimensionOk, imageMaxDimension) = TryParseIntInRange(TxtImageMaxDimension.Text, 128, 2048,
+                "Image max dimension");
+            var (minCoverWidthOk, minCoverWidth) = TryParseIntInRange(TxtMinCoverWidth.Text, 0, 2048,
+                "Minimum cover width");
+            var (candidateThresholdOk, candidateThreshold) = TryParseDoubleInRange(TxtCandidateThreshold.Text, 0, 100,
+                "Candidate similarity");
+            var (autoSaveThresholdOk, autoSaveThreshold) = TryParseDoubleInRange(TxtAutoSaveThreshold.Text, 0, 100,
+                "Auto-save threshold");
+
+            if (!timeoutOk || !maxCandidatesOk || !imageMaxDimensionOk || !minCoverWidthOk ||
+                !candidateThresholdOk || !autoSaveThresholdOk)
                 return;
 
             _settingsManager.AiAssistEnabled = enabled;
             _settingsManager.AiProvider = provider;
             _settingsManager.AiBaseUrl = baseUrl;
             _settingsManager.AiApiKey = apiKey;
-            _settingsManager.AiModel = CmbModel.Text.Trim();
+            _settingsManager.AiModel = (CmbModel.Text ?? string.Empty).Trim();
             _settingsManager.AiTimeoutSeconds = timeout;
             _settingsManager.AiMaxCandidates = maxCandidates;
             _settingsManager.AiImageMaxDimension = imageMaxDimension;
@@ -190,42 +193,44 @@ public partial class AiSettingsWindow
 
             _settingsManager.SaveSettings();
             LogService.Information("AI settings saved successfully.");
-            DialogResult = true;
+            Close(true);
         }
         catch (Exception ex)
         {
-            MessageBox.Show("There was an error saving the AI settings.\n\n" +
-                            "The developer will try to fix this.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            await Dialogs.ShowMessageAsync(this,
+                "There was an error saving the AI settings.\n\n" +
+                "The developer will try to fix this.", "Error", MessageIcon.Error);
             LogService.Error(ex, "Error saving AI settings.");
         }
     }
 
-    private void BtnCancel_Click(object sender, RoutedEventArgs e)
+    private void BtnCancel_Click(object? sender, RoutedEventArgs e)
     {
-        DialogResult = false;
+        Close(false);
     }
 
-    private void Hyperlink_RequestNavigate(object sender, RequestNavigateEventArgs e)
+    private void Hyperlink_Click(object? sender, RoutedEventArgs e)
     {
-        if (!UrlService.TryOpenUrl(e.Uri.AbsoluteUri))
-            MessageBox.Show("Could not open the link. Please copy and paste the URL into your browser.", "Link Error",
-                MessageBoxButton.OK, MessageBoxImage.Warning);
+        if (sender is not HyperlinkButton { Tag: string url }) return;
 
-        e.Handled = true;
+        if (!UrlService.TryOpenUrl(url))
+            Dialogs.ShowMessage(this,
+                "Could not open the link. Please copy and paste the URL into your browser.", "Link Error",
+                MessageIcon.Warning);
     }
 
-    private async void BtnTest_Click(object sender, RoutedEventArgs e)
+    private async void BtnTest_Click(object? sender, RoutedEventArgs e)
     {
         try
         {
             var provider = SelectedProvider;
-            var baseUrl = TxtBaseUrl.Text.Trim();
+            var baseUrl = (TxtBaseUrl.Text ?? string.Empty).Trim();
 
             if (!string.IsNullOrEmpty(baseUrl) && !Uri.TryCreate(baseUrl, UriKind.Absolute, out _))
             {
-                MessageBox.Show(
+                await Dialogs.ShowMessageAsync(this,
                     "Please enter a valid AI Base URL, for example:\n\nhttps://openrouter.ai/api/v1\nhttp://localhost:11434/v1",
-                    "Invalid Base URL", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    "Invalid Base URL", MessageIcon.Warning);
                 return;
             }
 
@@ -233,7 +238,7 @@ public partial class AiSettingsWindow
                 true,
                 provider,
                 string.IsNullOrWhiteSpace(baseUrl) ? DefaultBaseUrl(provider) : baseUrl,
-                TxtApiKey.Text.Trim(),
+                (TxtApiKey.Text ?? string.Empty).Trim(),
                 string.IsNullOrWhiteSpace(CmbModel.Text) ? DefaultModel(provider) : CmbModel.Text.Trim(),
                 ParseInt(TxtTimeout.Text, 90),
                 6,
@@ -279,7 +284,7 @@ public partial class AiSettingsWindow
         }
     }
 
-    private void BtnClearHistory_Click(object sender, RoutedEventArgs e)
+    private async void BtnClearHistory_Click(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -290,12 +295,12 @@ public partial class AiSettingsWindow
                 return;
             }
 
-            var choice = MessageBox.Show(
+            var choice = await Dialogs.ShowQuestionAsync(this,
                 $"Forget the {count} missing cover(s) that were already queried?\n\n" +
                 "The AI may query them again in the next batch run.",
-                "Clear AI Query History", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                "Clear AI Query History", MessageIcon.Question);
 
-            if (choice != MessageBoxResult.Yes) return;
+            if (choice != MessageResult.Yes) return;
 
             QueryHistory.Clear();
             UpdateHistoryCount();
@@ -342,7 +347,7 @@ public partial class AiSettingsWindow
     {
         try
         {
-            var filter = TxtModelFilter.Text.Trim();
+            var filter = (TxtModelFilter.Text ?? string.Empty).Trim();
             var visionOnly = ChkVisionOnly.IsChecked == true;
 
             var filtered = _allModels
@@ -421,32 +426,32 @@ public partial class AiSettingsWindow
         }.Contains(model, StringComparer.OrdinalIgnoreCase);
     }
 
-    private static int ParseInt(string text, int fallback)
+    private static int ParseInt(string? text, int fallback)
     {
         return int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value) ? value : fallback;
     }
 
-    private static bool TryParseIntInRange(string text, int min, int max, string fieldName, out int value)
+    private (bool Ok, int Value) TryParseIntInRange(string? text, int min, int max, string fieldName)
     {
-        if (int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out value) &&
+        if (int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value) &&
             value >= min && value <= max)
-            return true;
+            return (true, value);
 
-        MessageBox.Show(
+        Dialogs.ShowMessage(this,
             $"{fieldName} must be a whole number between {min} and {max}.",
-            "Invalid Value", MessageBoxButton.OK, MessageBoxImage.Warning);
-        return false;
+            "Invalid Value", MessageIcon.Warning);
+        return (false, 0);
     }
 
-    private static bool TryParseDoubleInRange(string text, double min, double max, string fieldName, out double value)
+    private (bool Ok, double Value) TryParseDoubleInRange(string? text, double min, double max, string fieldName)
     {
-        if (double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value) &&
+        if (double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) &&
             value >= min && value <= max)
-            return true;
+            return (true, value);
 
-        MessageBox.Show(
+        Dialogs.ShowMessage(this,
             $"{fieldName} must be a number between {min:0} and {max:0}.",
-            "Invalid Value", MessageBoxButton.OK, MessageBoxImage.Warning);
-        return false;
+            "Invalid Value", MessageIcon.Warning);
+        return (false, 0);
     }
 }

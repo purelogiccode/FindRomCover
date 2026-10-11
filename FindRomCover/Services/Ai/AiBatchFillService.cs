@@ -1,4 +1,3 @@
-using System.IO;
 using FindRomCover.ApiProvider;
 using FindRomCover.Managers;
 using FindRomCover.Models;

@@ -1,4 +1,3 @@
-using System.IO;
 using System.Text.Json;
 
 namespace FindRomCover.Services.Ai;

@@ -1,0 +1,135 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="FindRomCover.App"
+             RequestedThemeVariant="Light">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="ThemeBackgroundBrush" Color="#FFFFFFFF" />
+                    <SolidColorBrush x:Key="ThemeForegroundBrush" Color="#FF000000" />
+                    <SolidColorBrush x:Key="Gray1Brush" Color="#FF333333" />
+                    <SolidColorBrush x:Key="Gray2Brush" Color="#FF7F7F7F" />
+                    <SolidColorBrush x:Key="Gray3Brush" Color="#FF9D9D9D" />
+                    <SolidColorBrush x:Key="Gray4Brush" Color="#FFA59F93" />
+                    <SolidColorBrush x:Key="Gray5Brush" Color="#FFB9B9B9" />
+                    <SolidColorBrush x:Key="Gray6Brush" Color="#FFCCCCCC" />
+                    <SolidColorBrush x:Key="Gray7Brush" Color="#FFD8D8D9" />
+                    <SolidColorBrush x:Key="Gray8Brush" Color="#FFE0E0E0" />
+                    <SolidColorBrush x:Key="Gray9Brush" Color="#5EC9C9C9" />
+                    <SolidColorBrush x:Key="Gray10Brush" Color="#FFF7F7F7" />
+                    <SolidColorBrush x:Key="IdealForegroundBrush" Color="#FFFFFFFF" />
+                    <SolidColorBrush x:Key="TextBrush" Color="#FF000000" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="ThemeBackgroundBrush" Color="#FF252525" />
+                    <SolidColorBrush x:Key="ThemeForegroundBrush" Color="#FFFFFFFF" />
+                    <SolidColorBrush x:Key="Gray1Brush" Color="#FFF9F9F9" />
+                    <SolidColorBrush x:Key="Gray2Brush" Color="#FF7F7F7F" />
+                    <SolidColorBrush x:Key="Gray3Brush" Color="#FF9D9D9D" />
+                    <SolidColorBrush x:Key="Gray4Brush" Color="#FFA59F93" />
+                    <SolidColorBrush x:Key="Gray5Brush" Color="#FFB9B9B9" />
+                    <SolidColorBrush x:Key="Gray6Brush" Color="#FFCCCCCC" />
+                    <SolidColorBrush x:Key="Gray7Brush" Color="#FF7E7E7E" />
+                    <SolidColorBrush x:Key="Gray8Brush" Color="#FF454545" />
+                    <SolidColorBrush x:Key="Gray9Brush" Color="#5EC9C9C9" />
+                    <SolidColorBrush x:Key="Gray10Brush" Color="#FF2F2F2F" />
+                    <SolidColorBrush x:Key="IdealForegroundBrush" Color="#FFFFFFFF" />
+                    <SolidColorBrush x:Key="TextBrush" Color="#FFFFFFFF" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+
+            <SolidColorBrush x:Key="AccentBrush" Color="#CC0078D7" />
+            <SolidColorBrush x:Key="Accent2Brush" Color="#990078D7" />
+            <SolidColorBrush x:Key="Accent3Brush" Color="#660078D7" />
+            <SolidColorBrush x:Key="Accent4Brush" Color="#330078D7" />
+            <SolidColorBrush x:Key="AccentSolidBrush" Color="#FF0078D7" />
+
+            <ControlTheme x:Key="{x:Type GroupBox}" TargetType="GroupBox">
+                <Setter Property="BorderBrush" Value="{DynamicResource Gray7Brush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="Foreground" Value="{DynamicResource ThemeForegroundBrush}" />
+                <Setter Property="Template">
+                    <ControlTemplate>
+                        <Border BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="0"
+                                Background="Transparent">
+                            <Grid RowDefinitions="Auto,*">
+                                <Border Background="{DynamicResource AccentBrush}" Padding="6,3">
+                                    <ContentPresenter Name="PART_Header"
+                                                      Content="{TemplateBinding Header}"
+                                                      Foreground="{DynamicResource IdealForegroundBrush}"
+                                                      VerticalAlignment="Center" />
+                                </Border>
+                                <ContentPresenter Grid.Row="1" Name="PART_ContentPresenter"
+                                                  Content="{TemplateBinding Content}"
+                                                  ContentTemplate="{TemplateBinding ContentTemplate}"
+                                                  Margin="{TemplateBinding Padding}" />
+                            </Grid>
+                        </Border>
+                    </ControlTemplate>
+                </Setter>
+            </ControlTheme>
+
+            <ControlTheme x:Key="ImageSuggestionButtonTheme" TargetType="Button">
+                <Setter Property="Margin" Value="10" />
+                <Setter Property="Padding" Value="5" />
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                <Setter Property="VerticalContentAlignment" Value="Stretch" />
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="Template">
+                    <ControlTemplate>
+                        <Border x:Name="ButtonBorder"
+                                Background="{DynamicResource Gray9Brush}"
+                                BorderBrush="{DynamicResource Gray7Brush}"
+                                BorderThickness="1"
+                                CornerRadius="5"
+                                BoxShadow="3 3 5 0 #40000000"
+                                RenderTransformOrigin="50%,50%">
+                            <ContentPresenter x:Name="ButtonContentPresenter"
+                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                              Margin="{TemplateBinding Padding}" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter>
+                <Style Selector="^:pointerover /template/ Border#ButtonBorder">
+                    <Setter Property="Background" Value="{DynamicResource Accent4Brush}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                    <Setter Property="BoxShadow" Value="5 5 8 0 #750078D7" />
+                    <Setter Property="RenderTransform" Value="scale(1.02)" />
+                </Style>
+                <Style Selector="^:pressed /template/ Border#ButtonBorder">
+                    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                    <Setter Property="BoxShadow" Value="1 1 2 0 #B0000000" />
+                </Style>
+            </ControlTheme>
+        </ResourceDictionary>
+    </Application.Resources>
+    <Application.Styles>
+        <FluentTheme />
+        <Style Selector="Button">
+            <Setter Property="Background" Value="{DynamicResource Gray8Brush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Gray7Brush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="0" />
+            <Setter Property="Padding" Value="10,4" />
+            <Setter Property="Foreground" Value="{DynamicResource ThemeForegroundBrush}" />
+        </Style>
+        <Style Selector="Button:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource Gray7Brush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource ThemeForegroundBrush}" />
+        </Style>
+        <Style Selector="Button:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource IdealForegroundBrush}" />
+        </Style>
+        <Style Selector="Menu">
+            <Setter Property="Background" Value="{DynamicResource ThemeBackgroundBrush}" />
+        </Style>
+        <StyleInclude Source="avares://FindRomCover/Styles/AppStyles.axaml" />
+    </Application.Styles>
+</Application>

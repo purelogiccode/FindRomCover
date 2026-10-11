@@ -1,12 +1,12 @@
 using System.Collections.ObjectModel;
-using System.Windows;
+using Avalonia.Controls;
+using Avalonia.Interactivity;
 using FindRomCover.Managers;
 using FindRomCover.Services;
-using MahApps.Metro.Controls.Dialogs;
 
 namespace FindRomCover;
 
-public partial class SettingsWindow
+public partial class SettingsWindow : Window
 {
     private readonly SettingsManager _settingsManager;
     private readonly ObservableCollection<string> _supportedExtensions;
@@ -23,12 +23,12 @@ public partial class SettingsWindow
         DataContext = new { SupportedExtensions = _supportedExtensions };
     }
 
-    private async void BtnAdd_ClickAsync(object sender, RoutedEventArgs e)
+    private async void BtnAdd_ClickAsync(object? sender, RoutedEventArgs e)
     {
         try
         {
             var newExtension =
-                await this.ShowInputAsync("Add Extension", "Enter the new file extension (without the dot):");
+                await Dialogs.ShowInputAsync(this, "Add Extension", "Enter the new file extension (without the dot):");
 
             if (string.IsNullOrWhiteSpace(newExtension)) return;
 
@@ -38,23 +38,26 @@ public partial class SettingsWindow
             // Validate the extension
             if (string.IsNullOrEmpty(newExtension))
             {
-                await this.ShowMessageAsync("Invalid Input", "Extension cannot be empty or just a dot.");
+                await Dialogs.ShowMessageAsync(this, "Extension cannot be empty or just a dot.", "Invalid Input",
+                    MessageIcon.Warning);
                 return;
             }
 
             // Check for valid characters in file extension
             if (!IsValidExtension(newExtension))
             {
-                await this.ShowMessageAsync("Invalid Input",
-                    "Extension contains invalid characters. Only letters, numbers, and hyphens are allowed.");
+                await Dialogs.ShowMessageAsync(this,
+                    "Extension contains invalid characters. Only letters, numbers, and hyphens are allowed.",
+                    "Invalid Input", MessageIcon.Warning);
                 return;
             }
 
             // Check for duplicates BEFORE normalization to catch any case variations
             if (_supportedExtensions.Contains(newExtension, StringComparer.OrdinalIgnoreCase))
             {
-                await this.ShowMessageAsync("Duplicate",
-                    $"The extension '{newExtension}' already exists (case-insensitive match).");
+                await Dialogs.ShowMessageAsync(this,
+                    $"The extension '{newExtension}' already exists (case-insensitive match).",
+                    "Duplicate", MessageIcon.Warning);
                 return;
             }
 
@@ -81,7 +84,7 @@ public partial class SettingsWindow
         return extension.All(static c => char.IsLetterOrDigit(c) || c == '-');
     }
 
-    private void BtnRemove_Click(object sender, RoutedEventArgs e)
+    private void BtnRemove_Click(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -94,7 +97,7 @@ public partial class SettingsWindow
         }
     }
 
-    private void BtnSave_Click(object sender, RoutedEventArgs e)
+    private async void BtnSave_Click(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -106,13 +109,13 @@ public partial class SettingsWindow
             if (invalidExtensions.Count != 0)
             {
                 var invalidList = string.Join(", ", invalidExtensions);
-                var result = MessageBox.Show(
+                var result = await Dialogs.ShowQuestionAsync(this,
                     $"The following extensions contain invalid characters: {invalidList}\n\n" +
                     "Only letters, numbers, and hyphens are allowed in file extensions.\n\n" +
                     "Would you like to remove these invalid extensions and save the rest?",
-                    "Invalid Extensions", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                    "Invalid Extensions", MessageIcon.Warning);
 
-                if (result == MessageBoxResult.Yes)
+                if (result == MessageResult.Yes)
                 {
                     // Remove invalid extensions
                     foreach (var invalid in invalidExtensions) _supportedExtensions.Remove(invalid);
@@ -140,20 +143,19 @@ public partial class SettingsWindow
             _settingsManager.SupportedExtensions = normalizedExtensions;
             _settingsManager.SaveSettings();
 
-            DialogResult = true;
-            Close();
+            Close(true);
         }
         catch (Exception ex)
         {
             LogService.Error(ex, "Error in BtnSave_Click");
-            MessageBox.Show("An error occurred while saving settings. Your changes were not saved.",
-                "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            await Dialogs.ShowMessageAsync(this,
+                "An error occurred while saving settings. Your changes were not saved.",
+                "Error", MessageIcon.Error);
         }
     }
 
-    private void BtnCancel_Click(object sender, RoutedEventArgs e)
+    private void BtnCancel_Click(object? sender, RoutedEventArgs e)
     {
-        DialogResult = false;
-        Close();
+        Close(false);
     }
 }

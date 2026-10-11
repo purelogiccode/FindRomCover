@@ -1,0 +1,38 @@
+<Window x:Class="FindRomCover.DebugWindow"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Application Log"
+        Height="450"
+        Width="800"
+        WindowStartupLocation="CenterScreen"
+        Icon="avares://FindRomCover/Assets/images/logo.png"
+        ToolTip.Tip="Application log window for debugging and monitoring">
+    <Grid RowDefinitions="Auto,*">
+
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="5" ToolTip.Tip="Log management actions">
+            <Button x:Name="CopySelectionButton" Content="Copy Selection" Margin="0,0,5,0"
+                    Click="CopySelection_Click" IsEnabled="False"
+                    ToolTip.Tip="Copy the selected log text to the clipboard" />
+            <Button Content="Copy All" Margin="0,0,5,0" Click="CopyLog_Click"
+                    ToolTip.Tip="Copy the entire log contents to the clipboard" />
+            <Button Content="Clear" Click="ClearLog_Click"
+                    ToolTip.Tip="Clear all log entries" />
+        </StackPanel>
+
+        <TextBox x:Name="LogTextBox"
+                 Grid.Row="1"
+                 Margin="5,0,5,5"
+                 Classes="logTextBox"
+                 ToolTip.Tip="Application log output. Right-click for copy options.">
+            <TextBox.ContextMenu>
+                <ContextMenu>
+                    <MenuItem x:Name="ContextMenuCopySelection" Header="Copy Selection" Click="CopySelection_Click"
+                              IsEnabled="False"
+                              ToolTip.Tip="Copy the selected text to the clipboard" />
+                    <MenuItem Header="Copy All" Click="CopyLog_Click"
+                              ToolTip.Tip="Copy the entire log to the clipboard" />
+                </ContextMenu>
+            </TextBox.ContextMenu>
+        </TextBox>
+    </Grid>
+</Window>

@@ -1,4 +1,5 @@
 using FindRomCover.Models;
+using FindRomCover.Services;
 using FluentAssertions;
 using Xunit;
 
@@ -203,10 +204,19 @@ public class ImageDataAdditionalTests
     [Fact]
     public void DisplayImageShouldReturnBrokenImageWhenSourceIsNull()
     {
-        var data = new ImageData();
+        var originalFactory = ImageSources.CreateBrokenImage;
+        try
+        {
+            var brokenImage = new object();
+            ImageSources.CreateBrokenImage = () => brokenImage;
 
-        var displayImage = data.DisplayImage;
+            var data = new ImageData();
 
-        displayImage.Should().NotBeNull();
+            data.DisplayImage.Should().BeSameAs(brokenImage);
+        }
+        finally
+        {
+            ImageSources.CreateBrokenImage = originalFactory;
+        }
     }
 }

@@ -1,9 +1,9 @@
-using System.IO;
-using System.Runtime.InteropServices;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Documents;
-using System.Windows.Input;
+using System.ComponentModel;
+using Avalonia.Controls;
+using Avalonia.Controls.Documents;
+using Avalonia.Input.Platform;
+using Avalonia.Interactivity;
+using Avalonia.Threading;
 using FindRomCover.Models;
 using FindRomCover.Services;
 using FindRomCover.Services.Ai;
@@ -14,13 +14,11 @@ public partial class MainWindow
 {
     private CancellationTokenSource? _webSearchCts;
 
-    private void LstMissingImages_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private void LstMissingImages_SelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
         try
         {
             if (_aiBatchRunning) return;
-
-            CommandManager.InvalidateRequerySuggested();
 
             // Cancel any pending searches
             _findSimilarCts?.Cancel();
@@ -57,9 +55,10 @@ public partial class MainWindow
 
             try
             {
-                Clipboard.SetText(selectedItemRomName);
+                var clipboard = GetTopLevel(this)?.Clipboard;
+                if (clipboard != null) _ = clipboard.SetTextAsync(selectedItemRomName);
             }
-            catch (COMException)
+            catch
             {
                 // Clipboard may be locked by another process
             }
@@ -81,7 +80,7 @@ public partial class MainWindow
         var activeTab = SearchTabControl.SelectedIndex;
 
         // Build the search query for web/API tabs
-        var extraQuery = TxtExtraQuery.Text.Trim();
+        var extraQuery = TxtExtraQuery.Text?.Trim() ?? string.Empty;
         var cleanedSearchName = SearchQueryHelper.CleanSearchQuery(searchName);
         var searchQuery = !string.IsNullOrWhiteSpace(extraQuery)
             ? $"\"{cleanedSearchName}\" {extraQuery}"
@@ -103,21 +102,15 @@ public partial class MainWindow
             case 3: // Google API
                 if (string.IsNullOrWhiteSpace(Settings.GoogleKey))
                 {
-                    MessageBox.Show(
+                    Dialogs.ShowMessage(this,
                         "A Google API key is required to use the Google API search.\n\nPlease enter your API key in the settings window that will open.",
                         "API Key Required",
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Information);
+                        MessageIcon.Information);
 
-                    var apiSettingsWindow = new ApiSettingsWindow(Settings) { Owner = GetWindow(this) };
-                    apiSettingsWindow.ShowDialog();
-
-                    if (string.IsNullOrWhiteSpace(Settings.GoogleKey))
-                    {
-                        StatusMessage.Text = "API key not set. Google API search is unavailable.";
-                        IsSearching = false;
-                        break;
-                    }
+                    var apiSettingsWindow = new ApiSettingsWindow(Settings);
+                    _ = ShowApiSettingsAndResumeAsync(apiSettingsWindow, searchQuery);
+                    IsSearching = false;
+                    break;
                 }
 
                 IsSearching = true;
@@ -125,17 +118,37 @@ public partial class MainWindow
                 _webSearchCts?.Cancel();
                 _webSearchCts?.Dispose();
                 _webSearchCts = new CancellationTokenSource();
-                LblApiSearchQuery.Content = new TextBlock
-                {
-                    Inlines =
-                    {
-                        new Run("API search for: ") { FontWeight = FontWeights.Normal },
-                        new Run(searchQuery) { FontWeight = FontWeights.Bold }
-                    }
-                };
+                LblApiSearchQuery.Content = BuildQueryLabel("API search for: ", searchQuery);
                 _ = HandleApiSearchAsync(searchQuery, _webSearchCts);
                 break;
         }
+    }
+
+    private async Task ShowApiSettingsAndResumeAsync(ApiSettingsWindow apiSettingsWindow, string searchQuery)
+    {
+        await apiSettingsWindow.ShowDialog(this);
+
+        if (string.IsNullOrWhiteSpace(Settings.GoogleKey))
+        {
+            StatusMessage.Text = "API key not set. Google API search is unavailable.";
+            return;
+        }
+
+        IsSearching = true;
+        StatusMessage.Text = "Searching Google API...";
+        _webSearchCts?.Cancel();
+        _webSearchCts?.Dispose();
+        _webSearchCts = new CancellationTokenSource();
+        LblApiSearchQuery.Content = BuildQueryLabel("API search for: ", searchQuery);
+        _ = HandleApiSearchAsync(searchQuery, _webSearchCts);
+    }
+
+    private static TextBlock BuildQueryLabel(string prefix, string query)
+    {
+        var textBlock = new TextBlock();
+        textBlock.Inlines!.Add(new Run(prefix));
+        textBlock.Inlines.Add(new Run(query) { FontWeight = Avalonia.Media.FontWeight.Bold });
+        return textBlock;
     }
 
     private void ApplyDeterministicImageOrder(SimilarityCalculationResult similarityResult)
@@ -173,18 +186,17 @@ public partial class MainWindow
 
         IsFindingSimilar = true;
 
-        await Application.Current.Dispatcher.InvokeAsync(() =>
+        await Dispatcher.UIThread.InvokeAsync(() =>
         {
             if (cancellationToken.IsCancellationRequested) return;
 
             var textBlock = new TextBlock();
-            textBlock.Inlines.Add(new Run("Search Query: "));
-            textBlock.Inlines.Add(new Run($"{searchName} ") { FontWeight = FontWeights.Bold });
+            textBlock.Inlines!.Add(new Run("Search Query: "));
+            textBlock.Inlines.Add(new Run($"{searchName} ") { FontWeight = Avalonia.Media.FontWeight.Bold });
             textBlock.Inlines.Add(new Run("for ROM: "));
-            textBlock.Inlines.Add(new Run($"{romName} ") { FontWeight = FontWeights.Bold });
+            textBlock.Inlines.Add(new Run($"{romName} ") { FontWeight = Avalonia.Media.FontWeight.Bold });
             textBlock.Inlines.Add(new Run("with "));
-            textBlock.Inlines.Add(new Run($"{Settings.SelectedSimilarityAlgorithm} ")
-                { FontWeight = FontWeights.Bold });
+            textBlock.Inlines.Add(new Run($"{Settings.SelectedSimilarityAlgorithm} ") { FontWeight = Avalonia.Media.FontWeight.Bold });
             textBlock.Inlines.Add(new Run("algorithm"));
             if (Settings.IgnoreBracketedText)
                 textBlock.Inlines.Add(new Run(" (ignoring bracketed text)"));
@@ -209,7 +221,7 @@ public partial class MainWindow
                         cancellationToken,
                         imageData =>
                         {
-                            _ = Application.Current.Dispatcher.InvokeAsync(() =>
+                            _ = Dispatcher.UIThread.InvokeAsync(() =>
                             {
                                 if (!cancellationToken.IsCancellationRequested)
                                 {
@@ -224,7 +236,7 @@ public partial class MainWindow
                 finally
                 {
                     if (!cancellationToken.IsCancellationRequested)
-                        await Application.Current.Dispatcher.InvokeAsync(static () => { });
+                        await Dispatcher.UIThread.InvokeAsync(static () => { });
                 }
 
                 if (!cancellationToken.IsCancellationRequested)
@@ -241,11 +253,10 @@ public partial class MainWindow
                         if (similarityResult.ProcessingErrors.Count > 5)
                             errorSummary += $"\n...and {similarityResult.ProcessingErrors.Count - 5} more.";
 
-                        MessageBox.Show(errorSummary, "Image Processing Warnings", MessageBoxButton.OK,
-                            MessageBoxImage.Warning);
+                        Dialogs.ShowMessage(this, errorSummary, "Image Processing Warnings", MessageIcon.Warning);
                     }
 
-                    LocalImageScrollViewer.ScrollToTop();
+                    LocalImageScrollViewer.ScrollToHome();
 
                     if (Settings.AiAutoRun && Settings.AiAssistEnabled && SimilarImages.Count > 0)
                         _ = RunAiPickAsync();
@@ -263,8 +274,8 @@ public partial class MainWindow
         {
             if (!cancellationToken.IsCancellationRequested)
             {
-                MessageBox.Show($"Error searching for similar images: {ex.Message}", "Error", MessageBoxButton.OK,
-                    MessageBoxImage.Error);
+                Dialogs.ShowMessage(this, $"Error searching for similar images: {ex.Message}", "Error",
+                    MessageIcon.Error);
                 LogService.Error(ex, "Error in RunLocalSearchAsync");
             }
         }
@@ -277,7 +288,7 @@ public partial class MainWindow
         }
     }
 
-    private async void BtnAiPickLocal_Click(object sender, RoutedEventArgs e)
+    private async void BtnAiPickLocal_Click(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -293,9 +304,9 @@ public partial class MainWindow
     {
         if (!Settings.AiAssistEnabled)
         {
-            MessageBox.Show(
+            await Dialogs.ShowMessageAsync(this,
                 "AI Assist is disabled.\n\nEnable it in Settings > AI Settings... to use this feature.",
-                "AI Assist", MessageBoxButton.OK, MessageBoxImage.Information);
+                "AI Assist", MessageIcon.Information);
             return;
         }
 
@@ -358,7 +369,7 @@ public partial class MainWindow
             var currentIndex = SimilarImages.IndexOf(picked);
             if (currentIndex > 0) SimilarImages.Move(currentIndex, 0);
 
-            LocalImageScrollViewer.ScrollToTop();
+            LocalImageScrollViewer.ScrollToHome();
             StatusMessage.Text = $"AI picked '{picked.ImageName}' ({result.Confidence:P0}). {result.Reason}".Trim();
 
             if (Settings.AiAutoSave && result.Confidence * 100 >= Settings.AiAutoSaveThreshold &&
@@ -372,7 +383,7 @@ public partial class MainWindow
         {
             LogService.Warning(ex, "AI assist failed");
             StatusMessage.Text = "AI assist failed. Check the log for details.";
-            MessageBox.Show(ex.Message, "AI Assist", MessageBoxButton.OK, MessageBoxImage.Warning);
+            Dialogs.ShowMessage(this, ex.Message, "AI Assist", MessageIcon.Warning);
         }
         finally
         {
@@ -397,13 +408,13 @@ public partial class MainWindow
         }
     }
 
-    private void ImageCell_Click(object sender, RoutedEventArgs e)
+    private void ImageCell_Click(object? sender, RoutedEventArgs e)
     {
         try
         {
             var romName = _selectedRomFileName;
 
-            if (sender is FrameworkElement { DataContext: ImageData { ImagePath: not null } imageData })
+            if (sender is Control { DataContext: ImageData { ImagePath: not null } imageData })
                 _ = UseImageAsync(romName, imageData.ImagePath);
         }
         catch (Exception ex)
@@ -422,12 +433,12 @@ public partial class MainWindow
         var verification = await TryVerifyImageAsync(romName, imagePath);
         if (verification is { IsMatch: false })
         {
-            var choice = MessageBox.Show(
+            var choice = await Dialogs.ShowQuestionAsync(this,
                 $"AI thinks this image is not a cover for '{romName}'.\n\n" +
                 $"{verification.Reason}\n\nSave it anyway?",
-                "AI Verification", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                "AI Verification", MessageIcon.Warning);
 
-            if (choice != MessageBoxResult.Yes) return;
+            if (choice != MessageResult.Yes) return;
         }
 
         var safeFileName = SearchQueryHelper.SanitizeFileName(romName);
@@ -450,29 +461,29 @@ public partial class MainWindow
                 var detail = result.ErrorMessage ?? "Failed to save the image.";
                 LogService.Warning(
                     $"UseImage: could not save '{newFileName}' from '{imagePath}': {result.LogContext ?? detail}");
-                MessageBox.Show(detail, "Save Failed", MessageBoxButton.OK, MessageBoxImage.Error);
+                Dialogs.ShowMessage(this, detail, "Save Failed", MessageIcon.Error);
             }
         }
         catch (Exception ex)
         {
             _imageFolderWatcher?.UnregisterExpectedFile(newFileName);
-            MessageBox.Show($"Unexpected error saving image: {ex.Message}", "Error", MessageBoxButton.OK,
-                MessageBoxImage.Error);
+            Dialogs.ShowMessage(this, $"Unexpected error saving image: {ex.Message}", "Error", MessageIcon.Error);
             LogService.Error(ex, $"Unexpected error in UseImage: {imagePath}");
         }
     }
 
-    private void Image_ContextMenuOpening(object sender, ContextMenuEventArgs e)
+    private void Image_ContextMenuOpening(object? sender, CancelEventArgs e)
     {
         try
         {
-            if (sender is not FrameworkElement { DataContext: ImageData imageData } element) return;
+            if (sender is not ContextMenu contextMenu) return;
+            if (contextMenu.PlacementTarget is not { DataContext: ImageData imageData } element) return;
 
             if (imageData.ImagePath != null)
             {
                 var romName = _selectedRomFileName;
-                element.ContextMenu = ButtonFactory.CreateContextMenu(imageData.ImagePath,
-                    path => _ = UseImageAsync(romName, path), element.ContextMenu);
+                ButtonFactory.CreateContextMenu(imageData.ImagePath,
+                    path => _ = UseImageAsync(romName, path), contextMenu);
             }
         }
         catch (Exception ex)

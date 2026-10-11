@@ -1,5 +1,4 @@
 using System.Net;
-using System.Net.Http;
 using System.Reflection;
 using System.Text.Json;
 using FindRomCover.Models;
@@ -12,6 +11,18 @@ public static class UpdateCheckService
         "https://api.github.com/repos/purelogiccode/FindRomCover/releases/latest";
 
     private const string ReleasesPageUrl = "https://github.com/purelogiccode/FindRomCover/releases";
+
+    /// <summary>
+    ///     Overridable current version (used by tests). When null, the entry assembly
+    ///     (the WPF or Avalonia head) version is used.
+    /// </summary>
+    internal static Version? CurrentVersionOverride { get; set; }
+
+    internal static Version? GetCurrentVersion()
+    {
+        return CurrentVersionOverride ??
+               (Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly()).GetName().Version;
+    }
 
     /// <summary>
     ///     Checks for application updates via the GitHub API.
@@ -27,7 +38,7 @@ public static class UpdateCheckService
 
         try
         {
-            var currentVersion = Assembly.GetExecutingAssembly().GetName().Version;
+            var currentVersion = GetCurrentVersion();
             if (currentVersion == null)
             {
                 LogService.Warning("Could not determine current application version.");

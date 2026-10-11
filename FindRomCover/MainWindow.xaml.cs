@@ -1,28 +1,24 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
-using System.IO;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
-using System.Windows;
-using System.Windows.Controls;
 using System.Windows.Input;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Input.Platform;
+using Avalonia.Interactivity;
+using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 using FindRomCover.Managers;
 using FindRomCover.Models;
 using FindRomCover.Services;
 using FindRomCover.Services.Ai;
-using Microsoft.Web.WebView2.Core;
-using Microsoft.Web.WebView2.Wpf;
-using Microsoft.Win32;
-using Application = System.Windows.Application;
-using MessageBox = System.Windows.MessageBox;
 
 namespace FindRomCover;
 
-public partial class MainWindow : INotifyPropertyChanged, IDisposable
+public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 {
-    private const int WebViewInitMaxAttempts = 3;
-
     private static readonly HashSet<string> NonRomExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         ".dummy", ".bat", ".url", ".lnk", ".exe", ".cmd", ".txt", ".nfo", ".xml", ".json", ".ini", ".cfg", ".log",
@@ -43,12 +39,10 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
     private Task? _loadMissingTask;
     private Dictionary<string, string>? _mameLookup;
     private string _selectedRomFileName = string.Empty;
-    private SystemTrayIcon? _systemTrayIcon;
+    private TrayIconManager? _systemTrayIcon;
     private string? _watchedFolderPath;
     private bool _webView2NotificationShown;
     private bool _webView2Unavailable;
-    private CoreWebView2Environment? _webViewEnv;
-    private readonly SemaphoreSlim _webViewInitSemaphore = new(1, 1);
 
     public MainWindow(SettingsManager settingsManager, string? startupImageFolder = null,
         string? startupRomFolder = null)
@@ -58,7 +52,6 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         DataContext = this;
 
         CheckForMissingImagesCommand = new DelegateCommand(
-            // ReSharper disable once AllUnderscoreLocalParameterName
             _ => _ = CheckForMissingImagesSafeAsync(),
             _ => BtnCheckForMissingImages?.IsEnabled ?? false);
         ExitCommand = new DelegateCommand(_ => Close());
@@ -76,13 +69,31 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         UpdateMameDescriptionCheck();
 
         Settings.PropertyChanged += AppSettingsManagerPropertyChangedAsync;
-        SimilarImages.CollectionChanged += (_, _) => UpdateAiPickAvailability();
-        PanelImages.CollectionChanged += (_, _) => UpdateAiPickAvailability();
-        GoogleWebView.NavigationCompleted += OnGoogleWebViewNavigationCompleted;
-        BingWebView.NavigationCompleted += OnBingWebViewNavigationCompleted;
+        SimilarImages.CollectionChanged += (_, _) =>
+        {
+            UpdateAiPickAvailability();
+            NotifyOverlayProperties();
+        };
+        PanelImages.CollectionChanged += (_, _) =>
+        {
+            UpdateAiPickAvailability();
+            NotifyOverlayProperties();
+        };
+        MissingImages.CollectionChanged += (_, _) => NotifyOverlayProperties();
         Closing += OnWindowClosing;
         Loaded += MainWindow_LoadedAsync;
-        StateChanged += OnWindowStateChanged;
+        Closed += OnWindowClosed;
+        PropertyChanged += OnWindowPropertyChanged;
+        GoogleWebView.NavigationCompleted += (_, _) =>
+        {
+            IsSearching = false;
+            StatusMessage.Text = "Google web search loaded.";
+        };
+        BingWebView.NavigationCompleted += (_, _) =>
+        {
+            IsSearching = false;
+            StatusMessage.Text = "Bing web search loaded.";
+        };
 
         InitializeNotifyIcon();
 
@@ -116,6 +127,7 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
 
             field = value;
             OnPropertyChanged();
+            NotifyOverlayProperties();
         }
     }
 
@@ -128,6 +140,7 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
 
             field = value;
             OnPropertyChanged();
+            NotifyOverlayProperties();
         }
     }
 
@@ -140,6 +153,7 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
 
             field = value;
             OnPropertyChanged();
+            NotifyOverlayProperties();
         }
     }
 
@@ -152,6 +166,7 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
 
             field = value;
             OnPropertyChanged();
+            NotifyOverlayProperties();
         }
     }
 
@@ -192,6 +207,20 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         }
     }
 
+    // --- Computed properties replacing the WPF DataTriggers ---
+
+    public bool EmptyLocalOverlayVisible => !IsFindingSimilar && SimilarImages.Count == 0;
+
+    public bool ShowSelectHint => !HasSearchedSimilar;
+
+    public bool ShowNoResults => HasSearchedSimilar;
+
+    public bool ApiEmptyMessageVisible => !IsSearching && PanelImages.Count == 0;
+
+    public string ApiEmptyMessage => HasSearchedApi
+        ? "No results found. Try adjusting your search query or API settings."
+        : "Select a missing cover from the list to see suggestions.";
+
     public SettingsManager Settings { get; }
 
     public ICommand CheckForMissingImagesCommand { get; }
@@ -210,7 +239,7 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
 
         // NOTE: never block the UI thread on the search/scan tasks here — they post
         // continuations back to this dispatcher. Cancellation is requested above and
-        // SettleBackgroundTasksAsync (invoked from OnClosed) awaits them off-thread.
+        // SettleBackgroundTasksAsync (invoked from OnWindowClosed) awaits them off-thread.
 
         _findSimilarCts?.Dispose();
         _findSimilarCts = null;
@@ -222,27 +251,8 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         _aiAssistService = null;
 
         _findSimilarSemaphore.Dispose();
-        _webViewInitSemaphore.Dispose();
         _imageFolderWatcher?.Dispose();
         _systemTrayIcon?.Dispose();
-
-        try
-        {
-            GoogleWebView?.Dispose();
-        }
-        catch
-        {
-            /* ignored */
-        }
-
-        try
-        {
-            BingWebView?.Dispose();
-        }
-        catch
-        {
-            /* ignored */
-        }
 
         if (CheckForMissingImagesCommand is IDisposable disposableCheckCommand)
             disposableCheckCommand.Dispose();
@@ -252,13 +262,28 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         GC.SuppressFinalize(this);
     }
 
-    public event PropertyChangedEventHandler? PropertyChanged;
+    private event PropertyChangedEventHandler? PropertyChangedCore;
+
+    event PropertyChangedEventHandler? INotifyPropertyChanged.PropertyChanged
+    {
+        add => PropertyChangedCore += value;
+        remove => PropertyChangedCore -= value;
+    }
+
+    private void NotifyOverlayProperties()
+    {
+        OnPropertyChanged(nameof(EmptyLocalOverlayVisible));
+        OnPropertyChanged(nameof(ShowSelectHint));
+        OnPropertyChanged(nameof(ShowNoResults));
+        OnPropertyChanged(nameof(ApiEmptyMessageVisible));
+        OnPropertyChanged(nameof(ApiEmptyMessage));
+    }
 
     private void InitializeNotifyIcon()
     {
         try
         {
-            _systemTrayIcon = new SystemTrayIcon();
+            _systemTrayIcon = new TrayIconManager();
             _systemTrayIcon.Initialize();
             _systemTrayIcon.RestoreRequested += RestoreFromTray;
             _systemTrayIcon.ExitRequested += ExitApplication;
@@ -269,11 +294,11 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         }
     }
 
-    private void OnWindowStateChanged(object? sender, EventArgs e)
+    private void OnWindowPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
     {
         try
         {
-            if (WindowState == WindowState.Minimized) MinimizeToTray();
+            if (e.Property == WindowStateProperty && WindowState == WindowState.Minimized) MinimizeToTray();
         }
         catch (Exception ex)
         {
@@ -319,7 +344,7 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
             _isExiting = true;
             _systemTrayIcon?.Dispose();
             _systemTrayIcon = null;
-            Application.Current.Shutdown();
+            App.ShutdownApplication();
         }
         catch (Exception ex)
         {
@@ -327,11 +352,11 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         }
     }
 
-    private async void MainWindow_LoadedAsync(object sender, RoutedEventArgs e)
+    private async void MainWindow_LoadedAsync(object? sender, RoutedEventArgs e)
     {
         try
         {
-            LstMissingImages.PreviewKeyDown += LstMissingImages_PreviewKeyDown;
+            LstMissingImages.KeyDown += LstMissingImages_KeyDown;
 
             await InitializeWebViewsAsync();
 
@@ -344,164 +369,71 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         }
     }
 
-    private async Task InitializeWebViewsAsync()
-    {
-        await TryInitializeWebViewAsync(GoogleWebView, "Google");
-        await TryInitializeWebViewAsync(BingWebView, "Bing");
-    }
-
     /// <summary>
-    ///     Initializes a WebView2 control, retrying transient failures. A browser
-    ///     process that is still shutting down (for example right after an app restart),
-    ///     a runtime update in progress or a momentarily locked profile folder surfaces
-    ///     as a COMException such as RPC_E_DISCONNECTED (0x80010108). Those conditions
-    ///     clear within moments, so a fresh environment plus a short delay recovers them.
+    ///     NativeWebView creates its platform adapter (WebView2 / WebKit / WebKitGTK)
+    ///     when it is attached to the visual tree; there is no environment to pre-create.
     /// </summary>
-    private async Task<bool> TryInitializeWebViewAsync(WebView2 webView, string viewName)
+    private static Task InitializeWebViewsAsync()
     {
-        if (_isExiting || _disposed)
-            return false;
-
-        await _webViewInitSemaphore.WaitAsync();
-        try
-        {
-            for (var attempt = 1; attempt <= WebViewInitMaxAttempts; attempt++)
-            {
-                // The user may close the window while a retry delay is pending.
-                if (_isExiting || _disposed)
-                    return false;
-
-                try
-                {
-                    _webViewEnv ??= await CreateWebViewEnvironmentAsync();
-                    await webView.EnsureCoreWebView2Async(_webViewEnv);
-                    return webView.CoreWebView2 != null;
-                }
-                catch (WebView2RuntimeNotFoundException ex)
-                {
-                    _webView2Unavailable = true;
-                    LogService.Warning(ex, "WebView2 Runtime is not installed. Web search features will be unavailable.");
-                    NotifyWebView2Unavailable();
-                    return false;
-                }
-                catch (Exception ex) when (ex is COMException && attempt < WebViewInitMaxAttempts)
-                {
-                    LogService.Warning(ex,
-                        $"Transient {viewName} WebView2 initialization failure (attempt {attempt} of {WebViewInitMaxAttempts}). Retrying...");
-                    _webViewEnv = null;
-                    await Task.Delay(TimeSpan.FromMilliseconds(500 * attempt));
-                }
-                catch (Exception ex)
-                {
-                    // Environmental conditions (crashed browser process, locked or corrupt
-                    // profile folder, antivirus interference, ...) are not application bugs:
-                    // log them without filing a bug report and retry on the next use.
-                    LogService.Warning(ex, $"Failed to initialize {viewName} WebView2");
-                    _webViewEnv = null;
-                    return false;
-                }
-            }
-
-            return false;
-        }
-        finally
-        {
-            // OnClosed disposes the semaphore while a pending retry may still resume
-            // on the dispatcher; avoid releasing a disposed semaphore in that case.
-            if (!_disposed)
-                _webViewInitSemaphore.Release();
-        }
+        return Task.CompletedTask;
     }
 
-    private static Task<CoreWebView2Environment> CreateWebViewEnvironmentAsync()
+    private Task<bool> EnsureWebViewReadyAsync(NativeWebView webView, string viewName)
     {
-        var userDataFolder = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "FindRomCover", "WebView2Data");
-
-        try
-        {
-            if (!Directory.Exists(userDataFolder))
-                Directory.CreateDirectory(userDataFolder);
-        }
-        catch
-        {
-            userDataFolder = null;
-        }
-
-        return CoreWebView2Environment.CreateAsync(null, userDataFolder);
-    }
-
-    private async Task<bool> EnsureWebViewReadyAsync(WebView2 webView, string viewName)
-    {
-        if (webView.CoreWebView2 != null)
-            return true;
-
         if (_webView2Unavailable)
-            return false;
+            return Task.FromResult(false);
 
-        return await TryInitializeWebViewAsync(webView, viewName);
-    }
-
-    private void OnGoogleWebViewNavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e)
-    {
         try
         {
-            var source = GoogleWebView.CoreWebView2?.Source;
-            if (!string.IsNullOrEmpty(source) &&
-                !source.Equals("about:blank", StringComparison.OrdinalIgnoreCase))
-            {
-                IsSearching = false;
-                StatusMessage.Text = "Google web search loaded.";
-            }
+            return Task.FromResult(true);
         }
         catch (Exception ex)
         {
-            LogService.Warning(ex, "Error handling Google WebView2 navigation completion");
+            LogService.Warning(ex, $"Failed to initialize the {viewName} web view");
+            return Task.FromResult(false);
         }
     }
 
-    private void OnBingWebViewNavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e)
+    private void NavigateWebView(NativeWebView webView, string viewName, string url)
     {
         try
         {
-            var source = BingWebView.CoreWebView2?.Source;
-            if (!string.IsNullOrEmpty(source) &&
-                !source.Equals("about:blank", StringComparison.OrdinalIgnoreCase))
-            {
-                IsSearching = false;
-                StatusMessage.Text = "Bing web search loaded.";
-            }
+            webView.Navigate(new Uri(url));
         }
         catch (Exception ex)
         {
-            LogService.Warning(ex, "Error handling Bing WebView2 navigation completion");
+            LogService.Warning(ex, $"{viewName} web view navigation failed; opening the system browser instead.");
+            if (!UrlService.TryOpenUrl(url))
+                LogService.Warning($"Could not open '{url}' in the system browser.");
+            _webView2Unavailable = true;
+            _ = NotifyWebViewUnavailableAsync(viewName);
         }
     }
 
-    private void NotifyWebView2Unavailable()
+    private async Task NotifyWebViewUnavailableAsync(string viewName)
     {
         if (_webView2NotificationShown)
             return;
 
         _webView2NotificationShown = true;
 
-        var result = MessageBox.Show(
-            "The WebView2 Runtime is not installed, so Google and Bing web search tabs will be unavailable.\n\n" +
-            "Would you like to download the WebView2 Runtime now?",
-            "WebView2 Runtime Required",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Warning);
+        var (runtimeName, downloadUrl) = OperatingSystem.IsWindows()
+            ? ("WebView2 Runtime", "https://developer.microsoft.com/en-us/microsoft-edge/webview2/")
+            : OperatingSystem.IsMacOS()
+                ? ("WebKit", "https://support.apple.com/guide/safari")
+                : ("WebKitGTK", "https://webkitgtk.org/releases/");
 
-        if (result == MessageBoxResult.Yes)
-        {
-            const string webView2DownloadUrl = "https://developer.microsoft.com/en-us/microsoft-edge/webview2/";
-            if (!UrlService.TryOpenUrl(webView2DownloadUrl))
-                MessageBox.Show(
-                    "Could not open the download page automatically.\n\nPlease copy this address into your browser:\n" +
-                    webView2DownloadUrl,
-                    "Open Browser Failed", MessageBoxButton.OK, MessageBoxImage.Warning);
-        }
+        var result = await Dialogs.ShowQuestionAsync(this,
+            $"The embedded {runtimeName} is not available, so the {viewName} web search tab cannot be displayed.\n\n" +
+            "Would you like to open the download page?",
+            "Web View Runtime Required",
+            MessageIcon.Warning);
+
+        if (result == MessageResult.Yes && !UrlService.TryOpenUrl(downloadUrl))
+            await Dialogs.ShowMessageAsync(this,
+                "Could not open the download page automatically.\n\nPlease copy this address into your browser:\n" +
+                downloadUrl,
+                "Open Browser Failed", MessageIcon.Warning);
     }
 
     private async Task LoadMameDataAsync()
@@ -569,10 +501,10 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
 
     protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
     {
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        PropertyChangedCore?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
 
-    private void ChangeBaseTheme_Click(object sender, RoutedEventArgs e)
+    private void ChangeBaseTheme_Click(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -589,13 +521,13 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         }
     }
 
-    private void ChangeAccentColor_Click(object sender, RoutedEventArgs e)
+    private void ChangeAccentColor_Click(object? sender, RoutedEventArgs e)
     {
         try
         {
             if (sender is not MenuItem menuItem) return;
 
-            var accent = menuItem.Name.Replace("Accent", "");
+            var accent = menuItem.Name?.Replace("Accent", "") ?? "Blue";
             App.ChangeTheme(Settings.BaseTheme, accent);
         }
         catch (Exception ex)
@@ -611,7 +543,7 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
             var currentAccent = Settings.AccentColor;
             foreach (var item in MenuAccentColors.Items)
             {
-                if (item is not MenuItem { Header: not null } menuItem) continue;
+                if (item is not MenuItem menuItem) continue;
 
                 if (menuItem.Header is StackPanel sp)
                 {
@@ -621,7 +553,7 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
                 }
                 else
                 {
-                    menuItem.IsChecked = string.Equals(menuItem.Name.Replace("Accent", ""), currentAccent,
+                    menuItem.IsChecked = string.Equals(menuItem.Name?.Replace("Accent", ""), currentAccent,
                         StringComparison.OrdinalIgnoreCase);
                 }
             }
@@ -692,28 +624,28 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         }
     }
 
-    private void DonateButton_Click(object sender, RoutedEventArgs e)
+    private void DonateButton_Click(object? sender, RoutedEventArgs e)
     {
         try
         {
             if (!UrlService.TryOpenUrl("https://www.purelogiccode.com/donate"))
-                MessageBox.Show(
+                Dialogs.ShowMessage(this,
                     "Could not open the donation link automatically.\n\nPlease copy this address into your browser:\nhttps://www.purelogiccode.com/donate",
-                    "Open Browser Failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    "Open Browser Failed", MessageIcon.Warning);
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Unable to open the donation link: {ex.Message}", "Error", MessageBoxButton.OK,
-                MessageBoxImage.Error);
+            Dialogs.ShowMessage(this, $"Unable to open the donation link: {ex.Message}", "Error", MessageIcon.Error);
             LogService.Error(ex, "Error opening donation link");
         }
     }
 
-    private void ShowAboutWindow_Click(object sender, RoutedEventArgs e)
+    private async void ShowAboutWindow_Click(object? sender, RoutedEventArgs e)
     {
         try
         {
-            new AboutWindow { Owner = this }.ShowDialog();
+            var aboutWindow = new AboutWindow();
+            await aboutWindow.ShowDialog(this);
         }
         catch (Exception ex)
         {
@@ -721,7 +653,7 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         }
     }
 
-    private async void CheckForUpdates_Click(object sender, RoutedEventArgs e)
+    private async void CheckForUpdates_Click(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -729,36 +661,37 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
 
             if (updateInfo is { IsUpdateAvailable: true })
             {
-                var choice = MessageBox.Show(
+                var choice = await Dialogs.ShowQuestionAsync(this,
                     "A new version of FindRomCover is available!\n\n" +
                     $"Current: {updateInfo.CurrentVersion}\n" +
                     $"Latest: {updateInfo.LatestVersion}\n\n" +
                     "Would you like to go to the download page?",
-                    "Update Available", MessageBoxButton.YesNo, MessageBoxImage.Information);
+                    "Update Available", MessageIcon.Information);
 
-                if (choice == MessageBoxResult.Yes)
+                if (choice == MessageResult.Yes)
                     UrlService.TryOpenUrl(updateInfo.ReleaseUrl);
             }
             else
             {
-                MessageBox.Show(
+                await Dialogs.ShowMessageAsync(this,
                     $"You are running the latest version (v{updateInfo.CurrentVersion}).",
-                    "No Updates Available", MessageBoxButton.OK, MessageBoxImage.Information);
+                    "No Updates Available", MessageIcon.Information);
             }
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Unable to check for updates: {ex.Message}", "Error", MessageBoxButton.OK,
-                MessageBoxImage.Error);
+            await Dialogs.ShowMessageAsync(this, $"Unable to check for updates: {ex.Message}", "Error",
+                MessageIcon.Error);
             LogService.Error(ex, "Error checking for updates");
         }
     }
 
-    private void ApiSettings_Click(object sender, RoutedEventArgs e)
+    private async void ApiSettings_Click(object? sender, RoutedEventArgs e)
     {
         try
         {
-            new ApiSettingsWindow(Settings) { Owner = this }.ShowDialog();
+            var window = new ApiSettingsWindow(Settings);
+            await window.ShowDialog(this);
         }
         catch (Exception ex)
         {
@@ -766,11 +699,12 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         }
     }
 
-    private void AiSettings_Click(object sender, RoutedEventArgs e)
+    private async void AiSettings_Click(object? sender, RoutedEventArgs e)
     {
         try
         {
-            new AiSettingsWindow(Settings) { Owner = this }.ShowDialog();
+            var window = new AiSettingsWindow(Settings);
+            await window.ShowDialog(this);
             UpdateAiPickAvailability();
         }
         catch (Exception ex)
@@ -779,7 +713,7 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         }
     }
 
-    private void ToggleDebugWindow_Click(object sender, RoutedEventArgs e)
+    private void ToggleDebugWindow_Click(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -794,7 +728,7 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         }
     }
 
-    private void ToggleMameDescriptions_Click(object sender, RoutedEventArgs e)
+    private void ToggleMameDescriptions_Click(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -807,7 +741,7 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         }
     }
 
-    private void ToggleIgnoreBracketedText_Click(object sender, RoutedEventArgs e)
+    private void ToggleIgnoreBracketedText_Click(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -820,7 +754,7 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         }
     }
 
-    private void OnWindowClosing(object? sender, CancelEventArgs e)
+    private void OnWindowClosing(object? sender, WindowClosingEventArgs e)
     {
         if (_isExiting)
         {
@@ -851,7 +785,7 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         ExitApplication();
     }
 
-    private void Exit_Click(object sender, RoutedEventArgs e)
+    private void Exit_Click(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -863,14 +797,20 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         }
     }
 
-    private async void BtnBrowseRomFolder_Click(object sender, RoutedEventArgs e)
+    private async void BtnBrowseRomFolder_Click(object? sender, RoutedEventArgs e)
     {
         try
         {
-            var dialog = new OpenFolderDialog { Title = "Select the folder where your ROM or ISO files are stored." };
-            if (dialog.ShowDialog() == true)
+            var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
             {
-                TxtRomFolder.Text = dialog.FolderName;
+                Title = "Select the folder where your ROM or ISO files are stored.",
+                AllowMultiple = false
+            });
+
+            var folderPath = folders.Count > 0 ? folders[0].TryGetLocalPath() : null;
+            if (!string.IsNullOrEmpty(folderPath))
+            {
+                TxtRomFolder.Text = folderPath;
                 UpdateUiStateForFolderPaths();
                 if (FolderPathsAreValid()) await CheckForMissingImagesSafeAsync();
             }
@@ -881,16 +821,22 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         }
     }
 
-    private async void BtnBrowseImageFolder_Click(object sender, RoutedEventArgs e)
+    private async void BtnBrowseImageFolder_Click(object? sender, RoutedEventArgs e)
     {
         try
         {
-            var dialog = new OpenFolderDialog { Title = "Select the folder where your image files are stored." };
-            if (dialog.ShowDialog() != true) return;
+            var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+            {
+                Title = "Select the folder where your image files are stored.",
+                AllowMultiple = false
+            });
 
-            TxtImageFolder.Text = dialog.FolderName;
+            var folderPath = folders.Count > 0 ? folders[0].TryGetLocalPath() : null;
+            if (string.IsNullOrEmpty(folderPath)) return;
+
+            TxtImageFolder.Text = folderPath;
             UpdateUiStateForFolderPaths();
-            Settings.LastImageFolder = dialog.FolderName;
+            Settings.LastImageFolder = folderPath;
             Settings.SaveSettings();
             if (FolderPathsAreValid()) await CheckForMissingImagesSafeAsync();
         }
@@ -900,7 +846,7 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         }
     }
 
-    private async void BtnCheckForMissingImages_ClickAsync(object sender, RoutedEventArgs e)
+    private async void BtnCheckForMissingImages_ClickAsync(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -924,15 +870,15 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         }
     }
 
-    private async void BtnAiBatchFill_Click(object sender, RoutedEventArgs e)
+    private async void BtnAiBatchFill_Click(object? sender, RoutedEventArgs e)
     {
         try
         {
             if (!Settings.AiAssistEnabled)
             {
-                MessageBox.Show(
+                await Dialogs.ShowMessageAsync(this,
                     "AI Assist is disabled.\n\nEnable it in Settings > AI Settings... to use this feature.",
-                    "AI Batch Fill", MessageBoxButton.OK, MessageBoxImage.Information);
+                    "AI Batch Fill", MessageIcon.Information);
                 return;
             }
 
@@ -941,8 +887,8 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
 
             if (MissingImages.Count == 0)
             {
-                MessageBox.Show("There are no missing covers to process.", "AI Batch Fill",
-                    MessageBoxButton.OK, MessageBoxImage.Information);
+                await Dialogs.ShowMessageAsync(this, "There are no missing covers to process.", "AI Batch Fill",
+                    MessageIcon.Information);
                 return;
             }
 
@@ -954,11 +900,8 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
                 MissingImages.ToList(),
                 imageFolderPath,
                 _imageFolderWatcher != null ? _imageFolderWatcher.PreRegisterExpectedFile : null,
-                TxtExtraQuery.Text.Trim(),
-                _imageFolderWatcher != null ? _imageFolderWatcher.UnregisterExpectedFile : null)
-            {
-                Owner = this
-            };
+                TxtExtraQuery.Text?.Trim() ?? string.Empty,
+                _imageFolderWatcher != null ? _imageFolderWatcher.UnregisterExpectedFile : null);
 
             void OnItemResolved(string romName)
             {
@@ -970,7 +913,7 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
             _aiBatchRunning = true;
             try
             {
-                window.ShowDialog();
+                await window.ShowDialog(this);
             }
             finally
             {
@@ -1045,8 +988,8 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
     {
         if (Settings.SupportedExtensions.Count == 0)
         {
-            MessageBox.Show("No supported file extensions loaded. Please check settings.", "Warning",
-                MessageBoxButton.OK, MessageBoxImage.Warning);
+            await Dialogs.ShowMessageAsync(this, "No supported file extensions loaded. Please check settings.",
+                "Warning", MessageIcon.Warning);
             return;
         }
 
@@ -1055,8 +998,8 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
 
         if (string.IsNullOrEmpty(romFolderPath) || string.IsNullOrEmpty(imageFolderPath))
         {
-            MessageBox.Show("Please select both ROM and Image folders.", "Warning", MessageBoxButton.OK,
-                MessageBoxImage.Warning);
+            await Dialogs.ShowMessageAsync(this, "Please select both ROM and Image folders.", "Warning",
+                MessageIcon.Warning);
             return;
         }
 
@@ -1094,7 +1037,8 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
                         await Task.Yield();
                     }
 
-                    if (CoverFileResolver.FindCover(imageFolderPath, romName) == null)                    {
+                    if (CoverFileResolver.FindCover(imageFolderPath, romName) == null)
+                    {
                         if (Settings.UseMameDescriptions && _mameLookup != null &&
                             _mameLookup.TryGetValue(romName, out var description) && !string.IsNullOrEmpty(description))
                             missing.Add((romName, description));
@@ -1128,8 +1072,8 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Error checking for missing images: {ex.Message}", "Error", MessageBoxButton.OK,
-                MessageBoxImage.Error);
+            await Dialogs.ShowMessageAsync(this, $"Error checking for missing images: {ex.Message}", "Error",
+                MessageIcon.Error);
             LogService.Error(ex, "Error checking for missing images");
         }
         finally
@@ -1180,7 +1124,7 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         }
     }
 
-    private void BtnRemoveSelectedItem_Click(object sender, RoutedEventArgs e)
+    private void BtnRemoveSelectedItem_Click(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -1194,7 +1138,7 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         }
     }
 
-    private void RemoveItemFromList_Click(object sender, RoutedEventArgs e)
+    private void RemoveItemFromList_Click(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -1207,19 +1151,15 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         }
     }
 
-    private void CopyFileName_Click(object sender, RoutedEventArgs e)
+    private void CopyFileName_Click(object? sender, RoutedEventArgs e)
     {
         try
         {
             if (LstMissingImages.SelectedItem is MissingImageItem item)
-                try
-                {
-                    Clipboard.SetText(item.RomName);
-                }
-                catch
-                {
-                    // ignored
-                }
+            {
+                var clipboard = GetTopLevel(this)?.Clipboard;
+                if (clipboard != null) _ = clipboard.SetTextAsync(item.RomName);
+            }
         }
         catch (Exception ex)
         {
@@ -1227,7 +1167,7 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         }
     }
 
-    private async void DeleteCorrespondingRom_Click(object sender, RoutedEventArgs e)
+    private async void DeleteCorrespondingRom_Click(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -1240,16 +1180,17 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
                 FindCorrespondingRomFile(selectedItem.RomName, romFolderPath, Settings.SupportedExtensions));
             if (romFilePath == null)
             {
-                MessageBox.Show($"Could not find a ROM or ISO file for '{selectedItem.RomName}' in the ROM folder.",
-                    "File Not Found", MessageBoxButton.OK, MessageBoxImage.Warning);
+                await Dialogs.ShowMessageAsync(this,
+                    $"Could not find a ROM or ISO file for '{selectedItem.RomName}' in the ROM folder.",
+                    "File Not Found", MessageIcon.Warning);
                 return;
             }
 
-            var result = MessageBox.Show(
+            var result = await Dialogs.ShowQuestionAsync(this,
                 $"Are you sure you want to permanently delete this file?\n\n{romFilePath}\n\nThis action cannot be undone.",
-                "Confirm Delete", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                "Confirm Delete", MessageIcon.Warning);
 
-            if (result != MessageBoxResult.Yes) return;
+            if (result != MessageResult.Yes) return;
 
             try
             {
@@ -1259,8 +1200,8 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Failed to delete file: {ex.Message}", "Delete Error", MessageBoxButton.OK,
-                    MessageBoxImage.Error);
+                await Dialogs.ShowMessageAsync(this, $"Failed to delete file: {ex.Message}", "Delete Error",
+                    MessageIcon.Error);
                 LogService.Error(ex, $"Error deleting ROM file: {romFilePath}");
             }
         }
@@ -1298,13 +1239,13 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         return null;
     }
 
-    private async void EditExtensions_Click(object sender, RoutedEventArgs e)
+    private async void EditExtensions_Click(object? sender, RoutedEventArgs e)
     {
         try
         {
-            var dialog = new SettingsWindow(Settings) { Owner = this };
-            dialog.ShowDialog();
-            if (dialog.DialogResult == true && FolderPathsAreValid()) await CheckForMissingImagesSafeAsync();
+            var dialog = new SettingsWindow(Settings);
+            var saved = await dialog.ShowDialog<bool>(this);
+            if (saved && FolderPathsAreValid()) await CheckForMissingImagesSafeAsync();
         }
         catch (Exception ex)
         {
@@ -1312,13 +1253,13 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         }
     }
 
-    private void SetSimilarityAlgorithm_Click(object sender, RoutedEventArgs e)
+    private void SetSimilarityAlgorithm_Click(object? sender, RoutedEventArgs e)
     {
         try
         {
             if (sender is not MenuItem menuItem) return;
 
-            Settings.SelectedSimilarityAlgorithm = menuItem.Header.ToString() ?? "Jaro-Winkler Distance";
+            Settings.SelectedSimilarityAlgorithm = menuItem.Header?.ToString() ?? "Jaro-Winkler Distance";
             Settings.SaveSettings();
         }
         catch (Exception ex)
@@ -1333,8 +1274,8 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         {
             foreach (var item in MenuSimilarityAlgorithms.Items)
                 if (item is MenuItem menuItem)
-                    menuItem.IsChecked = string.Equals(menuItem.Header.ToString(), Settings.SelectedSimilarityAlgorithm,
-                        StringComparison.OrdinalIgnoreCase);
+                    menuItem.IsChecked = string.Equals(menuItem.Header?.ToString(),
+                        Settings.SelectedSimilarityAlgorithm, StringComparison.OrdinalIgnoreCase);
         }
         catch (Exception ex)
         {
@@ -1342,13 +1283,13 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         }
     }
 
-    private void SetSimilarityThreshold_Click(object sender, RoutedEventArgs e)
+    private void SetSimilarityThreshold_Click(object? sender, RoutedEventArgs e)
     {
         try
         {
             if (sender is not MenuItem clickedItem) return;
 
-            var headerText = clickedItem.Header.ToString()?.Replace("%", "") ?? "70";
+            var headerText = clickedItem.Header?.ToString()?.Replace("%", "") ?? "70";
             if (double.TryParse(headerText, CultureInfo.InvariantCulture, out var rate))
             {
                 Settings.SimilarityThreshold = rate;
@@ -1370,7 +1311,7 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
             {
                 if (item is not MenuItem menuItem) continue;
 
-                var thresholdString = menuItem.Header.ToString()?.Replace("%", "") ?? "70";
+                var thresholdString = menuItem.Header?.ToString()?.Replace("%", "") ?? "70";
                 if (double.TryParse(thresholdString, NumberStyles.Any, CultureInfo.InvariantCulture,
                         out var menuItemThreshold))
                     menuItem.IsChecked = Math.Abs(menuItemThreshold - currentThreshold) < 0.001;
@@ -1382,7 +1323,7 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         }
     }
 
-    private void SetThumbnailSize_Click(object sender, RoutedEventArgs e)
+    private void SetThumbnailSize_Click(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -1421,11 +1362,11 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         }
     }
 
-    private void LstMissingImages_PreviewKeyDown(object sender, KeyEventArgs e)
+    private void LstMissingImages_KeyDown(object? sender, KeyEventArgs e)
     {
         try
         {
-            if (e is { Key: Key.Delete, IsRepeat: false })
+            if (e.Key == Key.Delete)
             {
                 RemoveSelectedItem();
                 App.AudioService.PlayClickSound();
@@ -1434,11 +1375,11 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         }
         catch (Exception ex)
         {
-            LogService.Error(ex, "Error in LstMissingImages_PreviewKeyDown");
+            LogService.Error(ex, "Error in LstMissingImages_KeyDown");
         }
     }
 
-    private void TxtRomFolder_TextChanged(object sender, TextChangedEventArgs e)
+    private void TxtRomFolder_TextChanged(object? sender, TextChangedEventArgs e)
     {
         try
         {
@@ -1450,7 +1391,7 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         }
     }
 
-    private void TxtImageFolder_TextChanged(object sender, TextChangedEventArgs e)
+    private void TxtImageFolder_TextChanged(object? sender, TextChangedEventArgs e)
     {
         try
         {
@@ -1462,7 +1403,7 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         }
     }
 
-    private void TxtRomFolder_LostFocus(object sender, RoutedEventArgs e)
+    private void TxtRomFolder_LostFocus(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -1474,7 +1415,7 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         }
     }
 
-    private void TxtImageFolder_LostFocus(object sender, RoutedEventArgs e)
+    private void TxtImageFolder_LostFocus(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -1486,7 +1427,7 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         }
     }
 
-    private void TxtRomFolder_PreviewKeyDown(object sender, KeyEventArgs e)
+    private void TxtRomFolder_KeyDown(object? sender, KeyEventArgs e)
     {
         try
         {
@@ -1498,11 +1439,11 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         }
         catch (Exception ex)
         {
-            LogService.Error(ex, "Error in TxtRomFolder_PreviewKeyDown");
+            LogService.Error(ex, "Error in TxtRomFolder_KeyDown");
         }
     }
 
-    private void TxtImageFolder_PreviewKeyDown(object sender, KeyEventArgs e)
+    private void TxtImageFolder_KeyDown(object? sender, KeyEventArgs e)
     {
         try
         {
@@ -1514,58 +1455,57 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         }
         catch (Exception ex)
         {
-            LogService.Error(ex, "Error in TxtImageFolder_PreviewKeyDown");
+            LogService.Error(ex, "Error in TxtImageFolder_KeyDown");
         }
     }
 
-    private void MainWindow_PreviewKeyDown(object sender, KeyEventArgs e)
+    private void MainWindow_KeyDown(object? sender, KeyEventArgs e)
     {
         try
         {
-            if (e.Key == Key.F8)
-            {
-                var filePath = ScreenshotService.CaptureActiveWindow();
-                if (filePath is not null)
-                    StatusMessage.Text = $"Screenshot saved: {filePath}";
-                else
-                    StatusMessage.Text = "Screenshot failed. Check the log for details.";
+            if (e.Key != Key.F8) return;
 
-                e.Handled = true;
-            }
+            var filePath = ScreenshotService.CaptureWindow(this);
+            StatusMessage.Text = filePath is not null
+                ? $"Screenshot saved: {filePath}"
+                : "Screenshot failed. Check the log for details.";
+
+            e.Handled = true;
         }
         catch (Exception ex)
         {
-            LogService.Error(ex, "Error in MainWindow_PreviewKeyDown");
+            LogService.Error(ex, "Error in MainWindow_KeyDown");
         }
     }
 
     private string? GetValidatedImageFolderPath(bool showWarning = true)
     {
-        return ValidateFolderPath(TxtImageFolder.Text.Trim(), "Image", showWarning);
+        return ValidateFolderPath(TxtImageFolder.Text?.Trim(), "Image", showWarning);
     }
 
     private string? GetValidatedRomFolderPath(bool showWarning = true)
     {
-        return ValidateFolderPath(TxtRomFolder.Text.Trim(), "ROM", showWarning);
+        return ValidateFolderPath(TxtRomFolder.Text?.Trim(), "ROM", showWarning);
     }
 
-    private static string? ValidateFolderPath(string path, string folderType, bool showWarning)
+    private string? ValidateFolderPath(string? path, string folderType, bool showWarning)
     {
         if (string.IsNullOrEmpty(path)) return null;
         if (Directory.Exists(path)) return path;
 
         if (showWarning)
-            MessageBox.Show($"The {folderType.ToLowerInvariant()} folder path '{path}' is invalid or does not exist.",
-                $"Invalid {folderType} Folder", MessageBoxButton.OK, MessageBoxImage.Warning);
+            Dialogs.ShowMessage(this,
+                $"The {folderType.ToLowerInvariant()} folder path '{path}' is invalid or does not exist.",
+                $"Invalid {folderType} Folder", MessageIcon.Warning);
 
         return null;
     }
 
     private bool FolderPathsAreValid()
     {
-        return !string.IsNullOrEmpty(TxtRomFolder.Text.Trim()) &&
+        return !string.IsNullOrEmpty(TxtRomFolder.Text?.Trim()) &&
                Directory.Exists(TxtRomFolder.Text.Trim()) &&
-               !string.IsNullOrEmpty(TxtImageFolder.Text.Trim()) &&
+               !string.IsNullOrEmpty(TxtImageFolder.Text?.Trim()) &&
                Directory.Exists(TxtImageFolder.Text.Trim());
     }
 
@@ -1573,10 +1513,10 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
     {
         try
         {
-            var romPathValid = !string.IsNullOrEmpty(TxtRomFolder.Text.Trim()) &&
-                               Directory.Exists(TxtRomFolder.Text.Trim());
-            var imagePathValid = !string.IsNullOrEmpty(TxtImageFolder.Text.Trim()) &&
-                                 Directory.Exists(TxtImageFolder.Text.Trim());
+            var romText = TxtRomFolder.Text?.Trim() ?? string.Empty;
+            var imageText = TxtImageFolder.Text?.Trim() ?? string.Empty;
+            var romPathValid = !string.IsNullOrEmpty(romText) && Directory.Exists(romText);
+            var imagePathValid = !string.IsNullOrEmpty(imageText) && Directory.Exists(imageText);
             BtnCheckForMissingImages.IsEnabled = romPathValid && imagePathValid;
             LstMissingImages.IsEnabled = romPathValid && imagePathValid;
             if (!romPathValid || !imagePathValid)
@@ -1586,9 +1526,10 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
                 UpdateMissingCount();
             }
 
-            StartImageFolderWatcher(imagePathValid ? TxtImageFolder.Text.Trim() : null);
+            StartImageFolderWatcher(imagePathValid ? imageText : null);
 
-            CommandManager.InvalidateRequerySuggested();
+            if (CheckForMissingImagesCommand is DelegateCommand delegateCommand)
+                delegateCommand.RaiseCanExecuteChanged();
         }
         catch (Exception ex)
         {
@@ -1636,7 +1577,7 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
 
     private void OnImageFolderImageFound(string fileNameWithoutExtension)
     {
-        _ = Dispatcher.InvokeAsync(() =>
+        _ = Dispatcher.UIThread.InvokeAsync(() =>
         {
             var index = MissingImages.ToList().FindIndex(m =>
                 string.Equals(m.RomName, fileNameWithoutExtension, StringComparison.OrdinalIgnoreCase));
@@ -1657,31 +1598,31 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
 
     private void OnImageFolderConversionFailed(string filePath, string errorMessage)
     {
-        _ = Dispatcher.InvokeAsync(() =>
+        _ = Dispatcher.UIThread.InvokeAsync(() =>
         {
-            MessageBox.Show(
+            Dialogs.ShowMessage(this,
                 $"Failed to convert image:\n\n{Path.GetFileName(filePath)}\n\n{errorMessage}",
                 "Image Conversion Failed",
-                MessageBoxButton.OK,
-                MessageBoxImage.Warning);
+                MessageIcon.Warning);
         });
     }
 
     private void OnImageFolderVerificationFailed(string filePath, string romName)
     {
-        _ = Dispatcher.InvokeAsync(() =>
+        _ = Dispatcher.UIThread.InvokeAsync(() =>
         {
             StatusMessage.Text =
                 $"AI thinks '{Path.GetFileName(filePath)}' is not a cover for '{romName}' — rename skipped.";
-            MessageBox.Show(
+            Dialogs.ShowMessage(this,
                 $"The AI model does not think this image is a cover for '{romName}'.\n\n" +
                 $"The file was left as-is:\n{filePath}\n\n" +
                 "You can still assign it manually or save a different image.",
-                "AI Verification", MessageBoxButton.OK, MessageBoxImage.Warning);
+                "AI Verification", MessageIcon.Warning);
         });
     }
 
-    private async Task<bool> VerifyImageWithAiAsync(string filePath, string romName, CancellationToken cancellationToken)
+    private async Task<bool> VerifyImageWithAiAsync(string filePath, string romName,
+        CancellationToken cancellationToken)
     {
         if (_disposed || !Settings.AiAssistEnabled || !Settings.AiVerifyOnSave) return true;
 
@@ -1731,7 +1672,7 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
             : romName;
     }
 
-    private void SearchTabControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private async void SearchTabControl_SelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
         try
         {
@@ -1749,14 +1690,13 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
 
             if (tab == 3 && string.IsNullOrWhiteSpace(Settings.GoogleKey))
             {
-                MessageBox.Show(
+                await Dialogs.ShowMessageAsync(this,
                     "A Google API key is required to use the Google API search.\n\nPlease enter your API key in the settings window that will open.",
                     "API Key Required",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
+                    MessageIcon.Information);
 
-                var apiSettingsWindow = new ApiSettingsWindow(Settings) { Owner = this };
-                apiSettingsWindow.ShowDialog();
+                var apiSettingsWindow = new ApiSettingsWindow(Settings);
+                await apiSettingsWindow.ShowDialog(this);
 
                 if (string.IsNullOrWhiteSpace(Settings.GoogleKey))
                 {
@@ -1775,11 +1715,10 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         }
     }
 
-    protected override void OnClosed(EventArgs e)
+    private void OnWindowClosed(object? sender, EventArgs e)
     {
         Dispose();
         _ = SettleBackgroundTasksAsync();
-        base.OnClosed(e);
     }
 
     /// <summary>

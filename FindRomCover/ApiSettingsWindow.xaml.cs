@@ -1,11 +1,11 @@
-using System.Windows;
-using System.Windows.Navigation;
+using Avalonia.Controls;
+using Avalonia.Interactivity;
 using FindRomCover.Managers;
 using FindRomCover.Services;
 
 namespace FindRomCover;
 
-public partial class ApiSettingsWindow
+public partial class ApiSettingsWindow : Window
 {
     private readonly SettingsManager _settingsManager;
 
@@ -28,36 +28,37 @@ public partial class ApiSettingsWindow
         }
     }
 
-    private void BtnSave_Click(object sender, RoutedEventArgs e)
+    private void BtnSave_Click(object? sender, RoutedEventArgs e)
     {
         try
         {
-            _settingsManager.GoogleKey = TxtGoogleKey.Text.Trim();
+            _settingsManager.GoogleKey = TxtGoogleKey.Text?.Trim() ?? string.Empty;
 
             _settingsManager.SaveSettings();
             LogService.Information("API settings saved successfully.");
-            DialogResult = true;
+            Close(true);
         }
         catch (Exception ex)
         {
-            MessageBox.Show("There was an error saving the settings.\n\n" +
-                            "The developer will try to fix this.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            Dialogs.ShowMessage(this, "There was an error saving the settings.\n\n" +
+                                      "The developer will try to fix this.", "Error", MessageIcon.Error);
             LogService.Error(ex, "Error saving API settings.");
         }
     }
 
-    private void BtnCancel_Click(object sender, RoutedEventArgs e)
+    private void BtnCancel_Click(object? sender, RoutedEventArgs e)
     {
-        DialogResult = false;
+        Close(false);
     }
 
-    private void Hyperlink_RequestNavigate(object sender, RequestNavigateEventArgs e)
+    private void Hyperlink_Click(object? sender, RoutedEventArgs e)
     {
-        // TryOpenUrl logs failures as warnings; the URL is shown so the user can copy it.
-        if (!UrlService.TryOpenUrl(e.Uri.AbsoluteUri))
-            MessageBox.Show("Could not open the link. Please copy and paste the URL into your browser.", "Link Error",
-                MessageBoxButton.OK, MessageBoxImage.Warning);
+        if (sender is not HyperlinkButton { Tag: string url }) return;
 
-        e.Handled = true;
+        // TryOpenUrl logs failures as warnings; the URL is shown so the user can copy it.
+        if (!UrlService.TryOpenUrl(url))
+            Dialogs.ShowMessage(this,
+                "Could not open the link. Please copy and paste the URL into your browser.", "Link Error",
+                MessageIcon.Warning);
     }
 }

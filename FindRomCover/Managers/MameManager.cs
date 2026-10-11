@@ -1,4 +1,3 @@
-using System.IO;
 using FindRomCover.Models;
 using FindRomCover.Services;
 using MessagePack;

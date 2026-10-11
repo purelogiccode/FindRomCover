@@ -1,5 +1,3 @@
-using System.Net.Http;
-
 namespace FindRomCover.Services;
 
 public static class HttpClientHelper

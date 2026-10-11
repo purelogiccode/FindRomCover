@@ -1,0 +1,43 @@
+<Window x:Class="FindRomCover.AboutWindow"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="About"
+        Width="450"
+        Height="400"
+        CanResize="False"
+        WindowStartupLocation="CenterScreen"
+        Icon="avares://FindRomCover/Assets/images/logo.png"
+        ToolTip.Tip="About FindRomCover">
+    <Grid RowDefinitions="Auto,Auto,Auto">
+
+        <StackPanel Grid.Row="0" Margin="10" HorizontalAlignment="Center" Orientation="Horizontal"
+                    ToolTip.Tip="Application logo">
+            <Image Width="150" Height="150"
+                   Source="avares://FindRomCover/Assets/images/logo.png"
+                   ToolTip.Tip="FindRomCover logo" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="1" Margin="10" ToolTip.Tip="Application information">
+            <TextBlock FontWeight="Bold" Text="FindRomCover" ToolTip.Tip="Application name" />
+            <TextBlock Text="Organize your ROM images collection" ToolTip.Tip="Application description" />
+            <TextBlock Name="AppVersionTextBlock" Margin="0,10,0,0" Text=""
+                       ToolTip.Tip="Current application version number" />
+            <TextBlock Margin="0,10,0,0" ToolTip.Tip="Visit the developer's website">
+                <HyperlinkButton Content="https://www.purelogiccode.com"
+                                 Tag="https://www.purelogiccode.com"
+                                 Click="Hyperlink_Click" Padding="0" />
+            </TextBlock>
+            <TextBlock Margin="0,10,0,10" ToolTip.Tip="View the source code on GitHub">
+                <HyperlinkButton Content="https://github.com/purelogiccode/FindRomCover"
+                                 Tag="https://github.com/purelogiccode/FindRomCover"
+                                 Click="Hyperlink_Click" Padding="0" />
+            </TextBlock>
+        </StackPanel>
+
+        <StackPanel Grid.Row="2" Margin="10" HorizontalAlignment="Center" Orientation="Horizontal"
+                    ToolTip.Tip="Window controls">
+            <Button Width="120" Margin="10,0,0,0" Click="CloseButton_Click" Content="Close"
+                    ToolTip.Tip="Close the About window" />
+        </StackPanel>
+    </Grid>
+</Window>

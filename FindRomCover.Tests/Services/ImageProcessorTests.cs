@@ -1,4 +1,3 @@
-using System.Windows;
 using FindRomCover.Services;
 using FluentAssertions;
 using ImageMagick;
@@ -238,7 +237,7 @@ public class ImageProcessorTests : IDisposable
             false,
             "Something went wrong",
             "Error Title",
-            MessageBoxImage.Error,
+            ImageProcessor.ImageSaveIcon.Error,
             ex,
             "log context");
 

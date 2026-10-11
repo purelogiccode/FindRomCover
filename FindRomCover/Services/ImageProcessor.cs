@@ -1,5 +1,3 @@
-using System.IO;
-using System.Windows;
 using ImageMagick;
 
 namespace FindRomCover.Services;
@@ -51,7 +49,7 @@ public static class ImageProcessor
     {
         if (targetPath != null) return ConvertAndSaveImageCoreAsync(sourcePath, targetPath, cancellationToken);
 
-        return Task.FromResult(new ImageSaveResult(false, "Target path is null.", "Error", MessageBoxImage.Error));
+        return Task.FromResult(new ImageSaveResult(false, "Target path is null.", "Error", ImageSaveIcon.Error));
     }
 
     private static async Task<ImageSaveResult> ConvertAndSaveImageCoreAsync(string sourcePath, string targetPath,
@@ -59,12 +57,12 @@ public static class ImageProcessor
     {
         var directory = Path.GetDirectoryName(targetPath);
         if (directory == null)
-            return new ImageSaveResult(false, "Invalid target path.", "Error", MessageBoxImage.Error);
+            return new ImageSaveResult(false, "Invalid target path.", "Error", ImageSaveIcon.Error);
 
         if (string.Equals(sourcePath, targetPath, StringComparison.OrdinalIgnoreCase))
             return new ImageSaveResult(false,
                 "Source and target paths are the same.\n\nPlease choose another target path.", "Error",
-                MessageBoxImage.Error);
+                ImageSaveIcon.Error);
 
         const int maxAttempts = 3;
         for (var attempt = 0;; attempt++)
@@ -86,7 +84,7 @@ public static class ImageProcessor
                         false,
                         $"Cannot write to directory: {directory}\n\nError: {ex.Message}\n\nTry running as administrator.",
                         "Permission Error",
-                        MessageBoxImage.Error,
+                        ImageSaveIcon.Error,
                         ex,
                         $"Cannot write to directory: {directory}");
             }
@@ -104,7 +102,7 @@ public static class ImageProcessor
     {
         if (string.IsNullOrEmpty(sourcePath) || !File.Exists(sourcePath))
             return new ImageSaveResult(false, "Source image could not be found.", "Image Not Found",
-                MessageBoxImage.Error);
+                ImageSaveIcon.Error);
 
         try
         {
@@ -125,7 +123,7 @@ public static class ImageProcessor
             return new ImageSaveResult(false,
                 $"Error processing image with Magick.NET: {ex.Message}",
                 "Image Processing Error",
-                MessageBoxImage.Error,
+                ImageSaveIcon.Error,
                 ex,
                 $"Magick.NET error: {sourcePath}");
         }
@@ -136,7 +134,7 @@ public static class ImageProcessor
             return new ImageSaveResult(false,
                 $"Cannot access image file: {ex.Message}",
                 "File Access Error",
-                MessageBoxImage.Error,
+                ImageSaveIcon.Error,
                 ex,
                 $"File access error: {sourcePath}");
         }
@@ -175,7 +173,7 @@ public static class ImageProcessor
                         : new ImageSaveResult(false,
                             "The image was processed but the target file was not created.",
                             "File Write Error",
-                            MessageBoxImage.Error,
+                            ImageSaveIcon.Error,
                             new IOException("Target file was not created"),
                             $"WriteBlob failed for: {sourcePath}");
                 }
@@ -211,7 +209,7 @@ public static class ImageProcessor
             false,
             errorMessage,
             "File Write Error",
-            MessageBoxImage.Error,
+            ImageSaveIcon.Error,
             lastException ?? new IOException("Write failed after all retries"),
             $"WriteBlob failed after {maxRetries} retries for: {sourcePath}");
     }
@@ -266,7 +264,16 @@ public static class ImageProcessor
         bool Success,
         string? ErrorMessage = null,
         string? ErrorTitle = null,
-        MessageBoxImage ErrorIcon = MessageBoxImage.None,
+        ImageSaveIcon ErrorIcon = ImageSaveIcon.None,
         Exception? Exception = null,
         string? LogContext = null);
+
+    public enum ImageSaveIcon
+    {
+        None,
+        Information,
+        Warning,
+        Error,
+        Question
+    }
 }

@@ -1,11 +1,11 @@
-﻿using System.Reflection;
-using System.Windows;
-using System.Windows.Navigation;
+using System.Reflection;
+using Avalonia.Controls;
+using Avalonia.Interactivity;
 using FindRomCover.Services;
 
 namespace FindRomCover;
 
-public partial class AboutWindow
+public partial class AboutWindow : Window
 {
     public AboutWindow()
     {
@@ -23,7 +23,7 @@ public partial class AboutWindow
         }
     }
 
-    private void CloseButton_Click(object sender, RoutedEventArgs e)
+    private void CloseButton_Click(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -35,11 +35,11 @@ public partial class AboutWindow
         }
     }
 
-    private void Hyperlink_RequestNavigate(object sender, RequestNavigateEventArgs e)
+    private void Hyperlink_Click(object? sender, RoutedEventArgs e)
     {
-        if (!UrlService.TryOpenUrl(e.Uri.AbsoluteUri))
-            MessageBox.Show("Unable to open the link.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+        if (sender is not HyperlinkButton { Tag: string url }) return;
 
-        e.Handled = true;
+        if (!UrlService.TryOpenUrl(url))
+            Dialogs.ShowMessage(this, "Unable to open the link.", "Error", MessageIcon.Error);
     }
 }

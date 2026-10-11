@@ -1,10 +1,9 @@
 using System.Globalization;
-using System.IO;
-using System.Net.Http;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Documents;
-using System.Windows.Media.Imaging;
+using Avalonia.Controls;
+using Avalonia.Controls.Documents;
+using Avalonia.Interactivity;
+using Avalonia.Media.Imaging;
+using Avalonia.Threading;
 using FindRomCover.ApiProvider;
 using FindRomCover.Models;
 using FindRomCover.Services;
@@ -20,7 +19,7 @@ public partial class MainWindow
         {
             if (!await EnsureWebViewReadyAsync(BingWebView, "Bing"))
             {
-                await Dispatcher.InvokeAsync(() =>
+                await Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     IsSearching = false;
                     StatusMessage.Text = "Web view component is not ready.";
@@ -30,25 +29,17 @@ public partial class MainWindow
 
             var bingUrl = WebSearchService.BuildBingSearchUrl(searchQuery);
 
-            await Dispatcher.InvokeAsync(() =>
+            await Dispatcher.UIThread.InvokeAsync(() =>
             {
-                LblBingWebQuery.Content = new TextBlock
-                {
-                    Inlines =
-                    {
-                        new Run("Web search for: ") { FontWeight = FontWeights.Normal },
-                        new Run(searchQuery) { FontWeight = FontWeights.Bold },
-                        new Run(" (Bing)")
-                    }
-                };
+                LblBingWebQuery.Content = BuildWebQueryLabel(searchQuery, "Bing");
                 StatusMessage.Text = "Loading Bing web search...";
-                BingWebView.CoreWebView2.Navigate(bingUrl);
+                NavigateWebView(BingWebView, "Bing", bingUrl);
             });
         }
         catch (Exception ex)
         {
             LogService.Error(ex, "Error in HandleBingWebSearchAsync");
-            await Dispatcher.InvokeAsync(() =>
+            await Dispatcher.UIThread.InvokeAsync(() =>
             {
                 IsSearching = false;
                 StatusMessage.Text = "Error loading Bing search.";
@@ -62,7 +53,7 @@ public partial class MainWindow
         {
             if (!await EnsureWebViewReadyAsync(GoogleWebView, "Google"))
             {
-                await Dispatcher.InvokeAsync(() =>
+                await Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     IsSearching = false;
                     StatusMessage.Text = "Web view component is not ready.";
@@ -72,30 +63,31 @@ public partial class MainWindow
 
             var googleUrl = WebSearchService.BuildGoogleSearchUrl(searchQuery);
 
-            await Dispatcher.InvokeAsync(() =>
+            await Dispatcher.UIThread.InvokeAsync(() =>
             {
-                LblGoogleWebQuery.Content = new TextBlock
-                {
-                    Inlines =
-                    {
-                        new Run("Web search for: ") { FontWeight = FontWeights.Normal },
-                        new Run(searchQuery) { FontWeight = FontWeights.Bold },
-                        new Run(" (Google)")
-                    }
-                };
+                LblGoogleWebQuery.Content = BuildWebQueryLabel(searchQuery, "Google");
                 StatusMessage.Text = "Loading Google web search...";
-                GoogleWebView.CoreWebView2.Navigate(googleUrl);
+                NavigateWebView(GoogleWebView, "Google", googleUrl);
             });
         }
         catch (Exception ex)
         {
             LogService.Error(ex, "Error in HandleGoogleWebSearchAsync");
-            await Dispatcher.InvokeAsync(() =>
+            await Dispatcher.UIThread.InvokeAsync(() =>
             {
                 IsSearching = false;
                 StatusMessage.Text = "Error loading Google search.";
             });
         }
+    }
+
+    private static TextBlock BuildWebQueryLabel(string searchQuery, string engine)
+    {
+        var textBlock = new TextBlock();
+        textBlock.Inlines!.Add(new Run("Web search for: "));
+        textBlock.Inlines.Add(new Run(searchQuery) { FontWeight = Avalonia.Media.FontWeight.Bold });
+        textBlock.Inlines.Add(new Run($" ({engine})"));
+        return textBlock;
     }
 
     private async Task HandleApiSearchAsync(string searchQuery, CancellationTokenSource searchCts)
@@ -116,10 +108,10 @@ public partial class MainWindow
             catch (InvalidOperationException ex) when (ex.Message.Contains("API Key is not set",
                                                            StringComparison.OrdinalIgnoreCase))
             {
-                await Dispatcher.InvokeAsync(static () =>
+                await Dispatcher.UIThread.InvokeAsync(static () =>
                 {
-                    MessageBox.Show("Please configure your API keys in Settings > API Settings.", "Missing API Key",
-                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                    Dialogs.ShowMessage(null, "Please configure your API keys in Settings > API Settings.",
+                        "Missing API Key", MessageIcon.Warning);
                 });
                 coverImageUrls = [];
             }
@@ -129,10 +121,9 @@ public partial class MainWindow
                 // configuration/environment issues, not application bugs. Inform the user
                 // directly instead of reporting an error to the bug API.
                 LogService.Warning(ex, "Google API search failed");
-                await Dispatcher.InvokeAsync(() =>
+                await Dispatcher.UIThread.InvokeAsync(() =>
                 {
-                    MessageBox.Show(ex.Message, "Google API Error",
-                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                    Dialogs.ShowMessage(this, ex.Message, "Google API Error", MessageIcon.Warning);
                     IsSearching = false;
                     StatusMessage.Text = "API search failed.";
                 });
@@ -140,7 +131,7 @@ public partial class MainWindow
             }
             catch (OperationCanceledException)
             {
-                await Dispatcher.InvokeAsync(() =>
+                await Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     // A newer search (or a selection change) may have replaced this one;
                     // only the current search may clear the progress state.
@@ -156,7 +147,7 @@ public partial class MainWindow
 
             var thumbnailSize = Settings.ThumbnailSize;
 
-            await Dispatcher.InvokeAsync(() =>
+            await Dispatcher.UIThread.InvokeAsync(() =>
             {
                 PanelImages.Clear();
 
@@ -186,7 +177,7 @@ public partial class MainWindow
         catch (Exception ex)
         {
             LogService.Error(ex, "Error in HandleApiSearchAsync");
-            await Dispatcher.InvokeAsync(() =>
+            await Dispatcher.UIThread.InvokeAsync(() =>
             {
                 IsSearching = false;
                 StatusMessage.Text = "Error during API search.";
@@ -202,11 +193,11 @@ public partial class MainWindow
         return Google.FetchImagesFromGoogleAsync(searchQuery, Settings, token);
     }
 
-    private async void SaveApiImage_ClickAsync(object sender, RoutedEventArgs e)
+    private async void SaveApiImage_ClickAsync(object? sender, RoutedEventArgs e)
     {
         try
         {
-            if (sender is not FrameworkElement { DataContext: ImageData { ImagePath: not null } imageData }) return;
+            if (sender is not Control { DataContext: ImageData { ImagePath: not null } imageData }) return;
 
             await SaveApiImageAsync(_selectedRomFileName, imageData);
         }
@@ -236,31 +227,30 @@ public partial class MainWindow
 
             if (!result)
             {
-                MessageBox.Show(
+                await Dialogs.ShowMessageAsync(this,
                     "The image could not be downloaded. The server may have blocked the request or the image is no longer available.\n\nPlease try a different image.",
                     "Download Failed",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Warning);
+                    MessageIcon.Warning);
                 return;
             }
 
             var verification = await TryVerifyImageAsync(romName, tempFileName);
             if (verification is { IsMatch: false })
             {
-                var choice = MessageBox.Show(
+                var choice = await Dialogs.ShowQuestionAsync(this,
                     $"AI thinks this image is not a cover for '{romName}'.\n\n" +
                     $"{verification.Reason}\n\nKeep the downloaded file anyway?",
-                    "AI Verification", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                    "AI Verification", MessageIcon.Warning);
 
-                if (choice != MessageBoxResult.Yes) return;
+                if (choice != MessageResult.Yes) return;
             }
 
             if (File.Exists(newFileName))
             {
-                var replace = MessageBox.Show(
+                var replace = await Dialogs.ShowQuestionAsync(this,
                     $"A cover named '{Path.GetFileName(newFileName)}' already exists.\n\nReplace it?",
-                    "Cover Exists", MessageBoxButton.YesNo, MessageBoxImage.Question);
-                if (replace != MessageBoxResult.Yes) return;
+                    "Cover Exists", MessageIcon.Question);
+                if (replace != MessageResult.Yes) return;
             }
 
             _imageFolderWatcher?.PreRegisterExpectedFile(newFileName);
@@ -268,16 +258,15 @@ public partial class MainWindow
             if (!saved)
             {
                 _imageFolderWatcher?.UnregisterExpectedFile(newFileName);
-                MessageBox.Show($"The image could not be saved to '{newFileName}'.", "Save Failed",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
+                await Dialogs.ShowMessageAsync(this, $"The image could not be saved to '{newFileName}'.", "Save Failed",
+                    MessageIcon.Error);
                 return;
             }
         }
         catch (Exception ex)
         {
             _imageFolderWatcher?.UnregisterExpectedFile(newFileName);
-            MessageBox.Show($"Error saving image: {ex.Message}", "Error", MessageBoxButton.OK,
-                MessageBoxImage.Error);
+            await Dialogs.ShowMessageAsync(this, $"Error saving image: {ex.Message}", "Error", MessageIcon.Error);
             LogService.Error(ex, "Error saving API image");
             return;
         }
@@ -327,9 +316,9 @@ public partial class MainWindow
 
     /// <summary>
     ///     Downloads the remote thumbnail with the app's HttpClient (browser user-agent,
-    ///     bounded timeout) and shows it via <see cref="ImageData.ImageSource"/>. WPF never
-    ///     touches the raw remote URL directly, so hosts that block no-User-Agent requests
-    ///     still display thumbnails and the UI thread is not blocked by network I/O.
+    ///     bounded timeout) and shows it via <see cref="ImageData.ImageSource"/>. The UI
+    ///     never touches the raw remote URL directly, so hosts that block no-User-Agent
+    ///     requests still display thumbnails and the UI thread is not blocked by network I/O.
     /// </summary>
     private static void LoadApiThumbnailAsync(ImageData imageData)
     {
@@ -352,10 +341,10 @@ public partial class MainWindow
                 var bytes = await response.Content.ReadAsByteArrayAsync(timeoutCts.Token);
                 if (bytes.Length == 0) return;
 
-                var bitmap = await Task.Run(() => DecodeThumbnail(bytes));
+                var bitmap = DecodeThumbnail(bytes);
                 if (bitmap == null) return;
 
-                await Application.Current.Dispatcher.InvokeAsync(() => { imageData.ImageSource = bitmap; });
+                await Dispatcher.UIThread.InvokeAsync(() => { imageData.ImageSource = bitmap; });
             }
             catch (OperationCanceledException)
             {
@@ -367,20 +356,12 @@ public partial class MainWindow
         });
     }
 
-    private static BitmapImage? DecodeThumbnail(byte[] bytes)
+    private static Bitmap? DecodeThumbnail(byte[] bytes)
     {
         try
         {
             using var stream = new MemoryStream(bytes);
-            var bitmap = new BitmapImage();
-            bitmap.BeginInit();
-            bitmap.CacheOption = BitmapCacheOption.OnLoad;
-            bitmap.StreamSource = stream;
-            bitmap.EndInit();
-
-            if (bitmap.CanFreeze) bitmap.Freeze();
-
-            return bitmap;
+            return new Bitmap(stream);
         }
         catch (Exception ex)
         {
@@ -389,7 +370,7 @@ public partial class MainWindow
         }
     }
 
-    private async void BtnAiPickApi_Click(object sender, RoutedEventArgs e)
+    private async void BtnAiPickApi_Click(object? sender, RoutedEventArgs e)
     {
         try
         {
@@ -405,9 +386,9 @@ public partial class MainWindow
     {
         if (!Settings.AiAssistEnabled)
         {
-            MessageBox.Show(
+            await Dialogs.ShowMessageAsync(this,
                 "AI Assist is disabled.\n\nEnable it in Settings > AI Settings... to use this feature.",
-                "AI Assist", MessageBoxButton.OK, MessageBoxImage.Information);
+                "AI Assist", MessageIcon.Information);
             return;
         }
 
@@ -460,7 +441,7 @@ public partial class MainWindow
             var currentIndex = PanelImages.IndexOf(picked);
             if (currentIndex > 0) PanelImages.Move(currentIndex, 0);
 
-            ApiImageScrollViewer.ScrollToTop();
+            ApiImageScrollViewer.ScrollToHome();
             StatusMessage.Text = $"AI picked '{picked.ImageName}' ({result.Confidence:P0}). {result.Reason}".Trim();
 
             if (Settings.AiAutoSave && result.Confidence * 100 >= Settings.AiAutoSaveThreshold)
@@ -473,7 +454,7 @@ public partial class MainWindow
         {
             LogService.Warning(ex, "AI assist failed for API results");
             StatusMessage.Text = "AI assist failed. Check the log for details.";
-            MessageBox.Show(ex.Message, "AI Assist", MessageBoxButton.OK, MessageBoxImage.Warning);
+            await Dialogs.ShowMessageAsync(this, ex.Message, "AI Assist", MessageIcon.Warning);
         }
         finally
         {

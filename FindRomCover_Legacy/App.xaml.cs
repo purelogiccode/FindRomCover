@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.IO;
 using System.Windows;
+using System.Windows.Media.Imaging;
 using ControlzEx.Theming;
 using FindRomCover.Managers;
 using FindRomCover.Services;
@@ -104,6 +105,7 @@ public partial class App
         try
         {
             LogService.Initialize();
+            ConfigureCoreServices();
             RegisterGlobalExceptionHandlers();
 
             var services = new ServiceCollection();
@@ -174,6 +176,53 @@ public partial class App
             Shutdown();
             Environment.Exit(1);
         }
+    }
+
+    private static void ConfigureCoreServices()
+    {
+        LogService.UiDispatcher = action =>
+        {
+            var dispatcher = Current?.Dispatcher;
+            if (dispatcher != null)
+                _ = dispatcher.BeginInvoke(action);
+            else
+                action();
+        };
+
+        FindRomCover.Managers.SettingsManager.ErrorReporter = static (message, title) =>
+            MessageBox.Show(message, title, MessageBoxButton.OK, MessageBoxImage.Error);
+
+        ImageSources.CreateFromPngBytes = static bytes =>
+        {
+            using var stream = new MemoryStream(bytes);
+            var bitmap = new BitmapImage();
+            bitmap.BeginInit();
+            bitmap.CacheOption = BitmapCacheOption.OnLoad;
+            bitmap.StreamSource = stream;
+            bitmap.EndInit();
+            if (bitmap.CanFreeze)
+                bitmap.Freeze();
+            return bitmap;
+        };
+
+        ImageSources.CreateBrokenImage = static () =>
+        {
+            try
+            {
+                var bitmap = new BitmapImage(new Uri("pack://application:,,,/images/brokenimage.png"));
+                if (bitmap.CanFreeze)
+                    bitmap.Freeze();
+                return bitmap;
+            }
+            catch (Exception ex)
+            {
+                LogService.Error(ex, "Failed to load broken image fallback resource");
+                var bitmap = new BitmapImage();
+                if (bitmap.CanFreeze)
+                    bitmap.Freeze();
+                return bitmap;
+            }
+        };
     }
 
     private static async Task CheckForUpdatesAsync()

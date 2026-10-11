@@ -1,71 +1,18 @@
 using System.Diagnostics;
-using System.IO;
-using System.Runtime.InteropServices;
-using System.Windows;
-using System.Windows.Input;
-using System.Windows.Media.Imaging;
+using Avalonia.Controls;
+using Avalonia.Input.Platform;
+using Avalonia.Media.Imaging;
+using Avalonia.Platform;
 using FindRomCover.Models;
-using Clipboard = System.Windows.Clipboard;
-using ContextMenu = System.Windows.Controls.ContextMenu;
-using Image = System.Windows.Controls.Image;
-using MenuItem = System.Windows.Controls.MenuItem;
-using MessageBox = System.Windows.MessageBox;
 
 namespace FindRomCover.Services;
 
+/// <summary>
+///     Avalonia replacement for the WPF ButtonFactory: builds the image context menu
+///     and exposes the similarity collection builder used by the main window.
+/// </summary>
 public static class ButtonFactory
 {
-    private static ICommand CopyImageFilenameCommand { get; } = new DelegateCommand(static param =>
-    {
-        if (param is not string imagePath) return;
-
-        var filenameWithoutExtension = Path.GetFileNameWithoutExtension(imagePath);
-
-        try
-        {
-            Clipboard.SetText(filenameWithoutExtension);
-            MessageBox.Show($"Filename '{filenameWithoutExtension}' copied to clipboard!",
-                "Copied", MessageBoxButton.OK, MessageBoxImage.Information);
-        }
-        catch (COMException)
-        {
-            MessageBox.Show("Could not copy to clipboard. It might be in use by another application.",
-                "Clipboard Error", MessageBoxButton.OK, MessageBoxImage.Warning);
-        }
-    });
-
-    private static ICommand OpenFileLocationCommand { get; } = new DelegateCommand(static param =>
-    {
-        if (param is not string imagePath || string.IsNullOrEmpty(imagePath)) return;
-
-        if (File.Exists(imagePath))
-        {
-            var sanitizedPath = imagePath.Replace("\"", "", StringComparison.Ordinal);
-            var processStartInfo = new ProcessStartInfo
-            {
-                FileName = "explorer.exe",
-                Arguments = $"/select,\"{sanitizedPath}\"",
-                UseShellExecute = true
-            };
-            Process.Start(processStartInfo)?.Dispose();
-        }
-    });
-
-    private static ICommand OpenFileCommand { get; } = new DelegateCommand(static param =>
-    {
-        if (param is not string imagePath || string.IsNullOrEmpty(imagePath)) return;
-
-        if (File.Exists(imagePath))
-        {
-            var processStartInfo = new ProcessStartInfo
-            {
-                FileName = imagePath,
-                UseShellExecute = true
-            };
-            Process.Start(processStartInfo)?.Dispose();
-        }
-    });
-
     public static Task<SimilarityCalculationResult> CreateSimilarImagesCollectionAsync(
         string selectedRomFileName,
         string imageFolderPath,
@@ -101,82 +48,133 @@ public static class ButtonFactory
 
         var contextMenu = existingMenu ?? new ContextMenu();
 
-        var useThisImageCommand = new DelegateCommand(p => useImageAction.Invoke(p as string));
-        var useThisImageIcon = new Image
-        {
-            Source = CreateFrozenBitmapImage("pack://application:,,,/images/usethis.png"),
-            Width = 16,
-            Height = 16,
-            Margin = new Thickness(2)
-        };
         var useThisImageMenuItem = new MenuItem
         {
             Header = "Use This Image",
-            Command = useThisImageCommand,
-            CommandParameter = imagePath,
-            Icon = useThisImageIcon
+            Icon = CreateIcon("usethis.png")
         };
+        useThisImageMenuItem.Click += (_, _) => useImageAction(imagePath);
         contextMenu.Items.Add(useThisImageMenuItem);
 
-        var copyIcon = new Image
-        {
-            Source = CreateFrozenBitmapImage("pack://application:,,,/images/copy.png"),
-            Width = 16,
-            Height = 16,
-            Margin = new Thickness(2)
-        };
         var copyMenuItem = new MenuItem
         {
             Header = "Copy Image Filename",
-            Command = CopyImageFilenameCommand,
-            CommandParameter = imagePath,
-            Icon = copyIcon
+            Icon = CreateIcon("copy.png")
         };
+        copyMenuItem.Click += (_, _) => CopyImageFilename(contextMenu, imagePath);
         contextMenu.Items.Add(copyMenuItem);
 
-        var openLocationIcon = new Image
-        {
-            Source = CreateFrozenBitmapImage("pack://application:,,,/images/folder.png"),
-            Width = 16,
-            Height = 16,
-            Margin = new Thickness(2)
-        };
         var openLocationMenuItem = new MenuItem
         {
             Header = "Open File Location",
-            Command = OpenFileLocationCommand,
-            CommandParameter = imagePath,
-            Icon = openLocationIcon
+            Icon = CreateIcon("folder.png")
         };
+        openLocationMenuItem.Click += (_, _) => OpenFileLocation(imagePath);
         contextMenu.Items.Add(openLocationMenuItem);
 
-        var openFileIcon = new Image
-        {
-            Source = CreateFrozenBitmapImage("pack://application:,,,/images/usethis.png"),
-            Width = 16,
-            Height = 16,
-            Margin = new Thickness(2)
-        };
         var openFileMenuItem = new MenuItem
         {
             Header = "Open File",
-            Command = OpenFileCommand,
-            CommandParameter = imagePath,
-            Icon = openFileIcon
+            Icon = CreateIcon("usethis.png")
         };
+        openFileMenuItem.Click += (_, _) => OpenFile(imagePath);
         contextMenu.Items.Add(openFileMenuItem);
-
-        contextMenu.Closed += (_, _) => useThisImageCommand.Dispose();
 
         return contextMenu;
     }
 
-    private static BitmapImage CreateFrozenBitmapImage(string uri)
+    private static Image CreateIcon(string fileName)
     {
-        var bitmap = new BitmapImage(new Uri(uri));
-        if (bitmap.CanFreeze)
-            bitmap.Freeze();
+        try
+        {
+            return new Image
+            {
+                Source = new Bitmap(AssetLoader.Open(
+                    new Uri($"avares://FindRomCover/Assets/images/{fileName}"))),
+                Width = 16,
+                Height = 16,
+                Margin = new Avalonia.Thickness(2)
+            };
+        }
+        catch (Exception ex)
+        {
+            LogService.Warning(ex, $"Could not load context menu icon '{fileName}'.");
+            return new Image { Width = 16, Height = 16 };
+        }
+    }
 
-        return bitmap;
+    private static void CopyImageFilename(Control owner, string imagePath)
+    {
+        var filenameWithoutExtension = Path.GetFileNameWithoutExtension(imagePath);
+
+        try
+        {
+            var clipboard = TopLevel.GetTopLevel(owner)?.Clipboard;
+            if (clipboard != null) _ = clipboard.SetTextAsync(filenameWithoutExtension);
+
+            Dialogs.ShowMessage(TopLevel.GetTopLevel(owner) as Window,
+                $"Filename '{filenameWithoutExtension}' copied to clipboard!",
+                "Copied", MessageIcon.Information);
+        }
+        catch (Exception ex)
+        {
+            LogService.Warning(ex, "Could not copy to clipboard.");
+            Dialogs.ShowMessage(TopLevel.GetTopLevel(owner) as Window,
+                "Could not copy to clipboard. It might be in use by another application.",
+                "Clipboard Error", MessageIcon.Warning);
+        }
+    }
+
+    private static void OpenFileLocation(string imagePath)
+    {
+        if (!File.Exists(imagePath)) return;
+
+        try
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                var sanitizedPath = imagePath.Replace("\"", "", StringComparison.Ordinal);
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "explorer.exe",
+                    Arguments = $"/select,\"{sanitizedPath}\"",
+                    UseShellExecute = true
+                })?.Dispose();
+            }
+            else if (OperatingSystem.IsMacOS())
+            {
+                Process.Start("open", ["-R", imagePath])?.Dispose();
+            }
+            else
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = Path.GetDirectoryName(imagePath) ?? ".",
+                    UseShellExecute = true
+                })?.Dispose();
+            }
+        }
+        catch (Exception ex)
+        {
+            LogService.Warning(ex, $"Could not open file location for '{imagePath}'.");
+        }
+    }
+
+    private static void OpenFile(string imagePath)
+    {
+        if (!File.Exists(imagePath)) return;
+
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = imagePath,
+                UseShellExecute = true
+            })?.Dispose();
+        }
+        catch (Exception ex)
+        {
+            LogService.Warning(ex, $"Could not open file '{imagePath}'.");
+        }
     }
 }

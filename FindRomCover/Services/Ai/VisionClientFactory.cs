@@ -1,4 +1,3 @@
-using System.Net.Http;
 using FindRomCover.Models;
 
 namespace FindRomCover.Services.Ai;

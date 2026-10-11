@@ -10,6 +10,12 @@ namespace FindRomCover.Tests.Services;
 
 public class UpdateCheckServiceTests
 {
+    public UpdateCheckServiceTests()
+    {
+        // Pin the "current version" so the tests do not depend on the test host assembly.
+        UpdateCheckService.CurrentVersionOverride = new Version(3, 2, 2);
+    }
+
     [Theory]
     [InlineData("v1.0.0", "1.0.0")]
     [InlineData("v2.1.3", "2.1.3")]

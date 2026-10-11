@@ -1,5 +1,3 @@
-using System.IO;
-
 namespace FindRomCover.Services;
 
 public class NgramIndex

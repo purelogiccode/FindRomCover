@@ -1,5 +1,3 @@
-using System.IO;
-using System.Windows.Media.Imaging;
 using FindRomCover.Managers;
 using ImageMagick;
 
@@ -10,7 +8,11 @@ public static class ImageLoader
     public const int DefaultMaxRetries = 3;
     public const int DefaultRetryDelayMilliseconds = 200;
 
-    public static async Task<BitmapImage?> LoadImageToMemoryAsync(
+    /// <summary>
+    ///     Loads and normalizes an image file to PNG bytes. UI heads convert the bytes
+    ///     to their own bitmap type via <see cref="ImageSources.FromPngBytes" />.
+    /// </summary>
+    public static async Task<byte[]?> LoadImageToMemoryAsync(
         string? imagePath,
         CancellationToken cancellationToken,
         int maxRetries = 0,
@@ -84,7 +86,7 @@ public static class ImageLoader
         }
     }
 
-    private static BitmapImage LoadWithMagickNetInternal(string imagePath, bool ignoreErrors = false)
+    private static byte[] LoadWithMagickNetInternal(string imagePath, bool ignoreErrors = false)
     {
         var settings = new MagickReadSettings { FrameIndex = 0, FrameCount = 1 };
 
@@ -99,17 +101,7 @@ public static class ImageLoader
 
         using var memoryStream = new MemoryStream();
         magickImage.Write(memoryStream, MagickFormat.Png);
-        memoryStream.Position = 0;
 
-        var bitmapImage = new BitmapImage();
-        bitmapImage.BeginInit();
-        bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
-        bitmapImage.StreamSource = memoryStream;
-        bitmapImage.EndInit();
-
-        if (bitmapImage.CanFreeze)
-            bitmapImage.Freeze();
-
-        return bitmapImage;
+        return memoryStream.ToArray();
     }
 }

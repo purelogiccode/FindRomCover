@@ -1,19 +1,22 @@
 using System.ComponentModel;
 using System.Globalization;
-using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using System.Windows;
 using System.Xml.Linq;
 using FindRomCover.Models;
 using FindRomCover.Services;
-using MessageBox = System.Windows.MessageBox;
 
 namespace FindRomCover.Managers;
 
 public class SettingsManager : INotifyPropertyChanged
 {
+    /// <summary>
+    ///     Set by the GUI head to display settings-save failures (title, message).
+    ///     When null, failures are only logged through <see cref="ErrorLogger" />.
+    /// </summary>
+    public static Action<string, string>? ErrorReporter { get; set; }
+
     private static SettingsManager? _currentInstance;
     private static readonly Lock InstanceLock = new();
 
@@ -1219,8 +1222,9 @@ public class SettingsManager : INotifyPropertyChanged
 
     private static void ShowSaveError(string message)
     {
-        if (Application.Current != null)
-            MessageBox.Show(message, "Settings Error", MessageBoxButton.OK, MessageBoxImage.Error);
+        var reporter = ErrorReporter;
+        if (reporter != null)
+            reporter(message, "Settings Error");
         else
             _ = ErrorLogger.LogAsync(new InvalidOperationException(message), "Settings save error (no UI available)");
     }

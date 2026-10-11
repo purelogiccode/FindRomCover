@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using System.IO;
 using FindRomCover.Services;
 using Microsoft.Data.Sqlite;
 

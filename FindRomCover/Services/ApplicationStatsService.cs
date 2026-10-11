@@ -1,5 +1,4 @@
 using System.Net;
-using System.Net.Http;
 using System.Reflection;
 using System.Text;
 using System.Text.Json;
@@ -16,7 +15,8 @@ public static class ApplicationStatsService
     {
         try
         {
-            var version = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "Unknown";
+            var version = (Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly()).GetName().Version?.ToString() ??
+                          "Unknown";
 
             var payload = new
             {

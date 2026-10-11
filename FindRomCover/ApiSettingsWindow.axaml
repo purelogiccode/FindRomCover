@@ -1,0 +1,50 @@
+<Window x:Class="FindRomCover.ApiSettingsWindow"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="API Settings"
+        Height="400"
+        Width="600"
+        WindowStartupLocation="CenterScreen"
+        Icon="avares://FindRomCover/Assets/images/logo.png"
+        ToolTip.Tip="Configure API keys for image search services">
+    <Grid Margin="20" RowDefinitions="Auto,Auto,*,Auto">
+
+        <TextBlock Grid.Row="0" Text="Configure your API keys for image search services"
+                   Margin="0,0,0,5" TextWrapping="Wrap"
+                   ToolTip.Tip="Enter your API credentials below to enable image search functionality" />
+
+        <StackPanel Grid.Row="1" Margin="0,0,0,15">
+            <TextBlock TextWrapping="Wrap" Margin="0,0,0,5"
+                       Text="You need an API key for each service you want to use. Sign up on their websites to get your keys."
+                       ToolTip.Tip="Instructions for obtaining API keys" />
+        </StackPanel>
+
+        <ScrollViewer Grid.Row="2" ToolTip.Tip="Scroll to view all API configuration options">
+            <StackPanel>
+
+                <GroupBox Header="Google Custom Search API" Margin="0,0,0,15"
+                          ToolTip.Tip="Configuration for Google Custom Search API">
+                    <StackPanel>
+                        <TextBox x:Name="TxtGoogleKey"
+                                 PlaceholderText="Enter your Google API key"
+                                 ToolTip.Tip="Your unique key for accessing the Google Custom Search API."
+                                 Margin="0,5" />
+                        <TextBlock Margin="0,5,0,0"
+                                   ToolTip.Tip="Open the Google API key registration page in your browser">
+                            <HyperlinkButton Content="Get Google API Key" Padding="0"
+                                             Tag="https://developers.google.com/custom-search/v1/overview"
+                                             Click="Hyperlink_Click" />
+                        </TextBlock>
+                    </StackPanel>
+                </GroupBox>
+            </StackPanel>
+        </ScrollViewer>
+
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+            <Button x:Name="BtnSave" Content="Save" Width="100" Margin="0,0,10,0" Click="BtnSave_Click"
+                    ToolTip.Tip="Save the entered API keys to the configuration" />
+            <Button x:Name="BtnCancel" Content="Cancel" Width="100" Click="BtnCancel_Click"
+                    ToolTip.Tip="Discard changes and close this window" />
+        </StackPanel>
+    </Grid>
+</Window>

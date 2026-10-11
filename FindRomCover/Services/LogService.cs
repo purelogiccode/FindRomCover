@@ -1,7 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Text.Json;
-using System.Windows;
 using FindRomCover.Models;
 using Serilog;
 using Serilog.Events;
@@ -11,6 +10,12 @@ namespace FindRomCover.Services;
 public static class LogService
 {
     public const string WatcherErrorPropertyName = "WatcherError";
+
+    /// <summary>
+    ///     Set by the GUI head (WPF/Avalonia) to marshal log entries onto the UI thread.
+    ///     When null, entries are appended directly.
+    /// </summary>
+    public static Action<Action>? UiDispatcher { get; set; }
 
     private static ILogger _logger = new SilentLogger();
     private static readonly ObservableCollection<LogEntry> LogMessages = new();
@@ -60,11 +65,17 @@ public static class LogService
 
         var logEntry = new LogEntry { Message = logEntryText };
 
-        _ = Application.Current?.Dispatcher.BeginInvoke(() =>
-        {
-            LogMessages.Add(logEntry);
-            while (LogMessages.Count > 5000) LogMessages.RemoveAt(0);
-        });
+        var dispatch = UiDispatcher;
+        if (dispatch != null)
+            dispatch(() => AppendLogEntry(logEntry));
+        else
+            AppendLogEntry(logEntry);
+    }
+
+    private static void AppendLogEntry(LogEntry logEntry)
+    {
+        LogMessages.Add(logEntry);
+        while (LogMessages.Count > 5000) LogMessages.RemoveAt(0);
     }
 
     public static void Debug(string message)

@@ -6,13 +6,11 @@ public class DelegateCommand : ICommand, IDisposable
 {
     private readonly Func<object?, bool>? _canExecute;
     private readonly Action<object?> _execute;
-    private bool _disposed;
 
     public DelegateCommand(Action<object?> execute, Func<object?, bool>? canExecute = null)
     {
         _execute = execute ?? throw new ArgumentNullException(nameof(execute));
         _canExecute = canExecute;
-        CommandManager.RequerySuggested += OnRequerySuggested;
     }
 
     public bool CanExecute(object? parameter)
@@ -27,16 +25,13 @@ public class DelegateCommand : ICommand, IDisposable
 
     public event EventHandler? CanExecuteChanged;
 
-    public void Dispose()
+    public void RaiseCanExecuteChanged()
     {
-        if (_disposed) return;
-
-        _disposed = true;
-        CommandManager.RequerySuggested -= OnRequerySuggested;
+        CanExecuteChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    private void OnRequerySuggested(object? sender, EventArgs e)
+    public void Dispose()
     {
-        CanExecuteChanged?.Invoke(this, e);
+        GC.SuppressFinalize(this);
     }
 }

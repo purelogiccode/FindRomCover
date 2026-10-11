@@ -1,0 +1,23 @@
+namespace FindRomCover.Services;
+
+/// <summary>
+///     UI-specific image creation bridge for the platform-agnostic core.
+///     Each GUI head (WPF, Avalonia) installs its factories at startup so that
+///     <see cref="FindRomCover.Models.ImageData" /> and other core services can produce
+///     displayable images without referencing a UI framework.
+/// </summary>
+public static class ImageSources
+{
+    /// <summary>Creates a displayable image object from PNG bytes (UI-specific type).</summary>
+    public static Func<byte[], object?>? CreateFromPngBytes { get; set; }
+
+    /// <summary>Creates the broken-image placeholder used when no image is available.</summary>
+    public static Func<object?>? CreateBrokenImage { get; set; }
+
+    public static object? FromPngBytes(byte[] pngBytes)
+    {
+        return CreateFromPngBytes?.Invoke(pngBytes);
+    }
+
+    public static object? BrokenImage => CreateBrokenImage?.Invoke();
+}

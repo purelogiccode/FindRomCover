@@ -1,7 +1,5 @@
 using System.Globalization;
-using System.IO;
 using System.Net;
-using System.Net.Http;
 using System.Text.Json;
 using System.Web;
 using FindRomCover.Managers;

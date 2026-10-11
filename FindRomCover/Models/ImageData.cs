@@ -1,31 +1,11 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
-using System.Windows.Media.Imaging;
 using FindRomCover.Services;
 
 namespace FindRomCover.Models;
 
 public class ImageData : INotifyPropertyChanged
 {
-    private static readonly Lazy<BitmapImage> BrokenImageLazy = new(static () =>
-    {
-        try
-        {
-            var bitmap = new BitmapImage(new Uri("pack://application:,,,/images/brokenimage.png"));
-            if (bitmap.CanFreeze)
-                bitmap.Freeze();
-            return bitmap;
-        }
-        catch (Exception ex)
-        {
-            LogService.Error(ex, "Failed to load broken image fallback resource");
-            var bitmap = new BitmapImage();
-            if (bitmap.CanFreeze)
-                bitmap.Freeze();
-            return bitmap;
-        }
-    });
-
     private string _aiBadge = string.Empty;
 
     private int _imageHeight;
@@ -51,9 +31,13 @@ public class ImageData : INotifyPropertyChanged
 
     public double SimilarityScore { get; init; }
 
-    private BitmapImage? _imageSource;
+    private object? _imageSource;
 
-    public BitmapImage? ImageSource
+    /// <summary>
+    ///     The UI-specific image object (WPF BitmapImage or Avalonia Bitmap).
+    ///     Created through <see cref="ImageSources" />.
+    /// </summary>
+    public object? ImageSource
     {
         get => _imageSource;
         set
@@ -66,7 +50,7 @@ public class ImageData : INotifyPropertyChanged
         }
     }
 
-    public BitmapImage DisplayImage => ImageSource ?? BrokenImageLazy.Value;
+    public object? DisplayImage => ImageSource ?? ImageSources.BrokenImage;
 
     public string AiBadge
     {

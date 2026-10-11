@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
 using System.Globalization;
-using System.IO;
 using Microsoft.Data.Sqlite;
 
 namespace FindRomCover.Services.Ai;

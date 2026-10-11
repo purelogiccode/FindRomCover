@@ -1,5 +1,3 @@
-using System.IO;
-using System.Net.Http;
 using System.Reflection;
 using System.Text;
 using ImageMagick;
@@ -14,7 +12,7 @@ public static class ImageSaveService
 
     private static string BuildBrowserUserAgent()
     {
-        var version = Assembly.GetExecutingAssembly().GetName().Version;
+        var version = (Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly()).GetName().Version;
         var versionText = version == null ? "0.0" : $"{version.Major}.{version.Minor}";
 
         return "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) " +

@@ -1,4 +1,3 @@
-using System.IO;
 using System.Security.Cryptography;
 using FindRomCover.Models;
 using ImageMagick;

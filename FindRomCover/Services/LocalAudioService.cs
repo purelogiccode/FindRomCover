@@ -1,58 +1,34 @@
-using System.IO;
-using System.Windows;
-using System.Windows.Media;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
 
 namespace FindRomCover.Services;
 
-public class LocalAudioService : IAudioService
+/// <summary>
+///     Cross-platform click sound player:
+///     Windows uses MCI (winmm), macOS uses afplay, Linux tries the common
+///     command-line players. Playback failures silently disable the sound.
+/// </summary>
+public sealed class LocalAudioService : IAudioService
 {
+    private const string MciAlias = "FindRomCoverClick";
+
+    private readonly string _soundPath =
+        Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "audio", "click.mp3");
+
     private bool _isSoundAvailable;
-    private MediaPlayer? _mediaPlayer;
 
     public LocalAudioService()
     {
-        var soundPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "audio", "click.mp3");
-
-        if (File.Exists(soundPath))
-            try
-            {
-                if (Thread.CurrentThread.GetApartmentState() != ApartmentState.STA)
-                {
-                    var dispatcher = Application.Current?.Dispatcher;
-                    if (dispatcher != null)
-                        _ = dispatcher.BeginInvoke(() => InitializeMediaPlayer(soundPath));
-                    else
-                        _isSoundAvailable = false;
-                }
-                else
-                {
-                    InitializeMediaPlayer(soundPath);
-                }
-            }
-            catch (Exception)
-            {
-                _isSoundAvailable = false;
-                try
-                {
-                    _mediaPlayer?.Close();
-                }
-                catch
-                {
-                    // ignored
-                }
-            }
-        else
-            _isSoundAvailable = false;
+        _isSoundAvailable = File.Exists(_soundPath);
     }
 
     public void PlayClickSound()
     {
-        if (!_isSoundAvailable || _mediaPlayer == null) return;
+        if (!_isSoundAvailable) return;
 
         try
         {
-            _mediaPlayer?.Stop();
-            _mediaPlayer?.Play();
+            Play(_soundPath);
         }
         catch
         {
@@ -62,33 +38,53 @@ public class LocalAudioService : IAudioService
 
     public void Dispose()
     {
-        try
-        {
-            if (_mediaPlayer != null)
-            {
-                _mediaPlayer.MediaFailed -= OnMediaFailed;
-                _mediaPlayer.Close();
-            }
-        }
-        catch
-        {
-            // ignored
-        }
-
         GC.SuppressFinalize(this);
     }
 
-    private void InitializeMediaPlayer(string soundPath)
+    private static void Play(string path)
     {
-        _mediaPlayer = new MediaPlayer();
-        var soundUri = new Uri(soundPath, UriKind.Absolute);
-        _mediaPlayer.Open(soundUri);
-        _mediaPlayer.MediaFailed += OnMediaFailed;
-        _isSoundAvailable = true;
+        if (OperatingSystem.IsWindows())
+            PlayWindows(path);
+        else if (OperatingSystem.IsMacOS())
+            TryStart("afplay", [path]);
+        else
+            PlayLinux(path);
     }
 
-    private void OnMediaFailed(object? sender, ExceptionEventArgs e)
+    private static void PlayLinux(string path)
     {
-        _isSoundAvailable = false;
+        if (TryStart("paplay", [path])) return;
+        if (TryStart("ffplay", ["-nodisp", "-autoexit", "-loglevel", "quiet", path])) return;
+        if (TryStart("mpg123", ["-q", path])) return;
+        TryStart("aplay", [path]);
     }
+
+    private static bool TryStart(string fileName, string[] arguments)
+    {
+        try
+        {
+            var startInfo = new ProcessStartInfo(fileName) { UseShellExecute = false };
+            foreach (var argument in arguments) startInfo.ArgumentList.Add(argument);
+
+            using var process = Process.Start(startInfo);
+            return process != null;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static void PlayWindows(string path)
+    {
+        _ = mciSendStringW($"close {MciAlias}", null, 0, IntPtr.Zero);
+
+        var openResult = mciSendStringW($"open \"{path}\" type mpegvideo alias {MciAlias}", null, 0, IntPtr.Zero);
+        if (openResult == 0)
+            _ = mciSendStringW($"play {MciAlias}", null, 0, IntPtr.Zero);
+    }
+
+    [DllImport("winmm.dll", CharSet = CharSet.Unicode)]
+    private static extern int mciSendStringW(string command, System.Text.StringBuilder? returnString, int returnLength,
+        IntPtr hwndCallback);
 }
