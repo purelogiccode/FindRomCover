@@ -18,7 +18,7 @@ public partial class MainWindow
     {
         try
         {
-            if (!await EnsureWebViewReadyAsync(BingWebView))
+            if (!await EnsureWebViewReadyAsync(BingWebView, "Bing"))
             {
                 await Dispatcher.InvokeAsync(() =>
                 {
@@ -60,7 +60,7 @@ public partial class MainWindow
     {
         try
         {
-            if (!await EnsureWebViewReadyAsync(GoogleWebView))
+            if (!await EnsureWebViewReadyAsync(GoogleWebView, "Google"))
             {
                 await Dispatcher.InvokeAsync(() =>
                 {

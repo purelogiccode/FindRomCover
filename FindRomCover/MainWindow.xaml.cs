@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Globalization;
 using System.IO;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -20,6 +21,8 @@ namespace FindRomCover;
 
 public partial class MainWindow : INotifyPropertyChanged, IDisposable
 {
+    private const int WebViewInitMaxAttempts = 3;
+
     private static readonly HashSet<string> NonRomExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         ".dummy", ".bat", ".url", ".lnk", ".exe", ".cmd", ".txt", ".nfo", ".xml", ".json", ".ini", ".cfg", ".log",
@@ -45,6 +48,7 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
     private bool _webView2NotificationShown;
     private bool _webView2Unavailable;
     private CoreWebView2Environment? _webViewEnv;
+    private readonly SemaphoreSlim _webViewInitSemaphore = new(1, 1);
 
     public MainWindow(SettingsManager settingsManager, string? startupImageFolder = null,
         string? startupRomFolder = null)
@@ -74,6 +78,8 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         Settings.PropertyChanged += AppSettingsManagerPropertyChangedAsync;
         SimilarImages.CollectionChanged += (_, _) => UpdateAiPickAvailability();
         PanelImages.CollectionChanged += (_, _) => UpdateAiPickAvailability();
+        GoogleWebView.NavigationCompleted += OnGoogleWebViewNavigationCompleted;
+        BingWebView.NavigationCompleted += OnBingWebViewNavigationCompleted;
         Closing += OnWindowClosing;
         Loaded += MainWindow_LoadedAsync;
         StateChanged += OnWindowStateChanged;
@@ -216,6 +222,7 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         _aiAssistService = null;
 
         _findSimilarSemaphore.Dispose();
+        _webViewInitSemaphore.Dispose();
         _imageFolderWatcher?.Dispose();
         _systemTrayIcon?.Dispose();
 
@@ -339,57 +346,70 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
 
     private async Task InitializeWebViewsAsync()
     {
+        await TryInitializeWebViewAsync(GoogleWebView, "Google");
+        await TryInitializeWebViewAsync(BingWebView, "Bing");
+    }
+
+    /// <summary>
+    ///     Initializes a WebView2 control, retrying transient failures. A browser
+    ///     process that is still shutting down (for example right after an app restart),
+    ///     a runtime update in progress or a momentarily locked profile folder surfaces
+    ///     as a COMException such as RPC_E_DISCONNECTED (0x80010108). Those conditions
+    ///     clear within moments, so a fresh environment plus a short delay recovers them.
+    /// </summary>
+    private async Task<bool> TryInitializeWebViewAsync(WebView2 webView, string viewName)
+    {
+        if (_isExiting || _disposed)
+            return false;
+
+        await _webViewInitSemaphore.WaitAsync();
         try
         {
-            _webViewEnv = await CreateWebViewEnvironmentAsync();
+            for (var attempt = 1; attempt <= WebViewInitMaxAttempts; attempt++)
+            {
+                // The user may close the window while a retry delay is pending.
+                if (_isExiting || _disposed)
+                    return false;
 
-            try
-            {
-                await GoogleWebView.EnsureCoreWebView2Async(_webViewEnv);
-                GoogleWebView.NavigationCompleted += (_, _) =>
+                try
                 {
-                    var source = GoogleWebView.CoreWebView2?.Source;
-                    if (!string.IsNullOrEmpty(source) &&
-                        !source.Equals("about:blank", StringComparison.OrdinalIgnoreCase))
-                    {
-                        IsSearching = false;
-                        StatusMessage.Text = "Google web search loaded.";
-                    }
-                };
-            }
-            catch (Exception ex)
-            {
-                LogService.Error(ex, "Failed to initialize Google WebView2");
+                    _webViewEnv ??= await CreateWebViewEnvironmentAsync();
+                    await webView.EnsureCoreWebView2Async(_webViewEnv);
+                    return webView.CoreWebView2 != null;
+                }
+                catch (WebView2RuntimeNotFoundException ex)
+                {
+                    _webView2Unavailable = true;
+                    LogService.Warning(ex, "WebView2 Runtime is not installed. Web search features will be unavailable.");
+                    NotifyWebView2Unavailable();
+                    return false;
+                }
+                catch (Exception ex) when (ex is COMException && attempt < WebViewInitMaxAttempts)
+                {
+                    LogService.Warning(ex,
+                        $"Transient {viewName} WebView2 initialization failure (attempt {attempt} of {WebViewInitMaxAttempts}). Retrying...");
+                    _webViewEnv = null;
+                    await Task.Delay(TimeSpan.FromMilliseconds(500 * attempt));
+                }
+                catch (Exception ex)
+                {
+                    // Environmental conditions (crashed browser process, locked or corrupt
+                    // profile folder, antivirus interference, ...) are not application bugs:
+                    // log them without filing a bug report and retry on the next use.
+                    LogService.Warning(ex, $"Failed to initialize {viewName} WebView2");
+                    _webViewEnv = null;
+                    return false;
+                }
             }
 
-            try
-            {
-                await BingWebView.EnsureCoreWebView2Async(_webViewEnv);
-                BingWebView.NavigationCompleted += (_, _) =>
-                {
-                    var source = BingWebView.CoreWebView2?.Source;
-                    if (!string.IsNullOrEmpty(source) &&
-                        !source.Equals("about:blank", StringComparison.OrdinalIgnoreCase))
-                    {
-                        IsSearching = false;
-                        StatusMessage.Text = "Bing web search loaded.";
-                    }
-                };
-            }
-            catch (Exception ex)
-            {
-                LogService.Error(ex, "Failed to initialize Bing WebView2");
-            }
+            return false;
         }
-        catch (WebView2RuntimeNotFoundException ex)
+        finally
         {
-            _webView2Unavailable = true;
-            LogService.Warning(ex, "WebView2 Runtime is not installed. Web search features will be unavailable.");
-            NotifyWebView2Unavailable();
-        }
-        catch (Exception ex)
-        {
-            LogService.Error(ex, "Failed to initialize WebView2 environment");
+            // OnClosed disposes the semaphore while a pending retry may still resume
+            // on the dispatcher; avoid releasing a disposed semaphore in that case.
+            if (!_disposed)
+                _webViewInitSemaphore.Release();
         }
     }
 
@@ -412,7 +432,7 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         return CoreWebView2Environment.CreateAsync(null, userDataFolder);
     }
 
-    private async Task<bool> EnsureWebViewReadyAsync(WebView2 webView)
+    private async Task<bool> EnsureWebViewReadyAsync(WebView2 webView, string viewName)
     {
         if (webView.CoreWebView2 != null)
             return true;
@@ -420,24 +440,42 @@ public partial class MainWindow : INotifyPropertyChanged, IDisposable
         if (_webView2Unavailable)
             return false;
 
+        return await TryInitializeWebViewAsync(webView, viewName);
+    }
+
+    private void OnGoogleWebViewNavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e)
+    {
         try
         {
-            if (_webViewEnv == null) _webViewEnv = await CreateWebViewEnvironmentAsync();
-
-            await webView.EnsureCoreWebView2Async(_webViewEnv);
-            return webView.CoreWebView2 != null;
-        }
-        catch (WebView2RuntimeNotFoundException ex)
-        {
-            _webView2Unavailable = true;
-            LogService.Warning(ex, "WebView2 Runtime is not installed. Web search features will be unavailable.");
-            NotifyWebView2Unavailable();
-            return false;
+            var source = GoogleWebView.CoreWebView2?.Source;
+            if (!string.IsNullOrEmpty(source) &&
+                !source.Equals("about:blank", StringComparison.OrdinalIgnoreCase))
+            {
+                IsSearching = false;
+                StatusMessage.Text = "Google web search loaded.";
+            }
         }
         catch (Exception ex)
         {
-            LogService.Error(ex, "Failed to lazily initialize WebView2");
-            return false;
+            LogService.Warning(ex, "Error handling Google WebView2 navigation completion");
+        }
+    }
+
+    private void OnBingWebViewNavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e)
+    {
+        try
+        {
+            var source = BingWebView.CoreWebView2?.Source;
+            if (!string.IsNullOrEmpty(source) &&
+                !source.Equals("about:blank", StringComparison.OrdinalIgnoreCase))
+            {
+                IsSearching = false;
+                StatusMessage.Text = "Bing web search loaded.";
+            }
+        }
+        catch (Exception ex)
+        {
+            LogService.Warning(ex, "Error handling Bing WebView2 navigation completion");
         }
     }
 
