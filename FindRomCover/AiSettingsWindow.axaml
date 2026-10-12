@@ -149,9 +149,9 @@
         </ScrollViewer>
 
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
-            <Button x:Name="BtnSave" Content="Save" Width="100" Margin="0,0,10,0" Click="BtnSave_ClickAsync"
+            <Button x:Name="BtnSave" Content="Save" Width="100" Margin="0,0,10,0" Click="BtnSave_ClickAsync" HorizontalContentAlignment="Center"
                     ToolTip.Tip="Save the AI settings" />
-            <Button x:Name="BtnCancel" Content="Cancel" Width="100" Click="BtnCancel_Click"
+            <Button x:Name="BtnCancel" Content="Cancel" Width="100" Click="BtnCancel_Click" HorizontalContentAlignment="Center"
                     ToolTip.Tip="Discard changes and close this window" />
         </StackPanel>
     </Grid>

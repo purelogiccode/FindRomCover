@@ -553,6 +553,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 case nameof(SettingsManager.ImageWidth):
                 case nameof(SettingsManager.ImageHeight):
                     UpdateThumbnailSizeMenuChecks();
+                    UpdatePanelImageThumbnailSizes();
                     break;
                 case nameof(SettingsManager.SelectedSimilarityAlgorithm):
                     UpdateSimilarityAlgorithmChecks();
@@ -1499,6 +1500,28 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         catch (Exception ex)
         {
             LogService.Error(ex, "Error in UpdateThumbnailSizeMenuChecks");
+        }
+    }
+
+    /// <summary>
+    ///     Resizes the API search result images currently displayed in the Google API tab to the
+    ///     configured thumbnail size. Local result images follow <c>Settings.ImageWidth</c>/
+    ///     <c>Settings.ImageHeight</c> through their template binding and need no update here.
+    /// </summary>
+    private void UpdatePanelImageThumbnailSizes()
+    {
+        try
+        {
+            var size = Settings.ThumbnailSize;
+            foreach (var image in PanelImages)
+            {
+                image.ThumbnailWidth = size;
+                image.ThumbnailHeight = size;
+            }
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "Error in UpdatePanelImageThumbnailSizes");
         }
     }
 

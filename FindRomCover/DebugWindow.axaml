@@ -26,7 +26,7 @@
                  ToolTip.Tip="Application log output. Right-click for copy options.">
             <TextBox.ContextMenu>
                 <ContextMenu>
-                    <MenuItem x:Name="ContextMenuCopySelection" Header="Copy Selection" Click="CopySelection_Click"
+                    <MenuItem x:Name="ContextMenuCopySelection" Header="Copy Selection" Click="CopySelection_Click" 
                               IsEnabled="False"
                               ToolTip.Tip="Copy the selected text to the clipboard" />
                     <MenuItem Header="Copy All" Click="CopyLog_Click"
