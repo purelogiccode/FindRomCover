@@ -10,6 +10,23 @@
 [![Last commit](https://img.shields.io/github/last-commit/purelogiccode/FindRomCover)](https://github.com/purelogiccode/FindRomCover/commits/master)
 [![Docs site](https://img.shields.io/badge/docs-purelogiccode.github.io-blue)](https://purelogiccode.github.io/FindRomCover/)
 [![Wiki](https://img.shields.io/badge/wiki-available-blue)](https://github.com/purelogiccode/FindRomCover/wiki)
+[![Contributors](https://img.shields.io/github/contributors/purelogiccode/FindRomCover)](https://github.com/purelogiccode/FindRomCover/graphs/contributors)
+[![Forks](https://img.shields.io/github/forks/purelogiccode/FindRomCover)](https://github.com/purelogiccode/FindRomCover/forks)
+[![Pull requests](https://img.shields.io/github/issues-pr/purelogiccode/FindRomCover?label=pull%20requests)](https://github.com/purelogiccode/FindRomCover/pulls)
+[![Open bugs](https://img.shields.io/github/issues/purelogiccode/FindRomCover/bug?label=open%20bugs)](https://github.com/purelogiccode/FindRomCover/issues)
+[![Commit activity](https://img.shields.io/github/commit-activity/m/purelogiccode/FindRomCover)](https://github.com/purelogiccode/FindRomCover/commits/master)
+[![Release date](https://img.shields.io/github/release-date/purelogiccode/FindRomCover)](https://github.com/purelogiccode/FindRomCover/releases)
+[![Latest downloads](https://img.shields.io/github/downloads/purelogiccode/FindRomCover/latest/total?label=latest%20downloads)](https://github.com/purelogiccode/FindRomCover/releases/latest)
+[![Repo size](https://img.shields.io/github/repo-size/purelogiccode/FindRomCover)](https://github.com/purelogiccode/FindRomCover)
+[![Code size](https://img.shields.io/github/languages/code-size/purelogiccode/FindRomCover)](https://github.com/purelogiccode/FindRomCover)
+[![Top language](https://img.shields.io/github/languages/top/purelogiccode/FindRomCover)](https://github.com/purelogiccode/FindRomCover)
+[![C# 14](https://img.shields.io/badge/C%23-14-239120?logo=csharp&logoColor=white)](https://learn.microsoft.com/dotnet/csharp/)
+[![UI: Avalonia 12](https://img.shields.io/badge/UI-Avalonia%2012-8B44AC)](https://avaloniaui.net)
+[![Tests](https://img.shields.io/badge/tests-879%20passing-brightgreen)](https://github.com/purelogiccode/FindRomCover/actions/workflows/ci.yml)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](https://github.com/purelogiccode/FindRomCover/blob/master/docs/development/contributing.md)
+[![Maintained](https://img.shields.io/badge/maintained-yes-brightgreen)](https://github.com/purelogiccode/FindRomCover/commits/master)
+[![Discussions](https://img.shields.io/badge/discussions-available-blue?logo=github)](https://github.com/purelogiccode/FindRomCover/discussions)
+[![Donate](https://img.shields.io/badge/donate-Pure%20Logic%20Code-ff69b4)](https://www.purelogiccode.com/donate)
 
 # FindRomCover
 
