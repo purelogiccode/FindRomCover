@@ -29,10 +29,9 @@ FindRomCover is distributed as a framework-dependent cross-platform desktop appl
     | `release_<version>_win-arm64.zip` | Windows ARM64 |
     | `release_<version>_linux-x64.zip` | Linux x64 |
     | `release_<version>_linux-arm64.zip` | Linux ARM64 |
-    | `release_<version>_osx-x64.zip` | macOS Intel |
     | `release_<version>_osx-arm64.zip` | macOS Apple Silicon |
 
-    Each archive also contains `LICENSE.txt`, `README.md`, and `WhatsNew.md`.
+    Each archive also contains `LICENSE.txt`, `README.md`, and `WhatsNew.md`. There is no Intel-Mac build because Magick.NET 15 (the image conversion engine) no longer ships a macOS x64 native library.
 3. Extract the archive to a folder of your choice. Settings, caches, and logs are written to your per-user data folder, so the application folder does not need to be writable. If you install under a read-only location such as `Program Files`, screenshots automatically fall back to the data folder.
 4. Start the application:
    - Windows: run `FindRomCover.exe`.

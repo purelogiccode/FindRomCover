@@ -28,8 +28,6 @@ jobs:
           - os: ubuntu-latest
             rid: linux-arm64
           - os: macos-latest
-            rid: osx-x64
-          - os: macos-latest
             rid: osx-arm64
     runs-on: ${{ matrix.os }}
 
@@ -73,10 +71,15 @@ jobs:
           if (-not (Test-Path -LiteralPath $publishDir)) {
             throw "Publish folder not found: $publishDir"
           }
-          Copy-Item -LiteralPath 'LICENSE.txt' -Destination $publishDir -Force
-          Copy-Item -LiteralPath 'README.md' -Destination $publishDir -Force
-          Copy-Item -LiteralPath 'WhatsNew.md' -Destination $publishDir -Force
-          Get-ChildItem -LiteralPath $publishDir -Force |
+          $stageDir = "bundle-stage/${{ matrix.rid }}"
+          if (Test-Path -LiteralPath $stageDir) { Remove-Item -LiteralPath $stageDir -Recurse -Force }
+          New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
+          Copy-Item -LiteralPath (Join-Path $publishDir '*') -Destination $stageDir -Recurse -Force
+          Copy-Item -LiteralPath 'LICENSE.txt' -Destination $stageDir -Force
+          Copy-Item -LiteralPath 'README.md' -Destination $stageDir -Force
+          Copy-Item -LiteralPath 'WhatsNew.md' -Destination $stageDir -Force
+          Get-ChildItem -LiteralPath $stageDir -Recurse -Include '*.pdb' -Force | Remove-Item -Force
+          Get-ChildItem -LiteralPath $stageDir -Force |
             Format-Table Name, Length -AutoSize |
             Out-String -Width 200 |
             Write-Host
@@ -86,9 +89,9 @@ jobs:
         run: |
           $tag = '${{ steps.version.outputs.tag }}'
           $zipName = "${tag}_${{ matrix.rid }}.zip"
-          $publishDir = "FindRomCover/bin/Release/net10.0/${{ matrix.rid }}/publish"
+          $stageDir = "bundle-stage/${{ matrix.rid }}"
           if (Test-Path -LiteralPath $zipName) { Remove-Item -LiteralPath $zipName -Force }
-          Compress-Archive -LiteralPath (Join-Path $publishDir '*') -DestinationPath $zipName
+          Compress-Archive -LiteralPath (Join-Path $stageDir '*') -DestinationPath $zipName
           Get-Item -LiteralPath $zipName |
             Format-Table Name, Length -AutoSize |
             Out-String -Width 200 |
@@ -135,7 +138,6 @@ jobs:
             "- ``${tag}_win-arm64.zip`` — Windows ARM64",
             "- ``${tag}_linux-x64.zip`` — Linux x64",
             "- ``${tag}_linux-arm64.zip`` — Linux ARM64",
-            "- ``${tag}_osx-x64.zip`` — macOS Intel",
             "- ``${tag}_osx-arm64.zip`` — macOS Apple Silicon",
             '',
             'All builds are framework-dependent single files and require the [.NET 10.0 runtime](https://dotnet.microsoft.com/download/dotnet/10.0) (the **Desktop Runtime** on Windows). Extract and run ``FindRomCover.exe`` on Windows or ``FindRomCover`` on Linux/macOS (``chmod +x`` first if needed). Each archive also contains ``LICENSE.txt``, ``README.md``, and ``WhatsNew.md``.'

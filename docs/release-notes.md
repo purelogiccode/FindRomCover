@@ -58,8 +58,9 @@ Complete version history for FindRomCover. Download links for each release are a
 - `release_3.3.0_win-arm64.zip` — Windows ARM64
 - `release_3.3.0_linux-x64.zip` — Linux x64
 - `release_3.3.0_linux-arm64.zip` — Linux ARM64
-- `release_3.3.0_osx-x64.zip` — macOS Intel
 - `release_3.3.0_osx-arm64.zip` — macOS Apple Silicon
+
+> **Note:** there is no Intel-Mac build: Magick.NET 15 (the image conversion engine) no longer ships a macOS x64 native library.
 
 All builds are framework-dependent and require the [.NET 10.0 runtime](https://dotnet.microsoft.com/download/dotnet/10.0) (the **Desktop Runtime** on Windows). Extract and run `FindRomCover.exe` on Windows or `FindRomCover` on Linux/macOS. Each archive also contains `LICENSE.txt`, `README.md`, and `WhatsNew.md`.
 

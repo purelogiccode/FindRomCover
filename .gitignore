@@ -7,6 +7,9 @@ obj/
 site/
 wiki-out/
 
+# Local release bundle staging (see .github/workflows/release.yml)
+bundle-stage/
+
 # Python
 __pycache__/
 .venv/

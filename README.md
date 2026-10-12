@@ -84,7 +84,7 @@ You can add or remove supported extensions through the `Settings > Edit Supporte
 
 ### Prerequisites
 
-- Windows 10 or later, a mainstream Linux distribution, or macOS 11 or later (x64 and ARM64 supported on all three)
+- Windows 10 or later, a mainstream Linux distribution, or macOS 11 or later (x64 and ARM64 on Windows and Linux; Apple Silicon on macOS)
 - **.NET 10.0 Runtime**: The released builds are framework-dependent. If it is not already installed, download it from [dotnet.microsoft.com](https://dotnet.microsoft.com/download/dotnet/10.0) (choose ".NET Desktop Runtime" on Windows).
 - **Native web view runtime**: Essential for Bing and Google Web Image Search — Microsoft Edge WebView2 on Windows (pre-installed on most systems), WebKitGTK on Linux, WKWebView on macOS (part of the OS). If missing, the application prompts you with a download link and falls back to the system browser.
 - (Optional) Valid API key for Google Custom Search API if you choose to use that search method.
@@ -99,10 +99,9 @@ You can add or remove supported extensions through the `Settings > Edit Supporte
     | `release_<version>_win-arm64.zip` | Windows ARM64 |
     | `release_<version>_linux-x64.zip` | Linux x64 |
     | `release_<version>_linux-arm64.zip` | Linux ARM64 |
-    | `release_<version>_osx-x64.zip` | macOS Intel |
     | `release_<version>_osx-arm64.zip` | macOS Apple Silicon |
 
-    Each archive also contains `LICENSE.txt`, `README.md`, and `WhatsNew.md`.
+    Each archive also contains `LICENSE.txt`, `README.md`, and `WhatsNew.md`. There is no Intel-Mac build because Magick.NET 15 no longer ships a macOS x64 native library.
 2. **Extract** the archive to a folder of your choice.
 3. **Run** `FindRomCover.exe` on Windows, or the `FindRomCover` executable on Linux/macOS (you may need `chmod +x FindRomCover` first).
 4. **Configure API keys** (if using Google API search, see Setup section below).

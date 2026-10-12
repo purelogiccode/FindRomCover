@@ -86,13 +86,15 @@ Releases are produced automatically by `release.yml`, which runs when a tag name
    git push origin release_3.3.0
    ```
 
-5. `release.yml` builds six framework-dependent single-file bundles and creates the GitHub release with them attached:
+5. `release.yml` builds five framework-dependent single-file bundles and creates the GitHub release with them attached:
 
    | Runner | Bundles |
    |--------|---------|
    | `windows-latest` | `release_<version>_win-x64.zip`, `release_<version>_win-arm64.zip` |
    | `ubuntu-latest` | `release_<version>_linux-x64.zip`, `release_<version>_linux-arm64.zip` |
-   | `macos-latest` | `release_<version>_osx-x64.zip`, `release_<version>_osx-arm64.zip` |
+   | `macos-latest` | `release_<version>_osx-arm64.zip` |
+
+   There is no Intel-Mac (`osx-x64`) bundle because Magick.NET 15 no longer ships a macOS x64 native library.
 
    Each archive contains the published application plus `LICENSE.txt`, `README.md`, and `WhatsNew.md`. The release notes link to the full changelog in `WhatsNew.md` at the tagged commit.
 6. The in-app update checker picks up the new release automatically: it reads the latest release's `tag_name` from the GitHub API and parses the version after the `release_` prefix, so tags must keep the `release_<major>.<minor>.<patch>` format.
