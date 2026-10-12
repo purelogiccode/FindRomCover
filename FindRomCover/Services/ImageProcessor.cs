@@ -31,7 +31,7 @@ public static class ImageProcessor
                     }
                     catch (Exception ex)
                     {
-                        LogService.Warning(ex, $"Failed to delete orphaned temp file: {tempFile}");
+                        LogService.WarningTransient(ex, $"Failed to delete orphaned temp file: {tempFile}");
                     }
         }
         catch (Exception ex)

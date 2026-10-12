@@ -9,7 +9,7 @@ namespace FindRomCover.Managers;
 /// </summary>
 public sealed class SettingsDatabase
 {
-    private static readonly ConcurrentDictionary<string, Lock> FileLocks = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly ConcurrentDictionary<string, Lock> FileLocks = new(AppConstants.FilePathComparer);
 
     private readonly string _filePath;
     private readonly Lock _lock;

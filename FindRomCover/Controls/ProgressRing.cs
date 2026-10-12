@@ -106,6 +106,19 @@ public class ProgressRing : Control
         base.OnDetachedFromVisualTree(e);
     }
 
+    /// <summary>
+    ///     Resumes the animation timer when the control is reattached to the visual tree
+    ///     while still active (tab switch, template re-realization, ...).
+    /// </summary>
+    /// <param name="e">The attach event arguments.</param>
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+
+        if (IsActive)
+            _timer.Start();
+    }
+
     /// <summary>Draws the background track and the rotating arc of the progress ring.</summary>
     /// <param name="context">The drawing context to render the ring into.</param>
     public override void Render(DrawingContext context)

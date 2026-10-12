@@ -76,7 +76,7 @@ public sealed class AiBatchFillService
             }
             catch (Exception ex)
             {
-                LogService.Warning(ex, $"AI batch fill: item '{item.RomName}' failed.");
+                LogService.WarningTransient(ex, $"AI batch fill: item '{item.RomName}' failed.");
                 result = new AiBatchItemResult(item.RomName, item.SearchName, AiBatchOutcome.Failed, ex.Message);
             }
 
@@ -172,7 +172,7 @@ public sealed class AiBatchFillService
         }
         catch (Exception ex)
         {
-            LogService.Warning(ex, $"AI batch fill: Google API search failed for '{item.RomName}'.");
+            LogService.WarningTransient(ex, $"AI batch fill: Google API search failed for '{item.RomName}'.");
             return new AiBatchItemResult(item.RomName, item.SearchName, AiBatchOutcome.Failed, ex.Message);
         }
 
@@ -271,7 +271,7 @@ public sealed class AiBatchFillService
         }
         catch (Exception ex)
         {
-            LogService.Warning(ex, "AI batch fill: verification failed; proceeding without verification.");
+            LogService.WarningTransient(ex, "AI batch fill: verification failed; proceeding without verification.");
             return true;
         }
     }
@@ -291,7 +291,7 @@ public sealed class AiBatchFillService
             {
                 if (File.Exists(targetPath) || attempt >= maxAttempts)
                 {
-                    LogService.Warning(ex,
+                    LogService.WarningTransient(ex,
                         $"AI batch fill: could not finalize '{Path.GetFileName(targetPath)}'.");
                     return false;
                 }
@@ -310,7 +310,7 @@ public sealed class AiBatchFillService
         }
         catch (Exception ex)
         {
-            LogService.Warning(ex, $"AI batch fill: could not remove unverified image '{path}'.");
+            LogService.WarningTransient(ex, $"AI batch fill: could not remove unverified image '{path}'.");
         }
     }
 

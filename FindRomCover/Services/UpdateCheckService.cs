@@ -48,7 +48,7 @@ public static class UpdateCheckService
             var currentVersion = GetCurrentVersion();
             if (currentVersion == null)
             {
-                LogService.Warning("Could not determine current application version.");
+                LogService.WarningTransient("Could not determine current application version.");
                 return new UpdateInfo { IsUpdateAvailable = false };
             }
 
@@ -104,7 +104,7 @@ public static class UpdateCheckService
             tagNameElement.ValueKind != JsonValueKind.String ||
             string.IsNullOrEmpty(tagNameElement.GetString()))
         {
-            LogService.Warning("GitHub release has no tag_name.");
+            LogService.WarningTransient("GitHub release has no tag_name.");
             return new UpdateInfo { IsUpdateAvailable = false };
         }
 
@@ -113,7 +113,7 @@ public static class UpdateCheckService
         var latestVersion = ParseVersion(tagName);
         if (latestVersion == null)
         {
-            LogService.Warning($"Could not parse version from tag: {tagName}");
+            LogService.WarningTransient($"Could not parse version from tag: {tagName}");
             return new UpdateInfo { IsUpdateAvailable = false };
         }
 

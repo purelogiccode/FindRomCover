@@ -59,13 +59,19 @@ public static class ButtonFactory
         if (existingMenu is { Items.Count: > 0 } && existingMenu.Tag is ContextMenuState existingState)
         {
             // The menu is recycled with its list container: retarget the shared state so
-            // every action operates on the image that is actually displayed now.
+            // every action operates on the image that is actually displayed now. The
+            // callback must be refreshed too — it captures the ROM selected when the
+            // menu was last opened, which may have changed since.
             existingState.ImagePath = imagePath;
+            existingState.UseAction = useImageAction;
             return existingMenu;
         }
 
         var contextMenu = existingMenu ?? new ContextMenu();
-        var state = new ContextMenuState { ImagePath = imagePath };
+        if (contextMenu.Items.Count > 0)
+            contextMenu.Items.Clear();
+
+        var state = new ContextMenuState { ImagePath = imagePath, UseAction = useImageAction };
         contextMenu.Tag = state;
 
         var useThisImageMenuItem = new MenuItem
@@ -73,7 +79,7 @@ public static class ButtonFactory
             Header = "Use This Image",
             Icon = CreateIcon("usethis.png")
         };
-        useThisImageMenuItem.Click += (_, _) => useImageAction(state.ImagePath);
+        useThisImageMenuItem.Click += (_, _) => state.UseAction(state.ImagePath);
         contextMenu.Items.Add(useThisImageMenuItem);
 
         var copyMenuItem = new MenuItem
@@ -106,6 +112,7 @@ public static class ButtonFactory
     private sealed class ContextMenuState
     {
         public string ImagePath { get; set; } = string.Empty;
+        public Action<string?> UseAction { get; set; } = static _ => { };
     }
 
     private static Image CreateIcon(string fileName)
@@ -123,7 +130,7 @@ public static class ButtonFactory
         }
         catch (Exception ex)
         {
-            LogService.Warning(ex, $"Could not load context menu icon '{fileName}'.");
+            LogService.WarningTransient(ex, $"Could not load context menu icon '{fileName}'.");
             return new Image { Width = 16, Height = 16 };
         }
     }
@@ -143,7 +150,7 @@ public static class ButtonFactory
         }
         catch (Exception ex)
         {
-            LogService.Warning(ex, "Could not copy to clipboard.");
+            LogService.WarningTransient(ex, "Could not copy to clipboard.");
             Dialogs.ShowMessage(TopLevel.GetTopLevel(owner) as Window,
                 "Could not copy to clipboard. It might be in use by another application.",
                 "Clipboard Error", MessageIcon.Warning);
@@ -181,7 +188,7 @@ public static class ButtonFactory
         }
         catch (Exception ex)
         {
-            LogService.Warning(ex, $"Could not open file location for '{imagePath}'.");
+            LogService.WarningTransient(ex, $"Could not open file location for '{imagePath}'.");
         }
     }
 
@@ -199,7 +206,7 @@ public static class ButtonFactory
         }
         catch (Exception ex)
         {
-            LogService.Warning(ex, $"Could not open file '{imagePath}'.");
+            LogService.WarningTransient(ex, $"Could not open file '{imagePath}'.");
         }
     }
 }

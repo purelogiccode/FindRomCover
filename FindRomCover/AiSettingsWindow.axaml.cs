@@ -283,7 +283,7 @@ public partial class AiSettingsWindow : Window
         catch (Exception ex)
         {
             TxtTestStatus.Text = ex.Message;
-            LogService.Warning(ex, "AI connection test failed.");
+            LogService.WarningTransient(ex, "AI connection test failed.");
         }
         finally
         {
@@ -342,7 +342,7 @@ public partial class AiSettingsWindow : Window
         }
         catch (Exception ex)
         {
-            LogService.Warning(ex, "Could not load the cached AI model list.");
+            LogService.WarningTransient(ex, "Could not load the cached AI model list.");
         }
 
         _allModels = [];

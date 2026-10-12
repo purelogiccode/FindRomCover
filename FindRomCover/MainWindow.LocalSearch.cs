@@ -333,7 +333,7 @@ public partial class MainWindow
         }
         catch (Exception ex)
         {
-            LogService.Warning(ex, "AI assist: could not record the query in the history.");
+            LogService.WarningTransient(ex, "AI assist: could not record the query in the history.");
         }
     }
 

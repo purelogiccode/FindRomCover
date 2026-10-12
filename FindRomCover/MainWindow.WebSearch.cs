@@ -123,7 +123,7 @@ public partial class MainWindow
                 // Google API errors (invalid API key, rate limits, network failures) are
                 // configuration/environment issues, not application bugs. Inform the user
                 // directly instead of reporting an error to the bug API.
-                LogService.Warning(ex, "Google API search failed");
+                LogService.WarningTransient(ex, "Google API search failed");
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     Dialogs.ShowMessage(this, ex.Message, "Google API Error", MessageIcon.Warning);
@@ -267,7 +267,7 @@ public partial class MainWindow
             }
             catch (Exception cleanupEx)
             {
-                LogService.Warning(cleanupEx, $"Could not remove temporary download '{tempFileName}'.");
+                LogService.WarningTransient(cleanupEx, $"Could not remove temporary download '{tempFileName}'.");
             }
         }
 
@@ -293,7 +293,7 @@ public partial class MainWindow
             {
                 if (attempt >= maxAttempts)
                 {
-                    LogService.Warning(ex, $"Could not move '{sourcePath}' to '{targetPath}'.");
+                    LogService.WarningTransient(ex, $"Could not move '{sourcePath}' to '{targetPath}'.");
                     return false;
                 }
 

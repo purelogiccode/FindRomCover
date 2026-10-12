@@ -159,7 +159,7 @@ public sealed class AiAssistService : IDisposable
         }
         catch (Exception ex)
         {
-            LogService.Warning(ex, $"AI assist: could not prepare '{imagePath}' for verification.");
+            LogService.WarningTransient(ex, $"AI assist: could not prepare '{imagePath}' for verification.");
             return null;
         }
 
@@ -198,7 +198,7 @@ public sealed class AiAssistService : IDisposable
         }
         catch (Exception ex)
         {
-            LogService.Warning(ex, "AI assist: verification request failed.");
+            LogService.WarningTransient(ex, "AI assist: verification request failed.");
             throw new InvalidOperationException(FriendlyMessage(ex), ex);
         }
         finally
@@ -251,7 +251,7 @@ public sealed class AiAssistService : IDisposable
             }
             catch (Exception ex)
             {
-                LogService.Warning(ex, $"AI assist: could not prepare '{path}' for analysis.");
+                LogService.WarningTransient(ex, $"AI assist: could not prepare '{path}' for analysis.");
             }
         }
 
@@ -313,7 +313,7 @@ public sealed class AiAssistService : IDisposable
                 }
                 catch (Exception ex)
                 {
-                    LogService.Warning(ex, $"AI assist: could not prepare remote image '{url}'.");
+                    LogService.WarningTransient(ex, $"AI assist: could not prepare remote image '{url}'.");
                 }
             }
 
@@ -420,7 +420,7 @@ public sealed class AiAssistService : IDisposable
         }
         catch (Exception ex)
         {
-            LogService.Warning(ex, "AI assist: pick request failed.");
+            LogService.WarningTransient(ex, "AI assist: pick request failed.");
             throw new InvalidOperationException(FriendlyMessage(ex), ex);
         }
         finally

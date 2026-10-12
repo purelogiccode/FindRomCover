@@ -98,7 +98,7 @@ public class App : Application
                 }
                 catch (Exception ex)
                 {
-                    LogService.Warning(ex, "Failed to set resource limits.");
+                    LogService.WarningTransient(ex, "Failed to set resource limits.");
                 }
 
                 ParseStartupArguments(desktop.Args ?? []);
@@ -233,7 +233,7 @@ public class App : Application
         }
         catch (Exception ex)
         {
-            LogService.Warning(ex, "Error disposing AudioService during shutdown.");
+            LogService.WarningTransient(ex, "Error disposing AudioService during shutdown.");
         }
 
         try
@@ -242,7 +242,7 @@ public class App : Application
         }
         catch (Exception ex)
         {
-            LogService.Warning(ex, "Error disposing HttpClientHelper during shutdown.");
+            LogService.WarningTransient(ex, "Error disposing HttpClientHelper during shutdown.");
         }
 
         try
@@ -251,7 +251,7 @@ public class App : Application
         }
         catch (Exception ex)
         {
-            LogService.Warning(ex, "Error disposing ErrorLogger during shutdown.");
+            LogService.WarningTransient(ex, "Error disposing ErrorLogger during shutdown.");
         }
 
         try
@@ -260,7 +260,7 @@ public class App : Application
         }
         catch (Exception ex)
         {
-            LogService.Warning(ex, "Error disposing ServiceProvider during shutdown.");
+            LogService.WarningTransient(ex, "Error disposing ServiceProvider during shutdown.");
         }
 
         try

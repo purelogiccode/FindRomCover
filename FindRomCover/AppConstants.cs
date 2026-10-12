@@ -15,6 +15,13 @@ public static class AppConstants
     /// <summary>File name of the query history file.</summary>
     public const string QueryHistoryFileName = "QueryHistory.dat";
 
+    /// <summary>
+    ///     String comparer for file-system paths: case-insensitive on Windows,
+    ///     case-sensitive on Linux and macOS where paths are case-sensitive.
+    /// </summary>
+    public static StringComparer FilePathComparer { get; } =
+        OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+
     /// <summary>Default memory limit in bytes (512 MB).</summary>
     public const long DefaultMemoryLimit = 512L * 1024 * 1024;
 

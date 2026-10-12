@@ -418,14 +418,18 @@ public abstract class VisionModelClientBase : IVisionModelClient
         {
             JsonValueKind.Number when value.TryGetInt32(out var number) => number,
             // Accept integral reals too: models frequently emit {"bestIndex": 1.0}.
+            // The range check keeps huge integral doubles (e.g. 1e20) from wrapping
+            // around in the unchecked cast.
             JsonValueKind.Number when value.TryGetDouble(out var real) && Math.Abs(real - Math.Round(real)) < 0.0001
+                                                        && real is >= int.MinValue and <= int.MaxValue
                 => (int)Math.Round(real),
             JsonValueKind.String when int.TryParse(value.GetString(), NumberStyles.Integer,
                 CultureInfo.InvariantCulture,
                 out var parsed) => parsed,
             JsonValueKind.String when double.TryParse(value.GetString(), NumberStyles.Float,
-                                          CultureInfo.InvariantCulture, out var parsedReal) &&
-                                      Math.Abs(parsedReal - Math.Round(parsedReal)) < 0.0001 => (int)Math.Round(
+                                           CultureInfo.InvariantCulture, out var parsedReal) &&
+                                       Math.Abs(parsedReal - Math.Round(parsedReal)) < 0.0001 &&
+                                       parsedReal is >= int.MinValue and <= int.MaxValue => (int)Math.Round(
                 parsedReal),
             _ => null
         };

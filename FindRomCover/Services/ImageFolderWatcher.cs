@@ -17,7 +17,12 @@ public sealed class ImageFolderWatcher : IDisposable
 
     private readonly CancellationTokenSource _disposeCts = new();
     private readonly SemaphoreSlim _processingLock = new(1, 1);
-    private readonly ConcurrentDictionary<string, byte> _recentlyProcessed = new(StringComparer.OrdinalIgnoreCase);
+
+    // Recently seen files mapped to their expiry ticks (UtcNow + 60 s). A delayed
+    // removal only deletes the entry when no newer registration refreshed it past
+    // the remover's stamp, so refreshing an entry extends its window instead of
+    // letting the first timer expire it early.
+    private readonly ConcurrentDictionary<string, long> _recentlyProcessed = new(AppConstants.FilePathComparer);
     private readonly Lock _renameLock = new();
     private readonly Lock _restartLock = new();
     private volatile bool _disposed;
@@ -33,6 +38,7 @@ public sealed class ImageFolderWatcher : IDisposable
     private const int MaxConsecutiveRestarts = 5;
     private static readonly TimeSpan RestartCooldown = TimeSpan.FromMinutes(1);
     private static readonly TimeSpan RestartDelay = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan ProcessedEntryLifetime = TimeSpan.FromSeconds(60);
 
     /// <summary>
     ///     Gets or sets the file name (without extension) that the next dropped image should be
@@ -162,7 +168,8 @@ public sealed class ImageFolderWatcher : IDisposable
     {
         if (_disposed) return;
 
-        _recentlyProcessed.TryAdd(filePath, 1);
+        var stamp = DateTime.UtcNow.Add(ProcessedEntryLifetime).Ticks;
+        _recentlyProcessed.AddOrUpdate(filePath, stamp, (_, _) => stamp);
         CancellationToken token;
         try
         {
@@ -177,7 +184,7 @@ public sealed class ImageFolderWatcher : IDisposable
         {
             try
             {
-                await Task.Delay(60000, token);
+                await Task.Delay(ProcessedEntryLifetime, token);
             }
             catch (OperationCanceledException)
             {
@@ -186,7 +193,7 @@ public sealed class ImageFolderWatcher : IDisposable
             {
             }
 
-            _recentlyProcessed.TryRemove(filePath, out _);
+            RemoveProcessedEntryIfExpired(filePath, stamp);
         });
         LogService.Debug($"ImageFolderWatcher: pre-registered '{Path.GetFileName(filePath)}' so watcher will skip it");
     }
@@ -223,7 +230,7 @@ public sealed class ImageFolderWatcher : IDisposable
 
         if (!Directory.Exists(folderPath))
         {
-            LogService.Warning($"ImageFolderWatcher: folder does not exist: {folderPath}");
+            LogService.WarningTransient($"ImageFolderWatcher: folder does not exist: {folderPath}");
             return false;
         }
 
@@ -282,8 +289,9 @@ public sealed class ImageFolderWatcher : IDisposable
                                        or ObjectDisposedException)
         {
             // Environmental failure (ACLs, disconnected drive, invalid path, AV lock, ...).
-            // Log as Warning so it does NOT trigger an automatic bug report.
-            LogService.Warning(ex,
+            // Log as transient so it stays in the log file but does NOT trigger an
+            // automatic bug report.
+            LogService.WarningTransient(ex,
                 $"ImageFolderWatcher: cannot watch folder '{folderPath}' — automatic detection disabled");
             return false;
         }
@@ -355,7 +363,7 @@ public sealed class ImageFolderWatcher : IDisposable
         try
         {
             if (!await _processingLock.WaitAsync(TimeSpan.FromSeconds(15)).ConfigureAwait(false))
-                LogService.Warning("ImageFolderWatcher: timed out waiting for in-flight processing to complete");
+                LogService.WarningTransient("ImageFolderWatcher: timed out waiting for in-flight processing to complete");
             else
                 _processingLock.Release();
         }
@@ -381,12 +389,12 @@ public sealed class ImageFolderWatcher : IDisposable
         {
             if (ex is InternalBufferOverflowException overflowEx)
             {
-                LogService.Warning(overflowEx,
+                LogService.WarningTransient(overflowEx,
                     "ImageFolderWatcher: event buffer overflowed — some file events may have been lost");
                 return;
             }
 
-            LogService.Warning(ex,
+            LogService.WarningTransient(ex,
                 $"ImageFolderWatcher: transient watcher error watching '{WatchedFolderPath}' — attempting recovery");
 
             ScheduleRestart();
@@ -417,7 +425,7 @@ public sealed class ImageFolderWatcher : IDisposable
             {
                 _gaveUp = true;
                 gaveUp = true;
-                LogService.Warning(
+                LogService.WarningTransient(
                     $"ImageFolderWatcher: giving up automatic restart after {_consecutiveErrorCount - 1} attempts for '{_watchedFolderPath}' — automatic detection disabled until the folder is re-selected");
                 folderPath = _watchedFolderPath;
             }
@@ -472,7 +480,7 @@ public sealed class ImageFolderWatcher : IDisposable
 
             if (!Directory.Exists(folderPath))
             {
-                LogService.Warning(
+                LogService.WarningTransient(
                     $"ImageFolderWatcher: watched folder no longer exists, not restarting: '{folderPath}'");
                 return;
             }
@@ -564,11 +572,12 @@ public sealed class ImageFolderWatcher : IDisposable
             return;
         }
 
+        var stamp = DateTime.UtcNow.Add(ProcessedEntryLifetime).Ticks;
         _ = Task.Run(async () =>
         {
             try
             {
-                await Task.Delay(60000, token);
+                await Task.Delay(ProcessedEntryLifetime, token);
             }
             catch (OperationCanceledException)
             {
@@ -577,8 +586,16 @@ public sealed class ImageFolderWatcher : IDisposable
             {
             }
 
-            _recentlyProcessed.TryRemove(key, out _);
+            RemoveProcessedEntryIfExpired(key, stamp);
         });
+    }
+
+    private void RemoveProcessedEntryIfExpired(string key, long stamp)
+    {
+        // Delete only when the entry was not refreshed past our stamp; a newer
+        // registration (or a re-added processing entry) keeps the entry alive.
+        if (_recentlyProcessed.TryGetValue(key, out var current) && current <= stamp)
+            _recentlyProcessed.TryRemove(KeyValuePair.Create(key, current));
     }
 
     private async Task ProcessFileAsync(string filePath)
@@ -615,7 +632,7 @@ public sealed class ImageFolderWatcher : IDisposable
             {
                 // Deduplicate INSIDE the lock to prevent races with file system events
                 // that fire during our own rename/convert operations
-                if (!_recentlyProcessed.TryAdd(filePath, 1))
+                if (!_recentlyProcessed.TryAdd(filePath, DateTime.UtcNow.Add(ProcessedEntryLifetime).Ticks))
                 {
                     LogService.Debug($"ImageFolderWatcher: skipping '{Path.GetFileName(filePath)}' — dedup hit");
                     return;
@@ -626,7 +643,7 @@ public sealed class ImageFolderWatcher : IDisposable
 
                 if (!await WaitForFileReadyAsync(filePath))
                 {
-                    LogService.Warning(
+                    LogService.WarningTransient(
                         $"ImageFolderWatcher: '{Path.GetFileName(filePath)}' is not accessible — skipping processing");
                     return;
                 }
@@ -662,14 +679,14 @@ public sealed class ImageFolderWatcher : IDisposable
                     }
                     catch (Exception ex)
                     {
-                        LogService.Warning(ex,
+                        LogService.ErrorWatcher(ex,
                             $"ImageFolderWatcher: AI verification failed for '{filePath}' — proceeding with rename");
                     }
 
                     if (!verified)
                     {
                         _recentlyProcessed.TryRemove(filePath, out _);
-                        LogService.Warning(
+                        LogService.WarningTransient(
                             $"ImageFolderWatcher: AI verification rejected '{Path.GetFileName(filePath)}' for '{renameTarget}' — rename skipped");
                         VerificationFailed?.Invoke(filePath, renameTarget);
                         return;
@@ -706,7 +723,7 @@ public sealed class ImageFolderWatcher : IDisposable
                             wasRenamed = true;
                             TryClearPendingRenameTarget(renameTarget);
                             _recentlyProcessed.TryRemove(filePath, out _);
-                            _recentlyProcessed.TryAdd(renamedPath, 1);
+                            _recentlyProcessed.TryAdd(renamedPath, DateTime.UtcNow.Add(ProcessedEntryLifetime).Ticks);
                             ScheduleDedupeCleanup(renamedPath);
                             LogService.Debug(
                                 $"ImageFolderWatcher: renamed '{Path.GetFileName(filePath)}' to '{Path.GetFileName(renamedPath)}'");
@@ -714,7 +731,7 @@ public sealed class ImageFolderWatcher : IDisposable
                         }
                         else
                         {
-                            LogService.Warning(
+                            LogService.WarningTransient(
                                 $"ImageFolderWatcher: failed to rename '{filePath}' to '{renamedPath}' after retries — PendingRenameTarget kept for next file");
                         }
                     }
@@ -742,7 +759,7 @@ public sealed class ImageFolderWatcher : IDisposable
                     if (File.Exists(pngTarget))
                     {
                         _recentlyProcessed.TryRemove(filePath, out _);
-                        LogService.Warning(
+                        LogService.WarningTransient(
                             $"ImageFolderWatcher: '{Path.GetFileName(pngTarget)}' already exists — '{Path.GetFileName(filePath)}' was kept as-is to protect the existing cover");
                         ConversionFailed?.Invoke(filePath,
                             $"A cover named '{Path.GetFileName(pngTarget)}' already exists.\n\nThe dropped file was kept unchanged.");
@@ -758,7 +775,7 @@ public sealed class ImageFolderWatcher : IDisposable
                         return;
                     }
 
-                    _recentlyProcessed.TryAdd(convertedPath, 1);
+                    _recentlyProcessed.TryAdd(convertedPath, DateTime.UtcNow.Add(ProcessedEntryLifetime).Ticks);
                     ScheduleDedupeCleanup(convertedPath);
 
                     filePath = convertedPath;
@@ -925,7 +942,7 @@ public sealed class ImageFolderWatcher : IDisposable
             }
             catch (MagickException ex)
             {
-                LogService.Warning(ex,
+                LogService.ErrorWatcher(ex,
                     $"ImageFolderWatcher: image conversion skipped for corrupt/misformatted file: {sourcePath}");
                 return (null, ex.Message);
             }
@@ -972,7 +989,7 @@ public sealed class ImageFolderWatcher : IDisposable
             }
             catch (Exception ex)
             {
-                LogService.Warning(ex, $"ImageFolderWatcher: failed to clean up temp file '{tempPath}'.");
+                LogService.WarningTransient(ex, $"ImageFolderWatcher: failed to clean up temp file '{tempPath}'.");
             }
         }
 
@@ -983,7 +1000,7 @@ public sealed class ImageFolderWatcher : IDisposable
             }
             catch (Exception ex)
             {
-                LogService.Warning(ex,
+                LogService.WarningTransient(ex,
                     $"ImageFolderWatcher: failed to delete source file after PNG conversion: '{sourcePath}'");
             }
 

@@ -472,7 +472,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
         catch (Exception ex)
         {
-            LogService.Warning(ex, $"Failed to initialize the {viewName} web view");
+            LogService.WarningTransient(ex, $"Failed to initialize the {viewName} web view");
             return Task.FromResult(false);
         }
     }
@@ -485,9 +485,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
         catch (Exception ex)
         {
-            LogService.Warning(ex, $"{viewName} web view navigation failed; opening the system browser instead.");
+            LogService.WarningTransient(ex, $"{viewName} web view navigation failed; opening the system browser instead.");
             if (!UrlService.TryOpenUrl(url))
-                LogService.Warning($"Could not open '{url}' in the system browser.");
+                LogService.WarningTransient($"Could not open '{url}' in the system browser.");
             _webView2Unavailable = true;
             _ = NotifyWebViewUnavailableAsync(viewName);
         }
@@ -1799,6 +1799,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 _loadMissingCts?.Cancel();
                 _findSimilarCts?.Cancel();
                 _webSearchCts?.Cancel();
+                _aiAssistCts?.Cancel();
 
                 MissingImages.Clear();
                 SimilarImages.Clear();
@@ -1914,14 +1915,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
             if (result is null || result.IsMatch) return true;
 
-            LogService.Warning(
+            LogService.Information(
                 $"AI verification rejected '{Path.GetFileName(filePath)}' for '{romName}' " +
                 $"(confidence {result.Confidence:P0}): {result.Reason}");
             return false;
         }
         catch (Exception ex)
         {
-            LogService.Warning(ex, "AI verification failed; proceeding without verification.");
+            LogService.WarningTransient(ex, "AI verification failed; proceeding without verification.");
             return true;
         }
     }
@@ -1938,7 +1939,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
         catch (Exception ex)
         {
-            LogService.Warning(ex, "AI verification failed; proceeding without verification.");
+            LogService.WarningTransient(ex, "AI verification failed; proceeding without verification.");
             return null;
         }
     }

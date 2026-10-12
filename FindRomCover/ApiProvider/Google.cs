@@ -114,7 +114,7 @@ public static class Google
             {
                 case HttpStatusCode.TooManyRequests:
                 {
-                    LogService.Warning($"{logMessagePrefix} API rate limit exceeded (429).");
+                    LogService.WarningTransient($"{logMessagePrefix} API rate limit exceeded (429).");
                     var rateLimitException = new HttpRequestException(
                         "Response status code does not indicate success: 429 (Too Many Requests).", null,
                         HttpStatusCode.TooManyRequests);
@@ -124,7 +124,7 @@ public static class Google
                 }
                 case HttpStatusCode.Forbidden:
                 {
-                    LogService.Warning(
+                    LogService.WarningTransient(
                         $"{logMessagePrefix} Access Forbidden (403). Check API Key and API Permissions.");
                     var forbiddenEx = new HttpRequestException("403 (Forbidden)", null, HttpStatusCode.Forbidden);
 
@@ -136,7 +136,7 @@ public static class Google
                 }
                 case HttpStatusCode.Unauthorized:
                 {
-                    LogService.Warning($"{logMessagePrefix} Unauthorized (401). The API key was rejected.");
+                    LogService.WarningTransient($"{logMessagePrefix} Unauthorized (401). The API key was rejected.");
                     var unauthorizedEx = new HttpRequestException(
                         "Response status code does not indicate success: 401 (Unauthorized).", null,
                         HttpStatusCode.Unauthorized);
@@ -147,7 +147,11 @@ public static class Google
                 case HttpStatusCode.BadRequest:
                 {
                     var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
-                    LogService.Warning($"{logMessagePrefix} Bad Request (400): {errorBody}");
+                    // The body can be arbitrarily long and may echo the request back:
+                    // keep only a short excerpt in the warning and the rest at Debug.
+                    var excerpt = errorBody.Length > 300 ? errorBody[..300] + "…" : errorBody;
+                    LogService.WarningTransient($"{logMessagePrefix} Bad Request (400): {excerpt}");
+                    LogService.Debug($"{logMessagePrefix} Bad Request (400) body: {errorBody}");
                     var badRequestEx = new HttpRequestException(
                         "Response status code does not indicate success: 400 (Bad Request).", null,
                         HttpStatusCode.BadRequest);
@@ -172,13 +176,13 @@ public static class Google
         }
         catch (HttpRequestException ex)
         {
-            LogService.Error(ex, $"{logMessagePrefix} HTTP Error: {ex.StatusCode} - {ex.Message}");
+            LogService.WarningTransient(ex, $"{logMessagePrefix} HTTP Error: {ex.StatusCode} - {ex.Message}");
             throw new InvalidOperationException(
                 $"{ProviderName} API error: {ex.Message}. Please check your API key or internet connection.", ex);
         }
         catch (JsonException ex)
         {
-            LogService.Error(ex, $"Failed to deserialize {ProviderName} search results");
+            LogService.WarningTransient(ex, $"Failed to deserialize {ProviderName} search results");
             throw new InvalidOperationException(
                 $"Failed to parse {ProviderName} API response. The service might be experiencing issues.", ex);
         }
@@ -188,7 +192,7 @@ public static class Google
             // internal timeout fired. In both cases the outer caller's token is NOT
             // cancelled, so this is a timeout — map it to the friendly message instead
             // of letting the raw TaskCanceledException escape.
-            LogService.Error(ex, $"{ProviderName} API request timed out");
+            LogService.WarningTransient(ex, $"{ProviderName} API request timed out");
             throw new InvalidOperationException($"{ProviderName} API request timed out. Please try again.", ex);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

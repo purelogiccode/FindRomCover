@@ -30,7 +30,7 @@ public static class ScreenshotService
 
             if (width <= 0 || height <= 0)
             {
-                LogService.Warning("Screenshot: window has no size.");
+                LogService.WarningTransient("Screenshot: window has no size.");
                 return null;
             }
 
@@ -43,7 +43,7 @@ public static class ScreenshotService
         }
         catch (Exception ex)
         {
-            LogService.Error(ex, "Screenshot: capture failed.");
+            LogService.WarningTransient(ex, "Screenshot: capture failed.");
             return null;
         }
     }

@@ -810,7 +810,7 @@ public class SettingsManager : INotifyPropertyChanged
             // which produces the exact same key (RFC 2898).
             try
             {
-                LogService.Warning(ex, "OS PBKDF2 failed; falling back to managed PBKDF2-HMAC-SHA256.");
+                LogService.WarningTransient(ex, "OS PBKDF2 failed; falling back to managed PBKDF2-HMAC-SHA256.");
             }
             catch
             {
@@ -885,7 +885,7 @@ public class SettingsManager : INotifyPropertyChanged
                 // Corrupt or unreadable settings are an environment issue, not a code bug:
                 // quarantine the file for diagnostics, warn (instead of reporting a bug) and
                 // recover by resetting to default settings.
-                LogService.Warning(ex, "Error loading settings; resetting to defaults.");
+                LogService.WarningTransient(ex, "Error loading settings; resetting to defaults.");
                 QuarantineSettingsFile();
 
                 SetDefaultSettings();
@@ -950,11 +950,11 @@ public class SettingsManager : INotifyPropertyChanged
                     }
                     catch (Exception restoreEx)
                     {
-                        LogService.Warning(restoreEx,
+                        LogService.WarningTransient(restoreEx,
                             $"Could not restore legacy settings file '{backupPath}' after a failed migration.");
                     }
 
-                LogService.Warning(
+                LogService.WarningTransient(
                     $"Could not migrate legacy settings from '{legacyPath}' into the SQLite settings database; the migration will be retried on the next start.");
                 return true;
             }
@@ -1127,7 +1127,7 @@ public class SettingsManager : INotifyPropertyChanged
         }
         catch (Exception ex)
         {
-            LogService.Warning(ex, "Could not decrypt a settings secret; the value was reset.");
+            LogService.WarningTransient(ex, "Could not decrypt a settings secret; the value was reset.");
             return string.Empty;
         }
     }
@@ -1147,7 +1147,7 @@ public class SettingsManager : INotifyPropertyChanged
             // A corrupt or unreadable settings file is an environment issue (e.g. truncated
             // download, drive sync conflict or a machine rename invalidating the key),
             // not an application bug. Warn locally and let LoadSettings reset to defaults.
-            LogService.Warning(ex, $"Failed to decrypt settings from: {filePath}");
+            LogService.WarningTransient(ex, $"Failed to decrypt settings from: {filePath}");
             return null;
         }
     }
@@ -1210,7 +1210,7 @@ public class SettingsManager : INotifyPropertyChanged
                 // Keep the legacy file so the migration is retried on the next start
                 // instead of losing all settings when the save failed (disk full,
                 // permissions, ...).
-                LogService.Warning(
+                LogService.WarningTransient(
                     "Could not persist migrated settings; keeping the legacy settings.xml file for a retry.");
                 return false;
             }
@@ -1269,7 +1269,7 @@ public class SettingsManager : INotifyPropertyChanged
         }
         catch (Exception ex)
         {
-            LogService.Warning(ex, $"Could not inspect settings file: {filePath}");
+            LogService.WarningTransient(ex, $"Could not inspect settings file: {filePath}");
             return false;
         }
     }
@@ -1287,7 +1287,7 @@ public class SettingsManager : INotifyPropertyChanged
         }
         catch (Exception ex)
         {
-            LogService.Warning(ex, $"Failed to back up legacy settings file: {filePath}");
+            LogService.WarningTransient(ex, $"Failed to back up legacy settings file: {filePath}");
             return null;
         }
     }
@@ -1302,13 +1302,13 @@ public class SettingsManager : INotifyPropertyChanged
             {
                 var corruptPath = path + ".corrupt";
                 File.Move(path, corruptPath, true);
-                LogService.Warning($"Quarantined unreadable settings file to: {corruptPath}");
+                LogService.WarningTransient($"Quarantined unreadable settings file to: {corruptPath}");
             }
             catch (Exception quarantineEx)
             {
                 // Best effort - if we cannot move the file the defaults save below will
                 // still overwrite it where permissions allow.
-                LogService.Warning(quarantineEx, $"Failed to quarantine unreadable settings file: {path}");
+                LogService.WarningTransient(quarantineEx, $"Failed to quarantine unreadable settings file: {path}");
             }
         }
     }

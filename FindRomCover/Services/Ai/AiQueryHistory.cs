@@ -12,7 +12,7 @@ public sealed class AiQueryHistory
 {
     private const int MaxEntries = 100_000;
     private static readonly TimeSpan DefaultTtl = TimeSpan.FromDays(180);
-    private static readonly ConcurrentDictionary<string, Lock> FileLocks = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly ConcurrentDictionary<string, Lock> FileLocks = new(AppConstants.FilePathComparer);
 
     private readonly string _filePath;
     private readonly Lock _lock;
@@ -72,7 +72,7 @@ public sealed class AiQueryHistory
                 }
                 catch (Exception ex)
                 {
-                    LogService.Warning(ex, "AI query history could not be read.");
+                    LogService.WarningTransient(ex, "AI query history could not be read.");
                     return 0;
                 }
             }
@@ -85,7 +85,7 @@ public sealed class AiQueryHistory
     /// </summary>
     public HashSet<string> GetQueriedPathSet()
     {
-        var paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var paths = new HashSet<string>(AppConstants.FilePathComparer);
 
         lock (_lock)
         {
@@ -105,7 +105,7 @@ public sealed class AiQueryHistory
             }
             catch (Exception ex)
             {
-                LogService.Warning(ex, "AI query history could not be read.");
+                LogService.WarningTransient(ex, "AI query history could not be read.");
             }
         }
 
@@ -144,7 +144,7 @@ public sealed class AiQueryHistory
             }
             catch (Exception ex)
             {
-                LogService.Warning(ex, "AI query history could not be read.");
+                LogService.WarningTransient(ex, "AI query history could not be read.");
                 return false;
             }
         }
@@ -178,7 +178,7 @@ public sealed class AiQueryHistory
             }
             catch (Exception ex)
             {
-                LogService.Warning(ex, "AI query history could not be saved.");
+                LogService.WarningTransient(ex, "AI query history could not be saved.");
             }
         }
     }
@@ -204,7 +204,7 @@ public sealed class AiQueryHistory
             }
             catch (Exception ex)
             {
-                LogService.Warning(ex, "AI query history could not be updated.");
+                LogService.WarningTransient(ex, "AI query history could not be updated.");
             }
         }
     }
@@ -225,7 +225,7 @@ public sealed class AiQueryHistory
             }
             catch (Exception ex)
             {
-                LogService.Warning(ex, "AI query history could not be cleared.");
+                LogService.WarningTransient(ex, "AI query history could not be cleared.");
             }
         }
     }
@@ -290,34 +290,55 @@ public sealed class AiQueryHistory
         }.ToString();
 
         var connection = new SqliteConnection(connectionString);
+        var opened = false;
         try
         {
             connection.Open();
+            opened = true;
             CreateSchema(connection);
             return connection;
         }
-        catch (SqliteException ex)
+        catch (SqliteException ex) when (!opened || IsCorruptionError(ex))
         {
-            // A non-SQLite or corrupt history file must not disable the feature
-            // forever: quarantine it and start a fresh database.
+            // Either the file could not be opened at all, or it opened but is not
+            // a valid SQLite database (SQLite reports "file is not a database"
+            // lazily on first access): quarantine it and start a fresh database.
+            // Any other failure (read-only file, disk full, locked database) must
+            // NOT move the healthy file aside.
             connection.Dispose();
             LogService.WarningTransient(ex,
                 $"AI query history file '{_filePath}' is corrupt; quarantining it and recreating the database.");
             QuarantineCorruptFile();
 
-            var recreated = new SqliteConnection(connectionString);
-            recreated.Open();
-            try
-            {
-                CreateSchema(recreated);
-            }
-            catch
-            {
-                recreated.Dispose();
-                throw;
-            }
+            return CreateFreshDatabase(connectionString);
+        }
+        catch
+        {
+            connection.Dispose();
+            throw;
+        }
+    }
 
+    private static bool IsCorruptionError(SqliteException ex)
+    {
+        // SQLITE_CORRUPT (11): the database disk image is malformed.
+        // SQLITE_NOTADB (26): the file is not a database.
+        return ex.SqliteErrorCode is 11 or 26;
+    }
+
+    private SqliteConnection CreateFreshDatabase(string connectionString)
+    {
+        var recreated = new SqliteConnection(connectionString);
+        try
+        {
+            recreated.Open();
+            CreateSchema(recreated);
             return recreated;
+        }
+        catch
+        {
+            recreated.Dispose();
+            throw;
         }
     }
 

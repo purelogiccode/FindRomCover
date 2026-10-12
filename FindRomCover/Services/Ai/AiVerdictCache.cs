@@ -20,7 +20,7 @@ public sealed class AiVerdictCache
     private static readonly Lock SharedLock = new();
 
     private static readonly Dictionary<string, AiVerdictCache> SharedInstances =
-        new(StringComparer.OrdinalIgnoreCase);
+        new(AppConstants.FilePathComparer);
 
     /// <summary>
     ///     Initializes a new instance of the <see cref="AiVerdictCache"/> class.

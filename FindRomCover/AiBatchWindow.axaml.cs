@@ -182,7 +182,7 @@ public partial class AiBatchWindow : Window
         }
         catch (Exception ex)
         {
-            LogService.Warning(ex, "Error canceling AI batch fill.");
+            LogService.WarningTransient(ex, "Error canceling AI batch fill.");
         }
     }
 
