@@ -41,13 +41,27 @@ Complete version history for FindRomCover. Download links for each release are a
 
 - **Safe secret encryption** — stored secrets are never overwritten with empty values, and encryption failures are reported as transient warnings instead of crashing the save pipeline.
 - **Migration safety** — a legacy `settings.xml` is kept until the migrated SQLite save succeeds, and null legacy values no longer break migration.
-- **UI fixes** — window commands are assigned before the bound data context (so F5 and Escape work), invalid folder paths cancel running scans, and the debug window trims removed entries.
+- **Correct cover targets** — recycled context menus refresh their target, so "Use This Image" always saves to the currently selected ROM.
+- **Protected query history** — a healthy `QueryHistory.dat` is only quarantined on real SQLite corruption, never on transient I/O failures.
+- **Quieter bug reports** — environmental failures (network, invalid keys, corrupt user images, unwatcheable folders) are logged locally instead of filing automatic reports; genuine failures still report exactly once.
+- **UI fixes** — window commands are assigned before the bound data context (so F5 and Escape work), invalid folder paths cancel running scans (including in-flight AI picks), and the debug window trims removed entries.
 - **Dialog fallback** — the fallback dialog path returns the entered text instead of an empty result.
 
 ### Under the Hood
 
 - **879 passing tests** (685 `[Fact]` plus 194 `[InlineData]` theory cases) across 68 files; `xunit.runner.json` disables collection parallelization, and `TestBootstrap` isolates tests from the real settings folder and the bug-report API.
 - Version bumped to **3.3.0**.
+
+### Downloads
+
+- `release_3.3.0_win-x64.zip` — Windows x64
+- `release_3.3.0_win-arm64.zip` — Windows ARM64
+- `release_3.3.0_linux-x64.zip` — Linux x64
+- `release_3.3.0_linux-arm64.zip` — Linux ARM64
+- `release_3.3.0_osx-x64.zip` — macOS Intel
+- `release_3.3.0_osx-arm64.zip` — macOS Apple Silicon
+
+All builds are framework-dependent and require the [.NET 10.0 runtime](https://dotnet.microsoft.com/download/dotnet/10.0) (the **Desktop Runtime** on Windows). Extract and run `FindRomCover.exe` on Windows or `FindRomCover` on Linux/macOS. Each archive also contains `LICENSE.txt`, `README.md`, and `WhatsNew.md`.
 
 ## 3.2.2 — 2026-09-25
 

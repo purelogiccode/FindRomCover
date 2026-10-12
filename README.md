@@ -1,7 +1,7 @@
 [![GitHub release](https://img.shields.io/github/v/release/purelogiccode/FindRomCover)](https://github.com/purelogiccode/FindRomCover/releases)
 [![CI](https://github.com/purelogiccode/FindRomCover/actions/workflows/ci.yml/badge.svg)](https://github.com/purelogiccode/FindRomCover/actions/workflows/ci.yml)
 [![Docs](https://github.com/purelogiccode/FindRomCover/actions/workflows/docs.yml/badge.svg)](https://github.com/purelogiccode/FindRomCover/actions/workflows/docs.yml)
-[![Platform](https://img.shields.io/badge/platform-Windows%20x64%20%7C%20ARM64-blue)](https://github.com/purelogiccode/FindRomCover/releases)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-blue)](https://github.com/purelogiccode/FindRomCover/releases)
 [![.NET](https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/download/dotnet/10.0)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE.txt)
 [![Downloads](https://img.shields.io/github/downloads/purelogiccode/FindRomCover/total?label=downloads)](https://github.com/purelogiccode/FindRomCover/releases)
@@ -30,8 +30,8 @@
 
 # FindRomCover
 
-A powerful Windows desktop application designed to help you automatically find and download missing cover art for your retro gaming ROM collection.
-It supports **Local Similarity Search** across your existing image folder, plus **Google Web Image Search**, **Bing Web Image Search**, and the **Google Custom Search API** to fetch high-quality game cover images. Version **3.2** adds an optional **AI Vision Assist** that looks at the candidates and picks the best cover for you.
+A powerful cross-platform desktop application (Windows, Linux, and macOS) designed to help you automatically find and download missing cover art for your retro gaming ROM collection.
+It supports **Local Similarity Search** across your existing image folder, plus **Google Web Image Search**, **Bing Web Image Search**, and the **Google Custom Search API** to fetch high-quality game cover images. Version **3.3** migrated the app to Avalonia and added an optional **AI Vision Assist** that looks at the candidates and picks the best cover for you.
 
 ![Main Window](screenshot.png)
 
@@ -41,7 +41,7 @@ It supports **Local Similarity Search** across your existing image folder, plus 
 
 - **Documentation site**: [purelogiccode.github.io/FindRomCover](https://purelogiccode.github.io/FindRomCover/)
 - **Wiki**: [github.com/purelogiccode/FindRomCover/wiki](https://github.com/purelogiccode/FindRomCover/wiki)
-- **What's New in 3.2**: [WhatsNew.md](WhatsNew.md)
+- **What's New in 3.3**: [WhatsNew.md](WhatsNew.md)
 - **Source**: [`docs/`](docs/) — built with MkDocs Material and synced to the wiki by CI
 - **Recommended AI models**: [RecommendedModels.md](RecommendedModels.md)
 
@@ -53,8 +53,8 @@ It supports **Local Similarity Search** across your existing image folder, plus 
 - **Multiple Sources**:
     - **Local Similarity Search**: Matches ROM filenames against images already in your local image folder using configurable similarity algorithms (Jaccard Similarity, Jaro-Winkler Distance, or Levenshtein Distance) with an adjustable match threshold (10-90%).
     - **Ignore Bracketed Text in Matching**: On by default; ignores text inside `()`, `[]`, and `{}` when comparing names, so `Game (USA) [En]` matches a cover named `Game`. Toggle it from the Settings menu.
-    - **Google Web Image Search**: Uses an embedded browser (WebView2) to display Google image search results.
-    - **Bing Web Image Search**: Uses an embedded browser (WebView2) to display Bing image search results.
+    - **Google Web Image Search**: Uses the embedded native browser (WebView2 on Windows, WKWebView on macOS, WebKitGTK on Linux) to display Google image search results.
+    - **Bing Web Image Search**: Uses the embedded native browser (WebView2 on Windows, WKWebView on macOS, WebKitGTK on Linux) to display Bing image search results.
     - **Google Custom Search API**: Fetches image results directly via API (requires an API key).
 - **Real-time Preview**: Thumbnail previews with configurable sizes (100-500px).
 - **Customizable UI**: Light/Dark themes with 20+ accent colors.
@@ -65,8 +65,8 @@ It supports **Local Similarity Search** across your existing image folder, plus 
 - **AI Vision Assist**: Connect a vision-capable model (OpenRouter, OpenAI, Anthropic, Gemini or GLM cloud, a local Ollama/LM Studio server, or a custom OpenAI/Anthropic-compatible endpoint) to actually *look* at candidate images and pick the correct cover. Works on Local Files and Google API results, can auto-save above a confidence threshold, verify images before renaming or saving, and batch-fill the entire missing list.
 - **AI Batch Fill**: Processes the whole missing-covers list — local candidates first, optional Google API fallback — with live progress, cancel, per-item results, and a query history that avoids asking the AI twice.
 - **Safe Cover Saves**: The folder watcher never overwrites an existing cover, and Google API downloads are verified before a file is replaced.
-- **Detailed Logging**: Built-in log viewer for troubleshooting and rolling `app<yyyyMMdd>.log` files in `%LocalAppData%\FindRomCover` using Serilog.
-- **Sound Feedback**: Optional audio feedback for user actions using NAudio.
+- **Detailed Logging**: Built-in log viewer for troubleshooting and rolling `app<yyyyMMdd>.log` files in the per-user data folder (`%LocalAppData%\FindRomCover` on Windows, `~/.local/share/FindRomCover` on Linux, `~/Library/Application Support/FindRomCover` on macOS) using Serilog.
+- **Sound Feedback**: Optional audio feedback for user actions (MCI on Windows, `afplay` on macOS, common command-line players on Linux).
 - **Command-line Arguments**: Start the application with pre-set ROM and Image folders for quick scanning.
 - **Auto-Copy to Clipboard**: Automatically copies the selected ROM filename to the clipboard when navigating the missing covers list.
 - **Automatic Updates**: Checks for new releases on startup via GitHub and notifies you when an update is available, with release notes and direct download links.
@@ -84,16 +84,27 @@ You can add or remove supported extensions through the `Settings > Edit Supporte
 
 ### Prerequisites
 
-- Windows 10 or later
-- **.NET 10.0 Desktop Runtime**: The released executable is framework-dependent. If it is not already installed, download it from [dotnet.microsoft.com](https://dotnet.microsoft.com/download/dotnet/10.0) (choose ".NET Desktop Runtime").
-- **Microsoft Edge WebView2 Runtime**: Essential for Bing and Google Web Image Search. Most Windows 10/11 systems have this pre-installed. If missing, the application will prompt you with a direct download link.
+- Windows 10 or later, a mainstream Linux distribution, or macOS 11 or later (x64 and ARM64 supported on all three)
+- **.NET 10.0 Runtime**: The released builds are framework-dependent. If it is not already installed, download it from [dotnet.microsoft.com](https://dotnet.microsoft.com/download/dotnet/10.0) (choose ".NET Desktop Runtime" on Windows).
+- **Native web view runtime**: Essential for Bing and Google Web Image Search — Microsoft Edge WebView2 on Windows (pre-installed on most systems), WebKitGTK on Linux, WKWebView on macOS (part of the OS). If missing, the application prompts you with a download link and falls back to the system browser.
 - (Optional) Valid API key for Google Custom Search API if you choose to use that search method.
 
 ### Installation
 
-1. **Download the latest release** from the [Releases](https://github.com/purelogiccode/FindRomCover/releases) page.
+1. **Download the latest release** from the [Releases](https://github.com/purelogiccode/FindRomCover/releases) page:
+
+    | File | Platform |
+    |------|----------|
+    | `release_<version>_win-x64.zip` | Windows x64 |
+    | `release_<version>_win-arm64.zip` | Windows ARM64 |
+    | `release_<version>_linux-x64.zip` | Linux x64 |
+    | `release_<version>_linux-arm64.zip` | Linux ARM64 |
+    | `release_<version>_osx-x64.zip` | macOS Intel |
+    | `release_<version>_osx-arm64.zip` | macOS Apple Silicon |
+
+    Each archive also contains `LICENSE.txt`, `README.md`, and `WhatsNew.md`.
 2. **Extract** the archive to a folder of your choice.
-3. **Run** `FindRomCover.exe`.
+3. **Run** `FindRomCover.exe` on Windows, or the `FindRomCover` executable on Linux/macOS (you may need `chmod +x FindRomCover` first).
 4. **Configure API keys** (if using Google API search, see Setup section below).
 
 ### API Setup (Only for Google Custom Search API)
@@ -132,11 +143,11 @@ AI Vision Assist uses a vision-capable model to choose the best cover among cand
     - **Skip missing covers already queried in previous sessions**: queried items are remembered so the AI is not asked twice for the same cover; use **Clear query history** to start over.
 5. Use the **AI Pick Best** button on the Local Files and Google API tabs, or **AI Fill Missing Covers...** on the missing covers list for batch processing.
 
-Images are downscaled before upload (default 512px) and verdicts are cached for 30 days to limit API usage. Queried covers are remembered in the SQLite database `%LocalAppData%\FindRomCover\QueryHistory.dat` (180 days).
+Images are downscaled before upload (default 512px) and verdicts are cached for 30 days to limit API usage. Queried covers are remembered in the SQLite database `QueryHistory.dat` inside the per-user data folder (180 days).
 
 ### Settings Storage
 
-All settings — theme, folders, similarity options, Google key, AI provider, model and API keys — are stored in the SQLite database `%LocalAppData%\FindRomCover\Settings.dat`. API keys are encrypted before being written. On first start after upgrading from an older build, the previous encrypted `settings.dat` file is migrated automatically and kept as `settings.dat.legacy` as a backup.
+All settings — theme, folders, similarity options, Google key, AI provider, model and API keys — are stored in the SQLite database `Settings.dat` inside the per-user data folder (`%LocalAppData%\FindRomCover` on Windows, `~/.local/share/FindRomCover` on Linux, `~/Library/Application Support/FindRomCover` on macOS). API keys are encrypted before being written. On first start after upgrading from an older build, the previous encrypted `settings.dat` file is migrated automatically and kept as `settings.dat.legacy` as a backup.
 
 ## Usage Guide
 
@@ -206,12 +217,12 @@ Toggle the use of MAME descriptions for search queries:
 #### Log Window
 Access detailed logs for troubleshooting:
 - **Settings > Show/Hide Log Window**.
-- Log files are also saved as rolling `app<yyyyMMdd>.log` files in `%LocalAppData%\FindRomCover`.
-- `UserLogError.txt` contains a simplified list of errors for user reference.
+- Log files are also saved as rolling `app<yyyyMMdd>.log` files in the per-user data folder.
+- `UserLogError.txt` contains a simplified list of errors for user reference, and `ApiLogError.txt` holds reports queued for the automatic bug-report API.
 
 #### Command-line Arguments
-You can launch `FindRomCover.exe` with command-line arguments to pre-fill the ROM and Image folders:
-- `FindRomCover.exe "C:\Path\To\ImageFolder" "C:\Path\To\RomFolder"`
+You can launch the app with command-line arguments to pre-fill the ROM and Image folders (`FindRomCover.exe "C:\Path\To\ImageFolder" "C:\Path\To\RomFolder"` on Windows, `./FindRomCover "/path/to/image" "/path/to/roms"` on Linux/macOS):
+- `FindRomCover[.exe] "<ImageFolder>" "<RomFolder>"`
 - If only one argument is provided, it will be treated as the Image Folder.
 - If both are provided, the application will automatically trigger a scan for missing images on startup.
 
@@ -238,11 +249,11 @@ FindRomCover/
 └── images/               # UI image assets
 ```
 
-Windows (main window, settings, AI, batch, log, about) live in the project root next to `App.xaml.cs` and the `MainWindow.*.cs` partial files.
+Windows (Avalonia `Window`s: main window, settings, AI, batch, log, about) live in the project root next to `App.axaml.cs` and the `MainWindow.*.cs` partial files. Interfaces live in `Interfaces/`, models and enums in `Models/`. The legacy WPF project is kept in `FindRomCover_Legacy/` and is no longer built.
 
 ### Key Components
 
-- **App.xaml.cs**: Application entry point with dependency injection setup, global exception handling, and theme management.
+- **App.axaml.cs**: Application entry point with dependency injection setup, global exception handling, and theme management.
 - **MainWindow**: Main application window with tabbed interface for different search methods.
 - **Services**: Modular services for specific functionality:
   - `ImageProcessor`: Image conversion and processing using Magick.NET
@@ -255,15 +266,14 @@ Windows (main window, settings, AI, batch, log, about) live in the project root 
   - `WebSearchService`: URL generation for web searches
   - `SearchQueryHelper`: ROM filename cleaning and sanitization
   - `UpdateCheckService`: GitHub release checking
-  - `SystemTrayIcon`: System tray integration
+   - `SystemTrayIcon`: System tray integration (via `TrayIconManager`)
   - `LogService`: Centralized logging with Serilog
 
 ### Dependencies
 
-- **MahApps.Metro**: Modern WPF UI framework
+- **Avalonia**: Cross-platform .NET UI framework (Windows, Linux, macOS)
+- **Avalonia.Controls.WebView (NativeWebView)**: Embedded web browser for search results
 - **Magick.NET**: Image processing and format conversion
-- **Microsoft.Web.WebView2**: Embedded web browser for search results
-- **NAudio**: Audio feedback system
 - **Serilog**: Structured logging
 - **Microsoft.Extensions.DependencyInjection**: Dependency injection container
 - **MessagePack**: Efficient binary serialization for the MAME database
@@ -277,11 +287,10 @@ Windows (main window, settings, AI, batch, log, about) live in the project root 
 - If prompted, ensure your Google API key is correctly entered in `Settings > API Settings`.
 - Verify the key is active and has sufficient quota in your Google Cloud Console.
 
-**"WebView2 Runtime Missing" or "WebView2 component is not ready" error**
-- On first launch, or if the component is missing, the application will prompt you to download the Microsoft Edge WebView2 Runtime. This is required for the "Bing Web Search" and "Google Web Image Search" features.
-- Follow the prompt to download and install the runtime from Microsoft's official website.
+**"Web view runtime missing" or "Web view component is not ready" error**
+- The Bing/Google web tabs need the platform web view: Microsoft Edge WebView2 on Windows, WebKitGTK on Linux, WKWebView on macOS (part of the OS).
+- On first launch, or if the component is missing, the application will prompt you with the download page for your platform. Until the runtime is installed, web searches open in your system browser instead.
 - After installation, you may need to restart FindRomCover.
-- If the issue persists, ensure your Windows installation is up to date.
 
 **No search results**
 - Check your internet connection.
@@ -297,15 +306,15 @@ Windows (main window, settings, AI, batch, log, about) live in the project root 
 - Check the rolling log file in `%LocalAppData%\FindRomCover` for any errors related to file access or image conversion.
 
 **Missing or Corrupted MAME Data File (`mame.dat`)**
-- If you encounter errors about a missing `mame.dat` file, ensure it is present in the same directory as `FindRomCover.exe`.
+- If you encounter errors about a missing `mame.dat` file, ensure it is present in the same directory as the application executable.
 - If the file is present but errors about corruption occur, try obtaining a fresh copy of `mame.dat`.
 - MAME descriptions will not be available if this file is missing or corrupted.
 
 ### Logs
 Access detailed logs via:
 - **Settings > Show/Hide Log Window**.
-- Log files are saved as rolling `app<yyyyMMdd>.log` files in `%LocalAppData%\FindRomCover`.
-- `UserLogError.txt` contains a simplified list of errors for user reference.
+- Log files are saved as rolling `app<yyyyMMdd>.log` files in the per-user data folder.
+- `UserLogError.txt` contains a simplified list of errors for user reference, and `ApiLogError.txt` holds reports queued for the automatic bug-report API.
 
 ## Testing
 
@@ -338,16 +347,21 @@ dotnet build
 ```bash
 dotnet publish -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true
 dotnet publish -c Release -r win-arm64 --self-contained false -p:PublishSingleFile=true
+dotnet publish -c Release -r linux-x64 --self-contained false -p:PublishSingleFile=true
+dotnet publish -c Release -r linux-arm64 --self-contained false -p:PublishSingleFile=true
+dotnet publish -c Release -r osx-x64 --self-contained false -p:PublishSingleFile=true
+dotnet publish -c Release -r osx-arm64 --self-contained false -p:PublishSingleFile=true
 ```
+
+All release builds are framework-dependent single files (the .NET runtime is not embedded). Official releases are produced by CI — see [CI/CD](docs/development/ci-cd.md).
 
 ## Acknowledgments
 
-- **MahApps.Metro** for the beautiful WPF UI framework.
+- **Avalonia** for the cross-platform .NET UI framework.
 - **Magick.NET** (ImageMagick) for robust image loading and conversion.
 - **MessagePack** for efficient binary serialization.
 - **MAME** team for the comprehensive arcade game database.
-- **Microsoft.Web.WebView2** for embedding web content.
-- **NAudio** for audio playback.
+- **Avalonia WebView** for embedding web content.
 - **Serilog** for structured logging.
 - **xUnit**, **FluentAssertions**, and **Moq** for the testing framework.
 

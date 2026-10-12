@@ -1,0 +1,156 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'release_*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build ${{ matrix.rid }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            rid: win-x64
+          - os: windows-latest
+            rid: win-arm64
+          - os: ubuntu-latest
+            rid: linux-x64
+          - os: ubuntu-latest
+            rid: linux-arm64
+          - os: macos-latest
+            rid: osx-x64
+          - os: macos-latest
+            rid: osx-arm64
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Resolve version from tag
+        id: version
+        shell: pwsh
+        run: |
+          $tag = '${{ github.ref_name }}'
+          $version = $tag -replace '^release_', ''
+          try {
+            $null = [System.Version]$version
+          } catch {
+            throw "Tag '$tag' does not contain a valid version after the 'release_' prefix."
+          }
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+          Write-Host "Building $tag ($version) for ${{ matrix.rid }}"
+
+      - name: Publish framework-dependent single file
+        run: >
+          dotnet publish FindRomCover/FindRomCover.csproj --configuration Release
+          --runtime ${{ matrix.rid }} --self-contained false
+          -p:PublishSingleFile=true
+          -p:Version=${{ steps.version.outputs.version }}
+          -p:AssemblyVersion=${{ steps.version.outputs.version }}
+          -p:FileVersion=${{ steps.version.outputs.version }}
+
+      - name: Stage bundle contents
+        shell: pwsh
+        run: |
+          $publishDir = "FindRomCover/bin/Release/net10.0/${{ matrix.rid }}/publish"
+          if (-not (Test-Path -LiteralPath $publishDir)) {
+            throw "Publish folder not found: $publishDir"
+          }
+          Copy-Item -LiteralPath 'LICENSE.txt' -Destination $publishDir -Force
+          Copy-Item -LiteralPath 'README.md' -Destination $publishDir -Force
+          Copy-Item -LiteralPath 'WhatsNew.md' -Destination $publishDir -Force
+          Get-ChildItem -LiteralPath $publishDir -Force |
+            Format-Table Name, Length -AutoSize |
+            Out-String -Width 200 |
+            Write-Host
+
+      - name: Create bundle archive
+        shell: pwsh
+        run: |
+          $tag = '${{ steps.version.outputs.tag }}'
+          $zipName = "${tag}_${{ matrix.rid }}.zip"
+          $publishDir = "FindRomCover/bin/Release/net10.0/${{ matrix.rid }}/publish"
+          if (Test-Path -LiteralPath $zipName) { Remove-Item -LiteralPath $zipName -Force }
+          Compress-Archive -LiteralPath (Join-Path $publishDir '*') -DestinationPath $zipName
+          Get-Item -LiteralPath $zipName |
+            Format-Table Name, Length -AutoSize |
+            Out-String -Width 200 |
+            Write-Host
+
+      - name: Upload bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bundle-${{ matrix.rid }}
+          path: ${{ steps.version.outputs.tag }}_${{ matrix.rid }}.zip
+          if-no-files-found: error
+
+  release:
+    name: Create GitHub release
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Download bundle artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: bundle-*
+          merge-multiple: true
+          path: assets
+
+      - name: Write release notes
+        shell: pwsh
+        run: |
+          $tag = '${{ github.ref_name }}'
+          $version = $tag -replace '^release_', ''
+          $notes = @(
+            "# FindRomCover $version — What's New",
+            '',
+            "See [WhatsNew.md](https://github.com/${{ github.repository }}/blob/$tag/WhatsNew.md) for the full changelog.",
+            '',
+            '## Download',
+            '',
+            "- ``${tag}_win-x64.zip`` — Windows x64",
+            "- ``${tag}_win-arm64.zip`` — Windows ARM64",
+            "- ``${tag}_linux-x64.zip`` — Linux x64",
+            "- ``${tag}_linux-arm64.zip`` — Linux ARM64",
+            "- ``${tag}_osx-x64.zip`` — macOS Intel",
+            "- ``${tag}_osx-arm64.zip`` — macOS Apple Silicon",
+            '',
+            'All builds are framework-dependent single files and require the [.NET 10.0 runtime](https://dotnet.microsoft.com/download/dotnet/10.0) (the **Desktop Runtime** on Windows). Extract and run ``FindRomCover.exe`` on Windows or ``FindRomCover`` on Linux/macOS (``chmod +x`` first if needed). Each archive also contains ``LICENSE.txt``, ``README.md``, and ``WhatsNew.md``.'
+          )
+          Set-Content -LiteralPath 'NOTES.md' -Value ($notes -join [Environment]::NewLine) -Encoding UTF8NoBOM
+          Get-ChildItem -LiteralPath 'assets' -Force |
+            Format-Table Name, Length -AutoSize |
+            Out-String -Width 200 |
+            Write-Host
+
+      - name: Create release and upload assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create '${{ github.ref_name }}' \
+            --title '${{ github.ref_name }}' \
+            --notes-file NOTES.md \
+            assets/*.zip

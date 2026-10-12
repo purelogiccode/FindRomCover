@@ -21,11 +21,22 @@ FindRomCover is distributed as a framework-dependent cross-platform desktop appl
 ## Download and install
 
 1. Open the [Releases](https://github.com/purelogiccode/FindRomCover/releases) page.
-2. Download the archive for your platform and architecture. The Releases page provides separate archives for Windows (x64 and ARM64), Linux, and macOS.
+2. Download the archive for your platform and architecture:
+
+    | File | Platform |
+    |------|----------|
+    | `release_<version>_win-x64.zip` | Windows x64 |
+    | `release_<version>_win-arm64.zip` | Windows ARM64 |
+    | `release_<version>_linux-x64.zip` | Linux x64 |
+    | `release_<version>_linux-arm64.zip` | Linux ARM64 |
+    | `release_<version>_osx-x64.zip` | macOS Intel |
+    | `release_<version>_osx-arm64.zip` | macOS Apple Silicon |
+
+    Each archive also contains `LICENSE.txt`, `README.md`, and `WhatsNew.md`.
 3. Extract the archive to a folder of your choice. Settings, caches, and logs are written to your per-user data folder, so the application folder does not need to be writable. If you install under a read-only location such as `Program Files`, screenshots automatically fall back to the data folder.
 4. Start the application:
    - Windows: run `FindRomCover.exe`.
-   - Linux and macOS: run the `FindRomCover` executable from the extracted folder.
+   - Linux and macOS: make the binary executable once (`chmod +x FindRomCover`) if needed, then run the `FindRomCover` executable from the extracted folder.
 
 No installer is required. To uninstall, delete the extracted folder and, optionally, the data folder described below.
 

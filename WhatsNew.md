@@ -1,3 +1,37 @@
+# FindRomCover 3.3.0 — What's New
+
+## Cross-Platform Release (Avalonia)
+
+- **Windows, Linux, and macOS** — the application was migrated from WPF to **Avalonia 12.1.4** and now runs on all three operating systems from a single codebase, with the same themes, accent colors, and dark/light modes.
+- **Native web views** — the embedded browser uses WebView2 on Windows, WKWebView on macOS, and WebKitGTK on Linux. When the engine is missing, the affected tab falls back to the system browser and a one-time prompt links to the correct runtime.
+- **Per-OS services** — click sounds, screenshots, and data folders all use platform-appropriate implementations (`%LocalAppData%\FindRomCover` on Windows, `~/.local/share/FindRomCover` on Linux, `~/Library/Application Support/FindRomCover` on macOS).
+
+## Fixes & Improvements
+
+- **Covers land on the right game** — recycled context menus now refresh their target, so "Use This Image" can never save a cover to the previously selected ROM.
+- **AI query history is protected** — a healthy `QueryHistory.dat` is no longer quarantined when schema creation fails (read-only file, disk full); only real SQLite corruption triggers a fresh database.
+- **Quieter bug reports** — network hiccups, invalid API keys, quota limits, corrupt user images, and other environmental failures are logged locally instead of filing automatic bug reports; genuine failures still report exactly once.
+- **Small lifecycle fixes** — the progress spinner resumes after tab switches, refreshed watcher registrations keep their full 60-second window, and invalid folder paths also cancel in-flight AI picks.
+
+## Under the Hood
+
+- **879 passing tests** across 68 files; the legacy WPF project is kept in `FindRomCover_Legacy` and is no longer built.
+- Service interfaces moved to `Interfaces/`, models/enums to `Models/`; asynchronous methods use the `Async` suffix throughout.
+- Version bumped to **3.3.0**.
+
+## Download
+
+- `release_3.3.0_win-x64.zip` — Windows x64
+- `release_3.3.0_win-arm64.zip` — Windows ARM64
+- `release_3.3.0_linux-x64.zip` — Linux x64
+- `release_3.3.0_linux-arm64.zip` — Linux ARM64
+- `release_3.3.0_osx-x64.zip` — macOS Intel
+- `release_3.3.0_osx-arm64.zip` — macOS Apple Silicon
+
+All builds are framework-dependent and require the [.NET 10.0 runtime](https://dotnet.microsoft.com/download/dotnet/10.0) (the **Desktop Runtime** on Windows). Extract and run `FindRomCover.exe` on Windows or `FindRomCover` on Linux/macOS. Each archive also contains `LICENSE.txt`, `README.md`, and `WhatsNew.md`.
+
+---
+
 # FindRomCover 3.2.2 — What's New
 
 - **Settings menu cleanup** — `Ignore Bracketed Text in Matching` now lives under the **Settings** menu instead of the top level, grouping it with the other matching and display toggles.

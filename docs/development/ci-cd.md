@@ -1,6 +1,6 @@
 # CI/CD
 
-FindRomCover uses GitHub Actions for continuous integration and documentation publishing. Two workflows live in `.github/workflows`.
+FindRomCover uses GitHub Actions for continuous integration, documentation publishing, and releases. Three workflows live in `.github/workflows`.
 
 ## CI — build and test
 
@@ -74,24 +74,30 @@ Then copy the contents of `wiki-out` into a clone of the wiki repository and pus
 
 ## Release process
 
-Releases are currently produced manually:
+Releases are produced automatically by `release.yml`, which runs when a tag named `release_*` (for example `release_3.3.0`) is pushed:
 
-1. Update the version in `FindRomCover/FindRomCover.csproj` (`Version`, `AssemblyVersion`, and `FileVersion`) and in `FindRomCover.Tests/FindRomCover.Tests.csproj` (`AssemblyVersion` and `FileVersion`).
+1. Update the version in `FindRomCover/FindRomCover.csproj` (`Version`, `AssemblyVersion`, and `FileVersion`) and in `FindRomCover.Tests/FindRomCover.Tests.csproj` (`AssemblyVersion` and `FileVersion`) — keep both in sync.
 2. Update `README.md`, `WhatsNew.md`, and `docs/release-notes.md`.
-3. Build and test locally, then push to `master` and confirm CI is green.
-4. Publish the runtimes you are shipping. For example, for Windows:
+3. Build and test locally, then push to `master` and confirm CI is green. This push also redeploys the documentation site and the wiki through `docs.yml`.
+4. Create and push the tag:
 
    ```bash
-   dotnet publish FindRomCover/FindRomCover.csproj -c Release -r win-x64 --self-contained false
-   dotnet publish FindRomCover/FindRomCover.csproj -c Release -r win-arm64 --self-contained false
+   git tag release_3.3.0
+   git push origin release_3.3.0
    ```
 
-   The application is cross-platform, so `linux-x64` and `osx-arm64` (or any other .NET RID) can be published the same way.
-5. Zip each publish folder as `release_<version>_<rid>.zip` (for example `release_3.3.0_win-x64.zip`).
-6. Create a tag such as `release_3.3.0` and a GitHub release with the archives and the release notes.
-7. The in-app update checker picks up the new release automatically.
+5. `release.yml` builds six framework-dependent single-file bundles and creates the GitHub release with them attached:
 
-> **Important:** Keep the application and test project versions in sync. The app project is currently `3.3.0` while `FindRomCover.Tests.csproj` still declares `3.2.2`; update both during the release checklist.
+   | Runner | Bundles |
+   |--------|---------|
+   | `windows-latest` | `release_<version>_win-x64.zip`, `release_<version>_win-arm64.zip` |
+   | `ubuntu-latest` | `release_<version>_linux-x64.zip`, `release_<version>_linux-arm64.zip` |
+   | `macos-latest` | `release_<version>_osx-x64.zip`, `release_<version>_osx-arm64.zip` |
+
+   Each archive contains the published application plus `LICENSE.txt`, `README.md`, and `WhatsNew.md`. The release notes link to the full changelog in `WhatsNew.md` at the tagged commit.
+6. The in-app update checker picks up the new release automatically: it reads the latest release's `tag_name` from the GitHub API and parses the version after the `release_` prefix, so tags must keep the `release_<major>.<minor>.<patch>` format.
+
+> **Note:** The release job needs `contents: write` permission (already declared in `release.yml`) to create the GitHub release. No extra secrets are required.
 
 ## Versioning
 
