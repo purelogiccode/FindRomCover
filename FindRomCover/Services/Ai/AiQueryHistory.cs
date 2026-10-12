@@ -326,7 +326,7 @@ public sealed class AiQueryHistory
         return ex.SqliteErrorCode is 11 or 26;
     }
 
-    private SqliteConnection CreateFreshDatabase(string connectionString)
+    private static SqliteConnection CreateFreshDatabase(string connectionString)
     {
         var recreated = new SqliteConnection(connectionString);
         try

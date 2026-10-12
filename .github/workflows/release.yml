@@ -74,11 +74,11 @@ jobs:
           $stageDir = "bundle-stage/${{ matrix.rid }}"
           if (Test-Path -LiteralPath $stageDir) { Remove-Item -LiteralPath $stageDir -Recurse -Force }
           New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
-          Copy-Item -LiteralPath (Join-Path $publishDir '*') -Destination $stageDir -Recurse -Force
+          Copy-Item -Path (Join-Path $publishDir '*') -Destination $stageDir -Recurse -Force
           Copy-Item -LiteralPath 'LICENSE.txt' -Destination $stageDir -Force
           Copy-Item -LiteralPath 'README.md' -Destination $stageDir -Force
           Copy-Item -LiteralPath 'WhatsNew.md' -Destination $stageDir -Force
-          Get-ChildItem -LiteralPath $stageDir -Recurse -Include '*.pdb' -Force | Remove-Item -Force
+          Get-ChildItem -Path $stageDir -Recurse -Include '*.pdb' -Force | Remove-Item -Force
           Get-ChildItem -LiteralPath $stageDir -Force |
             Format-Table Name, Length -AutoSize |
             Out-String -Width 200 |
@@ -91,7 +91,7 @@ jobs:
           $zipName = "${tag}_${{ matrix.rid }}.zip"
           $stageDir = "bundle-stage/${{ matrix.rid }}"
           if (Test-Path -LiteralPath $zipName) { Remove-Item -LiteralPath $zipName -Force }
-          Compress-Archive -LiteralPath (Join-Path $stageDir '*') -DestinationPath $zipName
+          Compress-Archive -Path (Join-Path $stageDir '*') -DestinationPath $zipName
           Get-Item -LiteralPath $zipName |
             Format-Table Name, Length -AutoSize |
             Out-String -Width 200 |
