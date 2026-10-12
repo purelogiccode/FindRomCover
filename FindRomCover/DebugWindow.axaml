@@ -5,7 +5,7 @@
         Height="450"
         Width="800"
         WindowStartupLocation="CenterScreen"
-        Icon="avares://FindRomCover/Assets/images/logo.png"
+        Icon="avares://FindRomCover/icon/icon.png"
         ToolTip.Tip="Application log window for debugging and monitoring">
     <Grid RowDefinitions="Auto,*">
 

@@ -48,7 +48,7 @@ public sealed class TrayIconManager : IDisposable
         _trayIcon = new TrayIcon
         {
             Icon = new WindowIcon(AssetLoader.Open(
-                new Uri("avares://FindRomCover/Assets/images/logo.png"))),
+                new Uri("avares://FindRomCover/icon/icon.png"))),
             ToolTipText = "FindRomCover",
             Menu = menu,
             IsVisible = true

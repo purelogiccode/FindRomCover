@@ -8,7 +8,7 @@
         MinHeight="600"
         WindowStartupLocation="CenterScreen"
         KeyDown="MainWindow_KeyDown"
-        Icon="avares://FindRomCover/Assets/images/logo.png"
+        Icon="avares://FindRomCover/icon/icon.png"
         ToolTip.Tip="Find ROM cover images for your collection">
 
     <Window.Resources>

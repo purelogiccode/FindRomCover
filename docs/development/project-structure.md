@@ -11,6 +11,7 @@ CSharp_FindRomCover/
 │   │   ├── audio/
 │   │   │   └── click.mp3             # UI click sound
 │   │   └── images/                   # UI images (logo, donate, broken image, ...)
+│   ├── icon/                         # Application icon (icon.ico/png)
 │   ├── Controls/                     # Custom Avalonia controls
 │   │   └── ProgressRing.cs
 │   ├── Interfaces/                   # Service abstractions
@@ -104,8 +105,8 @@ CSharp_FindRomCover/
 │   └── Sync-Wiki.ps1                 # Generates the GitHub wiki from docs/
 ├── .github/workflows/
 │   ├── ci.yml                        # Build and test
-│   └── docs.yml                      # Publish GitHub Pages and wiki
-├── FindRomCover_Legacy/              # Old WPF project (NOT part of the solution)
+│   ├── docs.yml                      # Publish GitHub Pages and wiki
+│   └── release.yml                   # Build bundles and publish GitHub releases
 ├── mkdocs.yml                        # Documentation site configuration
 ├── CSharp_FindRomCover.sln
 ├── global.json                       # .NET SDK version
@@ -116,7 +117,7 @@ CSharp_FindRomCover/
 └── WhatsNew.md
 ```
 
-> **Note:** `FindRomCover_Legacy/` is kept on disk for historical reference only. `CSharp_FindRomCover.sln` contains just `FindRomCover` and `FindRomCover.Tests`, so the legacy WPF project is not built or tested.
+> **Note:** `CSharp_FindRomCover.sln` contains just `FindRomCover` and `FindRomCover.Tests`. The former WPF project has been removed from the repository; its icon assets live on in `FindRomCover/icon/`.
 
 ## Key entry points
 

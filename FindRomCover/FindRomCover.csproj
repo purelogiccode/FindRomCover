@@ -7,6 +7,7 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <LangVersion>14</LangVersion>
         <RootNamespace>FindRomCover</RootNamespace>
+        <ApplicationIcon>icon\icon.ico</ApplicationIcon>
         <ApplicationManifest>app.manifest</ApplicationManifest>
         <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
         <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
@@ -24,6 +25,7 @@
 
     <ItemGroup>
         <AvaloniaResource Include="Assets\images\**\*.png" />
+        <AvaloniaResource Include="icon\*.png" />
         <Content Include="Assets\audio\click.mp3" Link="audio\click.mp3">
             <CopyToOutputDirectory>Always</CopyToOutputDirectory>
         </Content>

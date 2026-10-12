@@ -17,3 +17,6 @@ venv/
 
 # ReSharper user-specific settings
 *.sln.DotSettings.user
+
+# JetBrains Rider/IDE
+.idea/

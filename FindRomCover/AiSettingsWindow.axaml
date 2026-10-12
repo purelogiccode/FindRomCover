@@ -5,7 +5,7 @@
         Height="640"
         Width="620"
         WindowStartupLocation="CenterScreen"
-        Icon="avares://FindRomCover/Assets/images/logo.png"
+        Icon="avares://FindRomCover/icon/icon.png"
         ToolTip.Tip="Configure the AI vision model used to pick cover images">
     <Grid Margin="20" RowDefinitions="Auto,*,Auto">
 

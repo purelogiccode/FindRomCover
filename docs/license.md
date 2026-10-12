@@ -45,7 +45,7 @@ FindRomCover builds on excellent open-source projects:
 | coverlet | MIT |
 | Meziantou.Analyzer, Roslynator.Analyzers, Microsoft.CodeAnalysis.Analyzers | MIT / Apache-2.0 — build-time analyzers (not shipped) |
 
-Refer to each project's repository for the exact license terms. The WPF-era application is preserved in the `FindRomCover_Legacy` folder, which is not part of the shipped solution and retains its own dependencies (MahApps.Metro, ControlzEx, NAudio, WebView2).
+Refer to each project's repository for the exact license terms. The former WPF application has been removed from the repository; its icon assets live on in `FindRomCover/icon/`.
 
 ## MAME data
 

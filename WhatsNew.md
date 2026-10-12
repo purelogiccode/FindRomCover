@@ -15,7 +15,7 @@
 
 ## Under the Hood
 
-- **879 passing tests** across 68 files; the legacy WPF project is kept in `FindRomCover_Legacy` and is no longer built.
+- **879 passing tests** across 68 files; the legacy WPF project has been removed from the repository.
 - Service interfaces moved to `Interfaces/`, models/enums to `Models/`; asynchronous methods use the `Async` suffix throughout.
 - Version bumped to **3.3.0**.
 

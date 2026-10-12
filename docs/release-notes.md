@@ -9,7 +9,7 @@ Complete version history for FindRomCover. Download links for each release are a
 - **Avalonia UI** — the application was migrated from WPF to **Avalonia 12.1.4** and now runs on Windows, Linux, and macOS from a single codebase. Windows and views use the `.axaml`/`.axaml.cs` extensions, and the MahApps look (exact palette, accent colors, dark/light themes) is preserved.
 - **Embedded web views** — WebView2 was replaced by Avalonia's NativeWebView, which uses WebView2 on Windows, WKWebView on macOS, and WebKitGTK on Linux. When the engine is missing, the affected tab falls back to the system browser and a one-time prompt links to the correct runtime per operating system.
 - **Per-OS services** — click sounds (MCI on Windows, `afplay` on macOS, `paplay`/`ffplay`/`mpg123`/`aplay` on Linux, with a silent fallback when none is available), screenshots, and data paths all use platform-appropriate implementations.
-- **Solution cleanup** — the solution contains only `FindRomCover` and `FindRomCover.Tests`; the former WPF project is kept in `FindRomCover_Legacy` and is no longer built. Service interfaces moved to `Interfaces/` and models/enums to `Models/`; asynchronous methods now use the `Async` suffix throughout.
+- **Solution cleanup** — the solution contains only `FindRomCover` and `FindRomCover.Tests`; the former WPF project has been removed from the repository (its icon assets live on in `FindRomCover/icon/`). Service interfaces moved to `Interfaces/` and models/enums to `Models/`; asynchronous methods now use the `Async` suffix throughout.
 
 ### Logging and Diagnostics
 

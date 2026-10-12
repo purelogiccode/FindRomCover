@@ -6,7 +6,7 @@
         Height="400"
         CanResize="False"
         WindowStartupLocation="CenterScreen"
-        Icon="avares://FindRomCover/Assets/images/logo.png"
+        Icon="avares://FindRomCover/icon/icon.png"
         ToolTip.Tip="About FindRomCover">
     <Grid RowDefinitions="Auto,Auto,Auto">
 

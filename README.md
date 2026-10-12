@@ -248,7 +248,7 @@ FindRomCover/
 └── images/               # UI image assets
 ```
 
-Windows (Avalonia `Window`s: main window, settings, AI, batch, log, about) live in the project root next to `App.axaml.cs` and the `MainWindow.*.cs` partial files. Interfaces live in `Interfaces/`, models and enums in `Models/`. The legacy WPF project is kept in `FindRomCover_Legacy/` and is no longer built.
+Windows (Avalonia `Window`s: main window, settings, AI, batch, log, about) live in the project root next to `App.axaml.cs` and the `MainWindow.*.cs` partial files. Interfaces live in `Interfaces/`, models and enums in `Models/`, and the application icon in `icon/`.
 
 ### Key Components
 

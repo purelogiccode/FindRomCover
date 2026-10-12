@@ -6,7 +6,7 @@
         Width="400"
         WindowStartupLocation="CenterScreen"
         CanResize="False"
-        Icon="avares://FindRomCover/Assets/images/logo.png"
+        Icon="avares://FindRomCover/icon/icon.png"
         ToolTip.Tip="Manage which ROM file extensions the application will scan for">
     <Grid Margin="15" RowDefinitions="Auto,*,Auto,Auto">
 

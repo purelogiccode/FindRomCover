@@ -5,7 +5,7 @@
         Height="400"
         Width="600"
         WindowStartupLocation="CenterScreen"
-        Icon="avares://FindRomCover/Assets/images/logo.png"
+        Icon="avares://FindRomCover/icon/icon.png"
         ToolTip.Tip="Configure API keys for image search services">
     <Grid Margin="20" RowDefinitions="Auto,Auto,*,Auto">
 

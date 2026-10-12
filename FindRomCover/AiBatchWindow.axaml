@@ -5,7 +5,7 @@
         Height="560"
         Width="680"
         WindowStartupLocation="CenterOwner"
-        Icon="avares://FindRomCover/Assets/images/logo.png"
+        Icon="avares://FindRomCover/icon/icon.png"
         ToolTip.Tip="Let the AI fill missing covers automatically">
     <Grid Margin="16" RowDefinitions="Auto,Auto,Auto,*,Auto">
 
