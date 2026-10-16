@@ -128,22 +128,53 @@ jobs:
         run: |
           $tag = '${{ github.ref_name }}'
           $version = $tag -replace '^release_', ''
-          $notes = @(
-            "# FindRomCover $version — What's New",
-            '',
-            "See [WhatsNew.md](https://github.com/${{ github.repository }}/blob/$tag/WhatsNew.md) for the full changelog.",
-            '',
-            '## Download',
-            '',
-            "- ``${tag}_win-x64.zip`` — Windows x64",
-            "- ``${tag}_win-arm64.zip`` — Windows ARM64",
-            "- ``${tag}_linux-x64.zip`` — Linux x64",
-            "- ``${tag}_linux-arm64.zip`` — Linux ARM64",
-            "- ``${tag}_osx-arm64.zip`` — macOS Apple Silicon",
-            '',
-            'All builds are framework-dependent single-file executables: the native libraries are embedded inside the executable, while the .NET 10.0 runtime is **not** bundled and must be installed (the **Desktop Runtime** on Windows). Extract and run ``FindRomCover.exe`` on Windows or ``FindRomCover`` on Linux/macOS (``chmod +x`` first if needed). Each archive also contains ``LICENSE.txt``, ``README.md``, and ``WhatsNew.md``.'
-          )
-          Set-Content -LiteralPath 'NOTES.md' -Value ($notes -join [Environment]::NewLine) -Encoding UTF8NoBOM
+
+          # Put the version's own "What's New" section into the release body instead of
+          # merely linking to WhatsNew.md. Fall back to a changelog link only when the
+          # section for the tagged version cannot be found.
+          $notes = $null
+          $lines = @(Get-Content -LiteralPath 'WhatsNew.md' -Encoding UTF8)
+          $start = -1
+          for ($i = 0; $i -lt $lines.Count; $i++) {
+            if ($lines[$i] -match ('^#\s+FindRomCover\s+' + [regex]::Escape($version) + '(\s|$)')) {
+              $start = $i
+              break
+            }
+          }
+          if ($start -ge 0) {
+            $end = $lines.Count
+            for ($i = $start + 1; $i -lt $lines.Count; $i++) {
+              if ($lines[$i] -match '^#\s+FindRomCover\s') {
+                $end = $i
+                break
+              }
+            }
+            $section = @($lines[$start..($end - 1)])
+            while ($section.Count -gt 0 -and ($section[-1] -eq '---' -or [string]::IsNullOrWhiteSpace($section[-1]))) {
+              $section = if ($section.Count -gt 1) { @($section[0..($section.Count - 2)]) } else { @() }
+            }
+            if ($section.Count -gt 0) { $notes = $section -join [Environment]::NewLine }
+          }
+          if ([string]::IsNullOrWhiteSpace($notes)) {
+            Write-Host "No 'What's New' section found for $version in WhatsNew.md; falling back to a changelog link."
+            $notes = @(
+              "# FindRomCover $version — What's New",
+              '',
+              "See [WhatsNew.md](https://github.com/${{ github.repository }}/blob/$tag/WhatsNew.md) for the full changelog.",
+              '',
+              '## Download',
+              '',
+              "- ``${tag}_win-x64.zip`` — Windows x64",
+              "- ``${tag}_win-arm64.zip`` — Windows ARM64",
+              "- ``${tag}_linux-x64.zip`` — Linux x64",
+              "- ``${tag}_linux-arm64.zip`` — Linux ARM64",
+              "- ``${tag}_osx-arm64.zip`` — macOS Apple Silicon"
+            ) -join [Environment]::NewLine
+          }
+          else {
+            Write-Host "Release notes embedded from the What's New section for $version."
+          }
+          Set-Content -LiteralPath 'NOTES.md' -Value $notes -Encoding UTF8NoBOM
           Get-ChildItem -LiteralPath 'assets' -Force |
             Format-Table Name, Length -AutoSize |
             Out-String -Width 200 |
