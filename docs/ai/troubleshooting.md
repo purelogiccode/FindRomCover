@@ -45,6 +45,17 @@ The model list is cached per provider and lowercased base URL in `%LocalAppData%
 
 Wait for the quota to reset, enable billing, or switch providers.
 
+## "is not a valid model ID" (400)
+
+**Cause:** The Model box contained more than one model ID — for example the whole [recommended-models](recommended-models.md) list pasted at once. The provider receives the combined text and rejects it.
+
+**Status:** Fixed in 3.3.1. Saving or testing the settings keeps only the first ID and shows a "Model Adjusted" message; the runtime applies the same rule even when the settings file was edited by hand.
+
+**What to do:**
+
+- Open [AI Settings](settings.md), click **Test / Load Models**, and pick a single model from the list — or leave the field empty to use the provider default.
+- If you want to try a different model from the list, change the field and test again; only one ID is ever sent.
+
 ## The model cannot see images
 
 Symptoms: the model ignores the image, describes only the text, or returns nonsense.

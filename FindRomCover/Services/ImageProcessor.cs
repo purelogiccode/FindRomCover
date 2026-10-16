@@ -125,24 +125,65 @@ public static class ImageProcessor
             return new ImageSaveResult(false, "Source image could not be found.", "Image Not Found",
                 MessageIcon.Error);
 
+        MagickImage? magickImage = null;
+        string? firstReadError = null;
+        MagickException? readFailure = null;
+
         try
         {
-            var settings = GetMagickReadSettings(sourcePath);
-            using var magickImage = new MagickImage(sourcePath, settings);
+            magickImage = new MagickImage(sourcePath, GetMagickReadSettings(sourcePath));
+        }
+        catch (MagickException ex)
+        {
+            firstReadError = ex.Message;
+            readFailure = ex;
+        }
 
-            if (magickImage.Width == 0 || magickImage.Height == 0)
-                return new ImageSaveResult(false,
-                    "The image has zero width or height and cannot be processed.",
-                    "Image Processing Error",
-                    MessageIcon.Error,
-                    new InvalidOperationException("Image has zero dimensions"),
-                    $"Zero-dimension image: {sourcePath}");
+        if (magickImage == null)
+        {
+            // Some files only decode with tolerant settings: truncated or partially written
+            // PNGs (bad CRC) and files whose extension lies about the actual content. The
+            // display path (ImageLoader) already tolerates these, so the save path must too
+            // - otherwise a cover that displays correctly cannot be used (issues #68280,
+            // #68282, #68283).
+            LogService.Debug(
+                $"ImageProcessor: strict read failed for '{sourcePath}': {firstReadError}. Retrying with tolerant settings.");
+            try
+            {
+                magickImage = new MagickImage(sourcePath, GetTolerantMagickReadSettings());
+            }
+            catch (MagickException ex)
+            {
+                readFailure = ex;
+            }
+        }
 
-            magickImage.AutoOrient();
-            magickImage.Quality = 90;
-            magickImage.Format = MagickFormat.Png;
+        if (magickImage == null)
+            return new ImageSaveResult(false,
+                $"Error processing image with Magick.NET: {readFailure?.Message}",
+                "Image Processing Error",
+                MessageIcon.Error,
+                readFailure,
+                $"Magick.NET error for '{sourcePath}': {firstReadError} / tolerant retry: {readFailure?.Message}");
 
-            return await WriteImageWithRetryAsync(magickImage, targetPath, sourcePath, cancellationToken);
+        try
+        {
+            using (magickImage)
+            {
+                if (magickImage.Width == 0 || magickImage.Height == 0)
+                    return new ImageSaveResult(false,
+                        "The image has zero width or height and cannot be processed.",
+                        "Image Processing Error",
+                        MessageIcon.Error,
+                        new InvalidOperationException("Image has zero dimensions"),
+                        $"Zero-dimension image: {sourcePath}");
+
+                magickImage.AutoOrient();
+                magickImage.Quality = 90;
+                magickImage.Format = MagickFormat.Png;
+
+                return await WriteImageWithRetryAsync(magickImage, targetPath, sourcePath, cancellationToken);
+            }
         }
         catch (MagickException ex)
         {
@@ -151,7 +192,7 @@ public static class ImageProcessor
                 "Image Processing Error",
                 MessageIcon.Error,
                 ex,
-                $"Magick.NET error: {sourcePath}");
+                $"Magick.NET error for '{sourcePath}': {ex.Message}");
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -162,7 +203,7 @@ public static class ImageProcessor
                 "File Access Error",
                 MessageIcon.Error,
                 ex,
-                $"File access error: {sourcePath}");
+                $"File access error for '{sourcePath}': {ex.Message}");
         }
     }
 
@@ -288,6 +329,20 @@ public static class ImageProcessor
             _ => MagickFormat.Unknown
         };
 
+        return settings;
+    }
+
+    /// <summary>
+    ///     Builds tolerant Magick.NET read settings used as the fallback when the strict,
+    ///     extension-based read fails. Mirrors <see cref="ImageLoader" />: the format is
+    ///     auto-detected from the content (the extension may lie) and PNG CRC mismatches
+    ///     (partially written or slightly damaged files) are ignored.
+    /// </summary>
+    /// <returns>The tolerant read settings.</returns>
+    internal static MagickReadSettings GetTolerantMagickReadSettings()
+    {
+        var settings = new MagickReadSettings { FrameIndex = 0, FrameCount = 1 };
+        settings.SetDefine(MagickFormat.Png, "ignore-crc", true);
         return settings;
     }
 }

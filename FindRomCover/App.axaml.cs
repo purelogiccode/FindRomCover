@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -209,12 +210,29 @@ public class App : Application
 
         TaskScheduler.UnobservedTaskException += (_, args) =>
         {
-            LogService.Error(args.Exception, "Unobserved task exception");
+            if (IsWebViewAdapterLifecycleFailure(args.Exception))
+                LogService.WarningTransient(args.Exception,
+                    "Ignored a WebView2 adapter exception during initialization/teardown.");
+            else
+                LogService.Error(args.Exception, "Unobserved task exception");
             args.SetObserved();
         };
 
         Dispatcher.UIThread.UnhandledException += (_, args) =>
         {
+            if (IsWebViewAdapterLifecycleFailure(args.Exception))
+            {
+                // Known race inside Avalonia's WebView2 adapter, not an application bug:
+                // the adapter either completes its async initialization after the window
+                // closed (E_ABORT) or processes a pending size change after its controller
+                // was torn down (ERROR_INVALID_STATE). Reported by issues #68251, #68252,
+                // #68285 and #68286 - log as transient instead of alerting the user.
+                LogService.WarningTransient(args.Exception,
+                    "Ignored a WebView2 adapter exception during initialization/teardown.");
+                args.Handled = true;
+                return;
+            }
+
             LogService.Error(args.Exception, "Unhandled dispatcher exception (UI Thread)");
             Dispatcher.UIThread.Post(() => Dialogs.ShowMessage(null,
                 "An unexpected error occurred.\n\n" +
@@ -223,6 +241,35 @@ public class App : Application
                 "Error", MessageIcon.Error));
             args.Handled = true;
         };
+    }
+
+    /// <summary>
+    ///     Detects the WebView2 adapter lifecycle failures reported by issues #68251, #68252,
+    ///     #68285 and #68286: Avalonia's WebView2 adapter throws a COM exception (E_ABORT or
+    ///     ERROR_INVALID_STATE) from its asynchronous initialization or from a pending
+    ///     size-change notification after its controller was already closed. These originate
+    ///     inside the framework during window startup or shutdown, so they are environmental
+    ///     races instead of application bugs.
+    /// </summary>
+    /// <param name="exception">The exception (possibly an AggregateException) to inspect.</param>
+    /// <returns>True when the failure is a known WebView2 adapter lifecycle race.</returns>
+    private static bool IsWebViewAdapterLifecycleFailure(Exception? exception)
+    {
+        for (var current = exception; current != null; current = current.InnerException)
+        {
+            if (current is AggregateException aggregateException)
+            {
+                if (aggregateException.InnerExceptions.Any(IsWebViewAdapterLifecycleFailure)) return true;
+                continue;
+            }
+
+            if (current is COMException comException &&
+                (uint)comException.HResult is 0x80004004 or 0x8007139F &&
+                comException.StackTrace?.Contains("WebView", StringComparison.OrdinalIgnoreCase) == true)
+                return true;
+        }
+
+        return false;
     }
 
     private static void OnDesktopExit(object? sender, ControlledApplicationLifetimeExitEventArgs e)

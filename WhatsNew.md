@@ -1,3 +1,35 @@
+# FindRomCover 3.3.1 — What's New
+
+## Fixes & Improvements
+
+- **Web search no longer errors on launch or exit** — Avalonia's WebView2 adapter can fail while the window is opening or closing (`Operation aborted` / `ERROR_INVALID_STATE` COM exceptions). These framework races were reported as application errors; they are now recognized, logged as transient, and never show an error dialog ([#68285](https://github.com/purelogiccode/FindRomCover/issues/68285), [#68286](https://github.com/purelogiccode/FindRomCover/issues/68286), [#68251](https://github.com/purelogiccode/FindRomCover/issues/68251), [#68252](https://github.com/purelogiccode/FindRomCover/issues/68252)).
+- **Web tabs work from managed or read-only installs** — the embedded browser (WebView2 on Windows) now keeps its profile in your per-user data folder (`%LocalAppData%\FindRomCover\WebView2`) instead of next to the executable, so launcher-managed tool folders can no longer abort the web view.
+- **Cover files that display can now be used** — "Use This Image" failed with a `Magick.NET error` when the saved file's content did not match its extension (or a partially written PNG had a CRC mismatch), even though the image displayed fine. The save path now falls back to content detection exactly like the display path, and failed saves log the real error message ([#68280](https://github.com/purelogiccode/FindRomCover/issues/68280), [#68282](https://github.com/purelogiccode/FindRomCover/issues/68282), [#68283](https://github.com/purelogiccode/FindRomCover/issues/68283)).
+- **Pasting several model IDs is handled** — pasting the whole recommended-models list into the Model box made every AI request fail with "... is not a valid model ID" ([#68255](https://github.com/purelogiccode/FindRomCover/issues/68255)). Only the first ID is kept now, the app tells you when the field was adjusted, and the runtime ignores extra IDs even in hand-edited settings.
+- **Screenshot stability** — the screenshot service no longer captures a bitmap that is disposed before the save delegate runs.
+
+## Under the Hood
+
+- **885 passing tests**; screenshot, image-conversion, and model-resolution regressions are covered by new tests.
+- The legacy WPF project is gone from the repository and the application icon is back on every window and the tray icon (`FindRomCover/icon/`).
+- **True single-file bundles** — the native libraries (Skia, HarfBuzz, Magick.NET, SQLite) are now embedded in the executable; the .NET 10 runtime is still required and never bundled.
+- Dependency updates: Avalonia.Controls.WebView 12.1.1, MessagePack 3.1.12, Microsoft.Data.Sqlite / DependencyInjection 10.0.13, EFCore analyzers 10.0.13, Meziantou.Analyzer 3.0.303, .NET test SDK 18.11.0.
+- Version bumped to **3.3.1**.
+
+## Download
+
+- `release_3.3.1_win-x64.zip` — Windows x64
+- `release_3.3.1_win-arm64.zip` — Windows ARM64
+- `release_3.3.1_linux-x64.zip` — Linux x64
+- `release_3.3.1_linux-arm64.zip` — Linux ARM64
+- `release_3.3.1_osx-arm64.zip` — macOS Apple Silicon
+
+> **Note:** there is no Intel-Mac build: Magick.NET 15 (the image conversion engine) no longer ships a macOS x64 native library. Replacing it with a fully cross-platform engine is planned for a future release.
+
+All builds are framework-dependent single-file executables and require the [.NET 10.0 runtime](https://dotnet.microsoft.com/download/dotnet/10.0) (the **Desktop Runtime** on Windows). Extract and run `FindRomCover.exe` on Windows or `FindRomCover` on Linux/macOS. Each archive also contains `LICENSE.txt`, `README.md`, and `WhatsNew.md`.
+
+---
+
 # FindRomCover 3.3.0 — What's New
 
 ## Cross-Platform Release (Avalonia)

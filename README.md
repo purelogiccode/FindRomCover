@@ -41,7 +41,7 @@ It supports **Local Similarity Search** across your existing image folder, plus 
 
 - **Documentation site**: [purelogiccode.github.io/FindRomCover](https://purelogiccode.github.io/FindRomCover/)
 - **Wiki**: [github.com/purelogiccode/FindRomCover/wiki](https://github.com/purelogiccode/FindRomCover/wiki)
-- **What's New in 3.3**: [WhatsNew.md](WhatsNew.md)
+- **What's New in 3.3.1**: [WhatsNew.md](WhatsNew.md)
 - **Source**: [`docs/`](docs/) — built with MkDocs Material and synced to the wiki by CI
 - **Recommended AI models**: [RecommendedModels.md](RecommendedModels.md)
 
@@ -101,7 +101,7 @@ You can add or remove supported extensions through the `Settings > Edit Supporte
     | `release_<version>_linux-arm64.zip` | Linux ARM64 |
     | `release_<version>_osx-arm64.zip` | macOS Apple Silicon |
 
-    Each archive also contains `LICENSE.txt`, `README.md`, and `WhatsNew.md`. There is no Intel-Mac build because Magick.NET 15 no longer ships a macOS x64 native library.
+    Each archive contains a single `FindRomCover` executable with the native libraries embedded (the .NET 10 runtime is required and **not** bundled), plus `LICENSE.txt`, `README.md`, and `WhatsNew.md`. There is no Intel-Mac build because Magick.NET 15 no longer ships a macOS x64 native library.
 2. **Extract** the archive to a folder of your choice.
 3. **Run** `FindRomCover.exe` on Windows, or the `FindRomCover` executable on Linux/macOS (you may need `chmod +x FindRomCover` first).
 4. **Configure API keys** (if using Google API search, see Setup section below).

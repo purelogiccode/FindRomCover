@@ -8,6 +8,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
+using Avalonia.Platform;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using FindRomCover.Managers;
@@ -109,6 +110,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             IsSearching = false;
             StatusMessage.Text = "Bing web search loaded.";
         };
+
+        ConfigureWebViewEnvironment(GoogleWebView, "Google");
+        ConfigureWebViewEnvironment(BingWebView, "Bing");
 
         InitializeNotifyIcon();
 
@@ -459,6 +463,34 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     private static Task InitializeWebViewsAsync()
     {
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    ///     Gives the WebView2 adapter a writable per-user data folder with its own profile
+    ///     name. The default folder lives next to the executable, which fails with E_ABORT
+    ///     in managed or read-only installations (for example launcher-managed tool folders)
+    ///     and aborts the adapter initialization (issues #68285, #68286).
+    /// </summary>
+    /// <param name="webView">The web view whose WebView2 environment is configured.</param>
+    /// <param name="profileName">Folder name of the per-view profile below the app data folder.</param>
+    private static void ConfigureWebViewEnvironment(NativeWebView webView, string profileName)
+    {
+        webView.EnvironmentRequested += (_, args) =>
+        {
+            try
+            {
+                if (args is not WindowsWebView2EnvironmentRequestedEventArgs webView2Args) return;
+
+                var userDataFolder = Path.Combine(AppDataPaths.BaseDirectory, "WebView2", profileName);
+                Directory.CreateDirectory(userDataFolder);
+                webView2Args.UserDataFolder = userDataFolder;
+            }
+            catch (Exception ex)
+            {
+                LogService.WarningTransient(ex,
+                    $"Could not configure the WebView2 user data folder for the {profileName} web view.");
+            }
+        };
     }
 
     private Task<bool> EnsureWebViewReadyAsync(NativeWebView webView, string viewName)

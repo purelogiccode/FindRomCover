@@ -57,6 +57,10 @@ If the platform web view runtime cannot be used, FindRomCover shows a dialog tha
 
 The web search is then opened in your **system browser** instead, the status bar shows `Web view component is not ready.`, and web searches continue to use the system browser for the rest of the session. All other features keep working normally.
 
+## Where the embedded browser stores its data
+
+On Windows, the WebView2 profile (cache, cookies, and local storage) lives in the per-user data folder — `%LocalAppData%\FindRomCover\WebView2` — with a separate profile per web tab, instead of next to the executable. This keeps the embedded browser working when FindRomCover is installed in a launcher-managed or read-only folder. Deleting the `WebView2` folder resets the embedded browser. macOS and Linux use their native web view's own storage.
+
 ## MAME data
 
 MAME arcade titles often have cryptic filenames. When `Settings > Use MAME Descriptions` is enabled, FindRomCover looks up the game in `mame.dat` (shipped with the application) and uses the full description for the search query instead of the cleaned filename.

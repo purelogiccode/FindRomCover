@@ -133,6 +133,7 @@ public partial class AiSettingsWindow : Window
             var baseUrl = (TxtBaseUrl.Text ?? string.Empty).Trim();
             var apiKey = (TxtApiKey.Text ?? string.Empty).Trim();
             var enabled = ChkAiEnabled.IsChecked == true;
+            var model = GetSingleModelId(CmbModel.Text, notifyUser: true);
 
             if (!string.IsNullOrEmpty(baseUrl) && !Uri.TryCreate(baseUrl, UriKind.Absolute, out _))
             {
@@ -146,7 +147,7 @@ public partial class AiSettingsWindow : Window
                 or AppConstants.AiProviders.CustomAnthropic;
 
             if (enabled && isCustomProvider &&
-                (string.IsNullOrWhiteSpace(baseUrl) || string.IsNullOrWhiteSpace(CmbModel.Text)))
+                (string.IsNullOrWhiteSpace(baseUrl) || string.IsNullOrWhiteSpace(model)))
             {
                 await Dialogs.ShowMessageAsync(this,
                     "A Base URL and a Model are required for custom providers.",
@@ -186,7 +187,7 @@ public partial class AiSettingsWindow : Window
             _settingsManager.AiProvider = provider;
             _settingsManager.AiBaseUrl = baseUrl;
             _settingsManager.AiApiKey = apiKey;
-            _settingsManager.AiModel = (CmbModel.Text ?? string.Empty).Trim();
+            _settingsManager.AiModel = model;
             _settingsManager.AiTimeoutSeconds = timeout;
             _settingsManager.AiMaxCandidates = maxCandidates;
             _settingsManager.AiImageMaxDimension = imageMaxDimension;
@@ -232,6 +233,7 @@ public partial class AiSettingsWindow : Window
         {
             var provider = SelectedProvider;
             var baseUrl = (TxtBaseUrl.Text ?? string.Empty).Trim();
+            var model = GetSingleModelId(CmbModel.Text, notifyUser: true);
 
             if (!string.IsNullOrEmpty(baseUrl) && !Uri.TryCreate(baseUrl, UriKind.Absolute, out _))
             {
@@ -246,7 +248,7 @@ public partial class AiSettingsWindow : Window
                 provider,
                 string.IsNullOrWhiteSpace(baseUrl) ? DefaultBaseUrl(provider) : baseUrl,
                 (TxtApiKey.Text ?? string.Empty).Trim(),
-                string.IsNullOrWhiteSpace(CmbModel.Text) ? DefaultModel(provider) : CmbModel.Text.Trim(),
+                string.IsNullOrWhiteSpace(model) ? DefaultModel(provider) : model,
                 ParseInt(TxtTimeout.Text, 90),
                 6,
                 512,
@@ -267,8 +269,8 @@ public partial class AiSettingsWindow : Window
             ModelCache.Set(ModelCacheKey, models);
             ApplyModelFilter();
 
-            var modelAvailable = models.Any(model =>
-                string.Equals(model.Id, options.Model, StringComparison.OrdinalIgnoreCase));
+            var modelAvailable = models.Any(modelInfo =>
+                string.Equals(modelInfo.Id, options.Model, StringComparison.OrdinalIgnoreCase));
             var visionCount = models.Count(static model => model.IsVisionCapable);
 
             TxtTestStatus.Text = models.Count == 0
@@ -375,6 +377,36 @@ public partial class AiSettingsWindow : Window
         {
             LogService.Error(ex, "Error filtering the AI model list.");
         }
+    }
+
+    /// <summary>
+    ///     Returns the single model ID that should be used from the Model box. When several
+    ///     whitespace-separated IDs were pasted (for example the whole recommended-models
+    ///     list), only the first one is kept and the user is informed; providers reject the
+    ///     raw pasted list with a confusing "not a valid model ID" error (issue #68255).
+    /// </summary>
+    /// <param name="rawText">The raw content of the Model box.</param>
+    /// <param name="notifyUser">True to show a message and update the box when IDs were dropped.</param>
+    /// <returns>A single trimmed model ID, or an empty string when none was entered.</returns>
+    private string GetSingleModelId(string? rawText, bool notifyUser)
+    {
+        var trimmed = (rawText ?? string.Empty).Trim();
+        if (trimmed.Length == 0) return string.Empty;
+
+        var tokens = trimmed.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+        if (tokens.Length <= 1) return trimmed;
+
+        if (notifyUser)
+        {
+            CmbModel.Text = tokens[0];
+            Dialogs.ShowMessage(this,
+                "The Model box contained multiple model IDs.\n\n" +
+                $"Only the first one will be used:\n\n{tokens[0]}\n\n" +
+                "Tip: click 'Test / Load Models' to pick a model from the provider's list.",
+                "Model Adjusted", MessageIcon.Warning);
+        }
+
+        return tokens[0];
     }
 
     private static string DefaultBaseUrl(string provider)

@@ -74,7 +74,7 @@ Then copy the contents of `wiki-out` into a clone of the wiki repository and pus
 
 ## Release process
 
-Releases are produced automatically by `release.yml`, which runs when a tag named `release_*` (for example `release_3.3.0`) is pushed:
+Releases are produced automatically by `release.yml`, which runs when a tag named `release_*` (for example `release_3.3.1`) is pushed:
 
 1. Update the version in `FindRomCover/FindRomCover.csproj` (`Version`, `AssemblyVersion`, and `FileVersion`) and in `FindRomCover.Tests/FindRomCover.Tests.csproj` (`AssemblyVersion` and `FileVersion`) — keep both in sync.
 2. Update `README.md`, `WhatsNew.md`, and `docs/release-notes.md`.
@@ -82,11 +82,11 @@ Releases are produced automatically by `release.yml`, which runs when a tag name
 4. Create and push the tag:
 
    ```bash
-   git tag release_3.3.0
-   git push origin release_3.3.0
+   git tag release_3.3.1
+   git push origin release_3.3.1
    ```
 
-5. `release.yml` builds five framework-dependent single-file bundles and creates the GitHub release with them attached:
+5. `release.yml` builds five framework-dependent single-file bundles (the native libraries are embedded into the executable; the .NET runtime is never bundled) and creates the GitHub release with them attached:
 
    | Runner | Bundles |
    |--------|---------|
@@ -103,7 +103,7 @@ Releases are produced automatically by `release.yml`, which runs when a tag name
 
 ## Versioning
 
-Versions follow a `major.minor.patch` scheme. Tags use the `release_` prefix (for example `release_3.3.0`). The application version lives in the project file, and the documentation release notes mirror the GitHub releases.
+Versions follow a `major.minor.patch` scheme. Tags use the `release_` prefix (for example `release_3.3.1`). The application version lives in the project file, and the documentation release notes mirror the GitHub releases.
 
 ## Related pages
 

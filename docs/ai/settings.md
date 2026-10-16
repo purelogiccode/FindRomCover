@@ -10,7 +10,7 @@
 | **Provider** | OpenRouter, OpenAI, Anthropic, Gemini, GLM, Local, or a custom endpoint |
 | **Base URL** | Editable API base URL; preset per provider. Custom (OpenAI-compatible) has no preset and requires one |
 | **API Key** | Provider key; stored encrypted and never logged. Required for OpenRouter, OpenAI, Anthropic, Gemini and GLM; optional for Local and custom endpoints |
-| **Model** | Model identifier; use **Test / Load Models** to pick from the provider list |
+| **Model** | Model identifier; use **Test / Load Models** to pick from the provider list. Enter exactly **one** ID — if you paste several (for example the whole recommended-models list), only the first one is kept and the app tells you when the field was adjusted |
 | **Test / Load Models** | Verifies the connection and loads the model list from `<Base URL>/models` |
 | **Filter box** | Narrows the loaded model list by text |
 | **Vision-capable only** | Hides models that most likely cannot analyze images (default on) |
@@ -25,6 +25,7 @@ When you save with AI Assist enabled:
 - Custom providers require both a Base URL and a Model.
 - OpenRouter, OpenAI, Anthropic, Gemini, and GLM require an API key.
 - Local never requires an API key.
+- The Model field must contain a single model ID. Pasted multi-ID text (for example the whole recommended-models list) is reduced to the first ID, and the app shows a "Model Adjusted" message when it changes the field.
 
 The loaded model list is cached per provider and lowercased base URL for 7 days in `%LocalAppData%\FindRomCover\ai-models.json`. If a connection test fails, the previously cached list stays loaded; after changing the base URL the list is empty until you click **Test / Load Models**.
 

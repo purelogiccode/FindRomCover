@@ -738,7 +738,8 @@ public class SettingsManager : INotifyPropertyChanged
     /// <returns>The configured model name, or the provider-specific default model.</returns>
     public string GetEffectiveAiModel()
     {
-        if (!string.IsNullOrWhiteSpace(_aiModel)) return _aiModel.Trim();
+        var configuredModel = NormalizeModelId(_aiModel);
+        if (!string.IsNullOrWhiteSpace(configuredModel)) return configuredModel;
 
         return _aiProvider switch
         {
@@ -751,6 +752,21 @@ public class SettingsManager : INotifyPropertyChanged
             AppConstants.AiProviders.CustomOpenAi => string.Empty,
             _ => AppConstants.AiProviders.DefaultOpenRouterModel
         };
+    }
+
+    /// <summary>
+    ///     Collapses pasted multi-model text (for example the whole recommended-models list
+    ///     from the documentation) to its first model ID. Providers reject the raw pasted
+    ///     list with a confusing "not a valid model ID" error (issue #68255).
+    /// </summary>
+    /// <param name="model">The raw configured model text.</param>
+    /// <returns>The first whitespace-separated token, or an empty string when none exists.</returns>
+    internal static string NormalizeModelId(string? model)
+    {
+        if (string.IsNullOrWhiteSpace(model)) return string.Empty;
+
+        var tokens = model.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        return tokens.Length == 0 ? string.Empty : tokens[0];
     }
 
     /// <summary>

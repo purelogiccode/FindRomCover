@@ -11,9 +11,9 @@
         <ApplicationManifest>app.manifest</ApplicationManifest>
         <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
         <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
-        <Version>3.3.0</Version>
-        <AssemblyVersion>3.3.0</AssemblyVersion>
-        <FileVersion>3.3.0</FileVersion>
+        <Version>3.3.1</Version>
+        <AssemblyVersion>3.3.1</AssemblyVersion>
+        <FileVersion>3.3.1</FileVersion>
         <Company>PureLogicCode.com</Company>
         <NeutralLanguage>en</NeutralLanguage>
         <IsPackable>false</IsPackable>
@@ -36,13 +36,13 @@
 
     <ItemGroup>
         <PackageReference Include="Avalonia" Version="12.1.4" />
-        <PackageReference Include="Avalonia.Controls.WebView" Version="12.1.0" />
+        <PackageReference Include="Avalonia.Controls.WebView" Version="12.1.1" />
         <PackageReference Include="Avalonia.Desktop" Version="12.1.4" />
         <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.4" />
         <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.4" />
         <PackageReference Include="Magick.NET-Q16-AnyCPU" Version="15.0.0" />
-        <PackageReference Include="MessagePack" Version="3.1.11" />
-        <PackageReference Include="Meziantou.Analyzer" Version="3.0.299">
+        <PackageReference Include="MessagePack" Version="3.1.12" />
+        <PackageReference Include="Meziantou.Analyzer" Version="3.0.303">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
@@ -50,8 +50,8 @@
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
-        <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.12" />
-        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.12" />
+        <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.13" />
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.13" />
         <PackageReference Include="Roslynator.Analyzers" Version="5.0.1">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

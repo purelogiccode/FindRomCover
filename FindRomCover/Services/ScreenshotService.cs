@@ -37,8 +37,18 @@ public static class ScreenshotService
             using var bitmap = new RenderTargetBitmap(new PixelSize(width, height), new Vector(96, 96));
             bitmap.Render(window);
 
+            // Encode the bitmap while it is still alive and let the write delegate capture
+            // only the resulting bytes. Capturing 'bitmap' directly would keep the closure
+            // alive past the 'using' scope (access to disposed closure warning).
+            byte[] pngBytes;
+            using (var stream = new MemoryStream())
+            {
+                bitmap.Save(stream, new PngBitmapEncoderOptions());
+                pngBytes = stream.ToArray();
+            }
+
             return SaveScreenshot(
-                filePath => bitmap.Save(filePath, new PngBitmapEncoderOptions()),
+                filePath => File.WriteAllBytes(filePath, pngBytes),
                 DateTime.Now);
         }
         catch (Exception ex)

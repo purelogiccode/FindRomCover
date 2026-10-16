@@ -2,6 +2,37 @@
 
 Complete version history for FindRomCover. Download links for each release are available on the [Releases](https://github.com/purelogiccode/FindRomCover/releases) page.
 
+## 3.3.1 — 2026-10-16
+
+### Fixes & Improvements
+
+- **Web view startup/shutdown errors removed** — Avalonia's WebView2 adapter can throw `Operation aborted` (E_ABORT) while the window opens or `ERROR_INVALID_STATE` while it closes; both are framework races, not application bugs. They are now recognized in the global exception handlers and logged as transient events instead of appearing as runtime errors ([#68285](https://github.com/purelogiccode/FindRomCover/issues/68285), [#68286](https://github.com/purelogiccode/FindRomCover/issues/68286), [#68251](https://github.com/purelogiccode/FindRomCover/issues/68251), [#68252](https://github.com/purelogiccode/FindRomCover/issues/68252)).
+- **Writable WebView2 profile** — each web tab gets its own data folder under `%LocalAppData%\FindRomCover\WebView2`, so the embedded browser initializes even from launcher-managed or read-only installations instead of aborting.
+- **Tolerant image conversion** — "Use This Image" no longer fails with `Magick.NET error` for files whose extension does not match their content (or partially written PNGs with CRC mismatches). The strict extension-based read falls back to content detection with `ignore-crc`, mirroring the display path ([#68280](https://github.com/purelogiccode/FindRomCover/issues/68280), [#68282](https://github.com/purelogiccode/FindRomCover/issues/68282), [#68283](https://github.com/purelogiccode/FindRomCover/issues/68283)).
+- **Real error details in save failures** — the `Magick.NET` log context now includes the exception message instead of only the source path, so field reports are diagnosable.
+- **Single model ID enforcement** — pasting multiple model IDs (for example the whole recommended-models list) into the AI Settings Model box made every request fail with "... is not a valid model ID" ([#68255](https://github.com/purelogiccode/FindRomCover/issues/68255)). Saving or testing now keeps only the first ID and informs the user; `GetEffectiveAiModel` applies the same rule at runtime, so hand-edited settings cannot send a combined ID.
+- **Screenshot delegate fix** — the screenshot write delegate no longer captures the bitmap across its `using` scope.
+
+### Under the Hood
+
+- **885 passing tests** (up from 879): regressions cover content-sniffing image conversion, multi-ID model resolution, and screenshot saving.
+- **Single-file bundles** — `IncludeNativeLibrariesForSelfExtract=true` embeds Skia, HarfBuzz, Magick.NET, and SQLite natives in the executable; builds remain framework-dependent (the .NET 10 runtime is never bundled).
+- The legacy WPF project was removed from the repository and the application icon restored for every window, the binary, and the tray (`FindRomCover/icon/`).
+- Dependency updates: Avalonia.Controls.WebView 12.1.1, MessagePack 3.1.12, Microsoft.Data.Sqlite / DependencyInjection 10.0.13, EFCore analyzers 10.0.13, Meziantou.Analyzer 3.0.303, .NET test SDK 18.11.0.
+- Version bumped to **3.3.1**.
+
+### Downloads
+
+- `release_3.3.1_win-x64.zip` — Windows x64
+- `release_3.3.1_win-arm64.zip` — Windows ARM64
+- `release_3.3.1_linux-x64.zip` — Linux x64
+- `release_3.3.1_linux-arm64.zip` — Linux ARM64
+- `release_3.3.1_osx-arm64.zip` — macOS Apple Silicon
+
+> **Note:** there is no Intel-Mac build: Magick.NET 15 (the image conversion engine) no longer ships a macOS x64 native library.
+
+All builds are framework-dependent single-file executables and require the [.NET 10.0 runtime](https://dotnet.microsoft.com/download/dotnet/10.0) (the **Desktop Runtime** on Windows). Extract and run `FindRomCover.exe` on Windows or `FindRomCover` on Linux/macOS. Each archive also contains `LICENSE.txt`, `README.md`, and `WhatsNew.md`.
+
 ## 3.3.0 — 2026-10-11
 
 ### Cross-Platform Release

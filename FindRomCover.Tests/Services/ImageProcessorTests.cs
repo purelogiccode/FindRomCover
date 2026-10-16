@@ -445,4 +445,28 @@ public class ImageProcessorTests : IDisposable
         savedImage.Width.Should().Be(30);
         savedImage.Height.Should().Be(30);
     }
+
+    [Fact]
+    public async Task ConvertAndSaveImageAsyncShouldFallBackToContentSniffingWhenExtensionIsWrong()
+    {
+        // A JPEG that is named .png: the strict extension-based read fails, so the
+        // tolerant content-sniffing retry must still convert it (regression for the
+        // "Magick.NET error" save failures, issues #68280, #68282, #68283).
+        var jpegPath = Path.Combine(_testDir, "actually-jpeg.jpg");
+        using (var image = new MagickImage(MagickColors.Blue, 20, 20))
+        {
+            image.Format = MagickFormat.Jpeg;
+            image.Write(jpegPath);
+        }
+
+        var disguisedPath = Path.Combine(_testDir, "disguised.png");
+        File.Copy(jpegPath, disguisedPath);
+
+        var targetPath = Path.Combine(_testDir, "converted-disguised.png");
+        var result = await ImageProcessor.ConvertAndSaveImageAsync(disguisedPath, targetPath, CancellationToken.None);
+
+        result.Success.Should().BeTrue();
+        using var savedImage = new MagickImage(targetPath);
+        savedImage.Format.Should().Be(MagickFormat.Png);
+    }
 }

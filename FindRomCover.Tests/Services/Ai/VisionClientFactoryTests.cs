@@ -65,4 +65,24 @@ public class VisionClientFactoryTests
         settings.GetEffectiveAiBaseUrl().Should().Be(expectedBaseUrl);
         settings.GetEffectiveAiModel().Should().Be(expectedModel);
     }
+
+    [Theory]
+    [InlineData("google/gemma-4-26b-a4b-it qwen/qwen3.7-flash amazon/nova-lite-v1",
+        "google/gemma-4-26b-a4b-it")]
+    [InlineData("qwen/qwen3.7-flash\namazon/nova-lite-v1", "qwen/qwen3.7-flash")]
+    [InlineData("  gpt-4o-mini\t", "gpt-4o-mini")]
+    [InlineData("   ", AppConstants.AiProviders.DefaultOpenRouterModel)]
+    [InlineData(null, AppConstants.AiProviders.DefaultOpenRouterModel)]
+    public void EffectiveModelShouldKeepOnlyTheFirstPastedId(string? configuredModel, string expectedModel)
+    {
+        // Pasting the whole recommended-models list made every AI call fail with a
+        // confusing provider error (issue #68255). Only the first ID must be used.
+        var settings = new SettingsManager
+        {
+            AiProvider = AppConstants.AiProviders.OpenRouter,
+            AiModel = configuredModel ?? string.Empty
+        };
+
+        settings.GetEffectiveAiModel().Should().Be(expectedModel);
+    }
 }

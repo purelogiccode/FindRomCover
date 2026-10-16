@@ -8,7 +8,7 @@ Yes. FindRomCover is free software licensed under the GNU General Public License
 
 ### Which platforms are supported?
 
-Windows 10 and later, Linux, and macOS. Version 3.3.0 is built with Avalonia 12.1.4 on .NET 10, so the same application runs on all three platforms. The embedded browser uses the native web view of each platform: WebView2 on Windows, WKWebView on macOS, and WebKitGTK on Linux.
+Windows 10 and later, Linux, and macOS. Version 3.3.1 is built with Avalonia 12.1.4 on .NET 10, so the same application runs on all three platforms. The embedded browser uses the native web view of each platform: WebView2 on Windows, WKWebView on macOS, and WebKitGTK on Linux.
 
 ### Does it download ROMs?
 
