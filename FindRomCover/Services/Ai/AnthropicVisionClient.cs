@@ -127,7 +127,9 @@ public sealed class AnthropicVisionClient : VisionModelClientBase
             messages = new object[] { new { role = "user", content } }
         };
 
-        return JsonSerializer.Serialize(payload);
+        return AiRequestParameters.ApplyToJson(
+            JsonSerializer.Serialize(payload),
+            options.RequestParametersJson);
     }
 
     /// <summary>

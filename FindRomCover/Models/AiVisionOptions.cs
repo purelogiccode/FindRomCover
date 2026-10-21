@@ -16,6 +16,9 @@ namespace FindRomCover.Models;
 /// <param name="AutoRun">Whether the AI pick runs automatically after a search.</param>
 /// <param name="VerifyOnSave">Whether saved covers are verified by the AI.</param>
 /// <param name="CandidateThreshold">Minimum local similarity score (0-100) for a candidate to be sent to the model.</param>
+/// <param name="RequestParametersJson">
+///     Optional JSON object merged into every provider request body. Empty means the provider defaults are used.
+/// </param>
 public sealed record AiVisionOptions(
     bool Enabled,
     string Provider,
@@ -29,4 +32,5 @@ public sealed record AiVisionOptions(
     bool AutoSave,
     bool AutoRun,
     bool VerifyOnSave,
-    double CandidateThreshold);
+    double CandidateThreshold,
+    string RequestParametersJson = "");

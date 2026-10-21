@@ -64,6 +64,7 @@ public partial class AiSettingsWindow : Window
             TxtBaseUrl.Text = _settingsManager.AiBaseUrl;
             TxtApiKey.Text = _settingsManager.AiApiKey;
             CmbModel.Text = _settingsManager.AiModel;
+            TxtRequestParameters.Text = _settingsManager.AiRequestParameters;
             TxtTimeout.Text = _settingsManager.AiTimeoutSeconds.ToString(CultureInfo.InvariantCulture);
             TxtMaxCandidates.Text = _settingsManager.AiMaxCandidates.ToString(CultureInfo.InvariantCulture);
             TxtImageMaxDimension.Text = _settingsManager.AiImageMaxDimension.ToString(CultureInfo.InvariantCulture);
@@ -166,6 +167,16 @@ public partial class AiSettingsWindow : Window
                 return;
             }
 
+            var requestParameters = (TxtRequestParameters.Text ?? string.Empty).Trim();
+            if (!AiRequestParameters.TryParse(requestParameters, out _, out var requestParametersError))
+            {
+                await Dialogs.ShowMessageAsync(this,
+                    "The custom request parameters are not valid.\n\n" + requestParametersError,
+                    "Invalid Request Parameters", MessageIcon.Warning);
+                TxtRequestParameters.Focus();
+                return;
+            }
+
             var (timeoutOk, timeout) = TryParseIntInRange(TxtTimeout.Text, 10, 300,
                 "Request timeout (seconds)");
             var (maxCandidatesOk, maxCandidates) = TryParseIntInRange(TxtMaxCandidates.Text, 1, 20,
@@ -188,6 +199,7 @@ public partial class AiSettingsWindow : Window
             _settingsManager.AiBaseUrl = baseUrl;
             _settingsManager.AiApiKey = apiKey;
             _settingsManager.AiModel = model;
+            _settingsManager.AiRequestParameters = requestParameters;
             _settingsManager.AiTimeoutSeconds = timeout;
             _settingsManager.AiMaxCandidates = maxCandidates;
             _settingsManager.AiImageMaxDimension = imageMaxDimension;
@@ -256,7 +268,8 @@ public partial class AiSettingsWindow : Window
                 false,
                 false,
                 false,
-                70);
+                70,
+                (TxtRequestParameters.Text ?? string.Empty).Trim());
 
             BtnTest.IsEnabled = false;
             TxtTestStatus.Text = "Contacting provider...";
@@ -291,6 +304,14 @@ public partial class AiSettingsWindow : Window
         {
             BtnTest.IsEnabled = true;
         }
+    }
+
+    private void BtnRequestParametersExample_Click(object? sender, RoutedEventArgs e)
+    {
+        TxtRequestParameters.Text = string.Equals(SelectedProvider, AppConstants.AiProviders.Gemini,
+            StringComparison.Ordinal)
+            ? "{\n  \"generationConfig\": {\n    \"temperature\": 0.2,\n    \"topP\": 0.9\n  }\n}"
+            : "{\n  \"temperature\": 0.2,\n  \"top_p\": 0.9\n}";
     }
 
     private async void BtnClearHistory_ClickAsync(object? sender, RoutedEventArgs e)

@@ -123,7 +123,9 @@ public sealed class OpenAiCompatibleVisionClient : VisionModelClientBase
             payload["max_tokens"] = 4096;
         }
 
-        return JsonSerializer.Serialize(payload);
+        return AiRequestParameters.ApplyToJson(
+            JsonSerializer.Serialize(payload),
+            options.RequestParametersJson);
     }
 
     /// <summary>

@@ -121,4 +121,23 @@ public class SettingsManagerTests : IDisposable
         // Settings are saved to the SQLite settings database
         File.Exists(Path.Combine(_settingsDirectory, "Settings.dat")).Should().BeTrue();
     }
+
+    [Fact]
+    public void AiRequestParametersShouldPersistAndReachVisionOptions()
+    {
+        const string parameters = "{\"temperature\":0.25,\"top_p\":0.9}";
+
+        var settings = new SettingsManager(_settingsDirectory)
+        {
+            AiRequestParameters = parameters
+        };
+
+        settings.SaveSettings();
+
+        var loadedSettings = new SettingsManager(_settingsDirectory);
+        loadedSettings.LoadSettings();
+
+        loadedSettings.AiRequestParameters.Should().Be(parameters);
+        loadedSettings.GetAiVisionOptions().RequestParametersJson.Should().Be(parameters);
+    }
 }

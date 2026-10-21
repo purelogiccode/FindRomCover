@@ -74,6 +74,9 @@ public class SettingsData
     /// <summary>Identifier of the AI model to use.</summary>
     public string AiModel { get; set; } = string.Empty;
 
+    /// <summary>Optional JSON request parameters merged into AI provider requests.</summary>
+    public string AiRequestParameters { get; set; } = string.Empty;
+
     /// <summary>Timeout in seconds for AI requests.</summary>
     public int AiTimeoutSeconds { get; set; } = 90;
 

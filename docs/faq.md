@@ -94,7 +94,7 @@ Yes. Run Ollama or LM Studio and select the **Local** provider. See [Providers &
 
 ### Why does the AI sometimes return no answer?
 
-Reasoning models can exhaust their output budget before writing an answer. FindRomCover allows 4,096 output tokens and reports a clear error if that still happens; switching to a non-reasoning model usually solves it. See [AI Troubleshooting](ai/troubleshooting.md).
+Reasoning models can exhaust their output budget before writing an answer. FindRomCover allows 4,096 output tokens by default and reports a clear error if that still happens; switching to a non-reasoning model usually solves it, or you can raise the budget with the custom request parameters. See [AI Troubleshooting](ai/troubleshooting.md).
 
 ### Does AI ever delete or overwrite my files?
 

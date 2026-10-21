@@ -29,7 +29,7 @@ OpenRouter exposes modality metadata, so the model picker knows exactly which mo
 2. Select **OpenAI**, paste the key, and click **Test / Load Models**.
 3. Choose a vision-capable model such as `gpt-4o-mini` or `gpt-5-nano`.
 
-The OpenAI adapter uses the shared OpenAI-compatible client. Reasoning models (`o1`, `o3`, `o4`, `gpt-5*`) are called without `temperature` and with `max_completion_tokens`; other models use `temperature` and `max_tokens`. All requests allow up to 4,096 output tokens, and JSON is parsed from the response text.
+The OpenAI adapter uses the shared OpenAI-compatible client. Reasoning models (`o1`, `o3`, `o4`, `gpt-5*`) are called without `temperature` and with `max_completion_tokens`; other models use `temperature` and `max_tokens`. All requests allow up to 4,096 output tokens by default, and JSON is parsed from the response text.
 
 ## Anthropic
 
@@ -128,7 +128,7 @@ All adapters share one abstraction with identical timeouts, JPEG downscaling, JS
 - Anthropic and Custom (Anthropic-compatible) endpoints share the native Anthropic adapter using `/messages`.
 - Gemini uses its native adapter and calls `generateContent` with inline image data.
 
-Every client requests up to 4,096 output tokens. OpenAI reasoning models (`o1`, `o3`, `o4`, `gpt-5*`) use `max_completion_tokens` and omit `temperature`; other models use `temperature` and `max_tokens`. FindRomCover always prompts for JSON and extracts the JSON object from the response text, so models without a native JSON mode still work.
+Every client requests up to 4,096 output tokens by default. OpenAI reasoning models (`o1`, `o3`, `o4`, `gpt-5*`) use `max_completion_tokens` and omit `temperature`; other models use `temperature` and `max_tokens`. Override these defaults with the [custom request parameters](settings.md#custom-request-parameters) JSON in AI Settings. FindRomCover always prompts for JSON and extracts the JSON object from the response text, so models without a native JSON mode still work.
 
 The local pick prompt asks for the official cover or box art of the exact game and allows the model to answer `-1` when no candidate is genuine cover art. The API-fallback prompt is slightly more lenient: it prefers a game cover or an in-game screenshot over a photo of the physical cartridge, cart, or disc, and accepts an in-game screenshot when no cover art exists. The prompt version participates in the verdict cache key, so prompt changes invalidate old cached answers.
 

@@ -53,7 +53,7 @@ CREATE TABLE Settings (
 );
 ```
 
-Every setting is stored under its property name, for example `BaseTheme`, `SimilarityThreshold`, `AiProvider`, `AiModel`. List values such as `SupportedExtensions` are stored as JSON arrays.
+Every setting is stored under its property name, for example `BaseTheme`, `SimilarityThreshold`, `AiProvider`, `AiModel`, `AiRequestParameters`. List values such as `SupportedExtensions` are stored as JSON arrays.
 
 ### Encryption
 

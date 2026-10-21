@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text;
+using System.Text.Json;
 using FindRomCover.Models;
 using FindRomCover.Services.Ai;
 using FluentAssertions;
@@ -47,6 +48,22 @@ public class AnthropicVisionClientTests
         body.Should().Contain("\"type\":\"image\"");
         body.Should().Contain("base64");
         body.Should().Contain("claude-sonnet-4-5");
+    }
+
+    [Fact]
+    public void BuildRequestBodyShouldApplyCustomRequestParameters()
+    {
+        var options = CreateOptions() with
+        {
+            RequestParametersJson = "{\"max_tokens\":8192,\"temperature\":0.3}"
+        };
+
+        var body = AnthropicVisionClient.BuildRequestBody(options, "system", "user", CreateImages());
+
+        using var document = JsonDocument.Parse(body);
+        document.RootElement.GetProperty("max_tokens").GetInt32().Should().Be(8192);
+        document.RootElement.GetProperty("temperature").GetDouble().Should().Be(0.3);
+        document.RootElement.GetProperty("model").GetString().Should().Be("claude-sonnet-4-5");
     }
 
     [Fact]

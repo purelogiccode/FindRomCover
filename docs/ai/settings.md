@@ -29,6 +29,29 @@ When you save with AI Assist enabled:
 
 The loaded model list is cached per provider and lowercased base URL for 7 days in `%LocalAppData%\FindRomCover\ai-models.json`. If a connection test fails, the previously cached list stays loaded; after changing the base URL the list is empty until you click **Test / Load Models**.
 
+## Custom request parameters
+
+The **Custom request parameters** box is an advanced, optional JSON object that is merged into every AI request body. Use it to tune values the app otherwise fixes (temperature, output tokens, penalties) or to pass provider-specific options.
+
+| Provider family | Example | Notes |
+|-----------------|---------|-------|
+| OpenAI, OpenRouter, GLM, Local, custom OpenAI | `{"temperature": 0.2, "top_p": 0.9}` | Top-level chat-completions fields |
+| Anthropic, custom Anthropic | `{"max_tokens": 8192, "temperature": 0.3}` | `max_tokens` is required by the Messages API and defaults to 4096 |
+| Gemini | `{"generationConfig": {"temperature": 0.2, "topP": 0.9}}` | Nested objects are merged, so `maxOutputTokens` keeps its default |
+
+Rules:
+
+- The value must be a JSON **object**; arrays, strings, and numbers are rejected.
+- Objects are merged recursively; arrays replace the default value.
+- Set a field to `null` to remove it: `{"temperature": null}`.
+- These keys are reserved and rejected on save because the app generates them: `model`, `messages`, `contents`, `system`, `systemInstruction`, and `stream`.
+- OpenAI reasoning models (`o1`, `o3`, `o4`, `gpt-5*`) reject `temperature` and `max_tokens`; use `max_completion_tokens` for those models.
+- **Insert example** fills the box with an example for the selected provider.
+- Invalid JSON is rejected when saving. If a hand-edited value becomes invalid, it is ignored and logged instead of breaking AI requests.
+- The JSON is stored as plain configuration, not encrypted. Do not put secrets in it.
+
+For the exact fields accepted by each provider, see that provider's API documentation.
+
 ## Limits & behavior
 
 | Setting | Default | Range | Description |
@@ -67,7 +90,7 @@ The **Clear query history** button forgets every cover that was already queried.
 
 ## Where settings live
 
-AI settings are stored in `%LocalAppData%\FindRomCover\Settings.dat`. Only the API key (`AiApiKey`) is AES-encrypted; the provider, base URL, model, timeouts, thresholds, and toggles are plain key/value rows. The provider model list lives in `ai-models.json`, AI verdicts in `ai-cache.json`, and skipped covers in `QueryHistory.dat`. See [Data Storage](../configuration/data-storage.md).
+AI settings are stored in `%LocalAppData%\FindRomCover\Settings.dat`. Only the API key (`AiApiKey`) is AES-encrypted; the provider, base URL, model, custom request parameters (`AiRequestParameters`), timeouts, thresholds, and toggles are plain key/value rows. The provider model list lives in `ai-models.json`, AI verdicts in `ai-cache.json`, and skipped covers in `QueryHistory.dat`. See [Data Storage](../configuration/data-storage.md).
 
 ## Related pages
 

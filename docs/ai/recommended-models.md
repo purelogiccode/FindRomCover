@@ -67,7 +67,7 @@ Notes:
 - `:batch` variants are cheaper but asynchronous and do not work with FindRomCover's synchronous client.
 - Models without native JSON mode still work: FindRomCover prompts for JSON and parses it from the response text.
 - Image token cost is provider-dependent; the estimates above assume about 1,000 tokens per 512px thumbnail.
-- Reasoning models may spend output tokens on internal reasoning before producing text. FindRomCover allows up to 4,096 output tokens and reports a clear error if a model still exhausts the budget.
+- Reasoning models may spend output tokens on internal reasoning before producing text. FindRomCover allows up to 4,096 output tokens by default and reports a clear error if a model still exhausts the budget. Raise it with the custom request parameters if needed.
 
 ## How to use
 

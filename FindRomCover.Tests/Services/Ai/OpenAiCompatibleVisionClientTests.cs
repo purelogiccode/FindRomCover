@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using System.Text;
+using System.Text.Json;
 using FindRomCover.Models;
 using FindRomCover.Services.Ai;
 using FluentAssertions;
@@ -175,6 +176,22 @@ public class OpenAiCompatibleVisionClientTests
         body.Should().Contain("\"max_tokens\"");
         body.Should().Contain("temperature");
         OpenAiCompatibleVisionClient.IsOpenAiReasoningModel(options).Should().BeFalse();
+    }
+
+    [Fact]
+    public void BuildRequestBodyShouldApplyCustomRequestParameters()
+    {
+        var options = CreateOptions() with
+        {
+            RequestParametersJson = "{\"temperature\":0.42,\"top_p\":0.8}"
+        };
+
+        var body = OpenAiCompatibleVisionClient.BuildRequestBody(options, "system", "user", CreateImages());
+
+        using var document = JsonDocument.Parse(body);
+        document.RootElement.GetProperty("temperature").GetDouble().Should().Be(0.42);
+        document.RootElement.GetProperty("top_p").GetDouble().Should().Be(0.8);
+        document.RootElement.GetProperty("model").GetString().Should().Be("test-model");
     }
 
     [Fact]

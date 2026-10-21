@@ -83,6 +83,8 @@ public class SettingsManager : INotifyPropertyChanged
 
     private string _aiProvider = AppConstants.AiProviders.OpenRouter;
 
+    private string _aiRequestParameters = string.Empty;
+
     private bool _aiSkipPreviouslyQueried = true;
 
     private int _aiTimeoutSeconds = 90;
@@ -556,6 +558,23 @@ public class SettingsManager : INotifyPropertyChanged
     }
 
     /// <summary>
+    ///     Gets or sets optional JSON request parameters merged into every AI provider
+    ///     request body. Empty means the provider defaults are used.
+    /// </summary>
+    public string AiRequestParameters
+    {
+        get => _aiRequestParameters;
+        set
+        {
+            value = value?.Trim() ?? string.Empty;
+            if (string.Equals(_aiRequestParameters, value, StringComparison.Ordinal)) return;
+
+            _aiRequestParameters = value;
+            OnPropertyChanged(nameof(AiRequestParameters));
+        }
+    }
+
+    /// <summary>
     ///     Gets or sets the AI request timeout in seconds (10-300).
     /// </summary>
     public int AiTimeoutSeconds
@@ -788,7 +807,8 @@ public class SettingsManager : INotifyPropertyChanged
             AiAutoSave,
             AiAutoRun,
             AiVerifyOnSave,
-            AiCandidateThreshold);
+            AiCandidateThreshold,
+            AiRequestParameters);
     }
 
     /// <summary>
@@ -1009,6 +1029,7 @@ public class SettingsManager : INotifyPropertyChanged
         AiBaseUrl = data.AiBaseUrl;
         AiApiKey = data.AiApiKey;
         AiModel = data.AiModel;
+        AiRequestParameters = data.AiRequestParameters;
         AiTimeoutSeconds = data.AiTimeoutSeconds;
         AiMaxCandidates = data.AiMaxCandidates;
         AiImageMaxDimension = data.AiImageMaxDimension;
@@ -1048,6 +1069,7 @@ public class SettingsManager : INotifyPropertyChanged
         AiBaseUrl = GetString(values, nameof(AiBaseUrl), AiBaseUrl);
         AiApiKey = GetSecret(values, nameof(AiApiKey), AiApiKey);
         AiModel = GetString(values, nameof(AiModel), AiModel);
+        AiRequestParameters = GetString(values, nameof(AiRequestParameters), AiRequestParameters);
         AiTimeoutSeconds = GetInt(values, nameof(AiTimeoutSeconds), AiTimeoutSeconds);
         AiMaxCandidates = GetInt(values, nameof(AiMaxCandidates), AiMaxCandidates);
         AiImageMaxDimension = GetInt(values, nameof(AiImageMaxDimension), AiImageMaxDimension);
@@ -1365,6 +1387,7 @@ public class SettingsManager : INotifyPropertyChanged
             [nameof(AiProvider)] = AiProvider,
             [nameof(AiBaseUrl)] = AiBaseUrl,
             [nameof(AiModel)] = AiModel,
+            [nameof(AiRequestParameters)] = AiRequestParameters,
             [nameof(AiTimeoutSeconds)] = AiTimeoutSeconds.ToString(CultureInfo.InvariantCulture),
             [nameof(AiMaxCandidates)] = AiMaxCandidates.ToString(CultureInfo.InvariantCulture),
             [nameof(AiImageMaxDimension)] = AiImageMaxDimension.ToString(CultureInfo.InvariantCulture),
@@ -1433,6 +1456,7 @@ public class SettingsManager : INotifyPropertyChanged
         _aiBaseUrl = string.Empty;
         _aiApiKey = string.Empty;
         _aiModel = string.Empty;
+        _aiRequestParameters = string.Empty;
         _aiTimeoutSeconds = 90;
         _aiMaxCandidates = 6;
         _aiImageMaxDimension = 512;

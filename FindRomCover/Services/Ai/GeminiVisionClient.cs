@@ -133,7 +133,9 @@ public sealed class GeminiVisionClient : VisionModelClientBase
             generationConfig = new { temperature = 0.1, maxOutputTokens = 4096 }
         };
 
-        return JsonSerializer.Serialize(payload);
+        return AiRequestParameters.ApplyToJson(
+            JsonSerializer.Serialize(payload),
+            options.RequestParametersJson);
     }
 
     /// <summary>

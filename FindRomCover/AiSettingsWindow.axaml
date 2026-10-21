@@ -79,6 +79,27 @@
                     </StackPanel>
                 </GroupBox>
 
+                <GroupBox Header="Custom request parameters" Margin="0,0,0,15"
+                          ToolTip.Tip="Advanced JSON merged into every AI request body">
+                    <StackPanel Margin="5">
+                        <TextBlock TextWrapping="Wrap" Opacity="0.8"
+                                   Text="Optional JSON object merged into every AI request. Use it to set temperature, token limits, reasoning options, or provider-specific fields. Reserved keys are managed by the app." />
+                        <TextBox x:Name="TxtRequestParameters" Margin="0,5,0,0" Height="100"
+                                 AcceptsReturn="True" TextWrapping="Wrap"
+                                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                 FontFamily="Consolas"
+                                 PlaceholderText='{}{"temperature": 0.2, "top_p": 0.9}'
+                                 ToolTip.Tip="Examples: OpenAI/Anthropic {&quot;temperature&quot;: 0.2}; Gemini {&quot;generationConfig&quot;: {&quot;temperature&quot;: 0.2}}; set a value to null to remove a default field" />
+                        <Grid Margin="0,4,0,0" ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" TextWrapping="Wrap" Opacity="0.75" VerticalAlignment="Center"
+                                       Text="Reserved keys: model, messages, contents, system, systemInstruction, stream." />
+                            <Button Grid.Column="1" x:Name="BtnRequestParametersExample" Content="Insert example"
+                                    Padding="8,2" Click="BtnRequestParametersExample_Click"
+                                    ToolTip.Tip="Replace the box with an example for the selected provider" />
+                        </Grid>
+                    </StackPanel>
+                </GroupBox>
+
                 <GroupBox Header="Limits &amp; Behavior" Margin="0,0,0,15"
                           ToolTip.Tip="Controls how many images are analyzed and when results are saved">
                     <StackPanel Margin="5">

@@ -6,14 +6,14 @@ This page covers problems specific to AI Vision Assist. For general application 
 
 **Cause:** Some models are reasoning models — they spend output tokens thinking before writing an answer. Older builds capped the output at 400 tokens, which a reasoning model can consume entirely, leaving no text and a `length` finish reason.
 
-**Status:** Fixed. FindRomCover now allows up to 4,096 output tokens and raises a descriptive error if a model still exhausts its budget, for example:
+**Status:** Fixed. FindRomCover now allows up to 4,096 output tokens by default and raises a descriptive error if a model still exhausts its budget, for example:
 
 > AI model ran out of output tokens before producing an answer. Reasoning models can spend the whole output budget on internal thinking; try a non-reasoning model (for example google/gemma-3-12b-it).
 
 **What to do:**
 
 - Use a model that is not a heavy reasoner for this task (for example `google/gemma-4-26b-a4b-it` or `gemma-3-12b-it`).
-- If the error persists with a reasoning model, choose a different model — the output budget is not user-configurable.
+- If the error persists with a reasoning model, raise the output budget with the [custom request parameters](settings.md#custom-request-parameters): `{"max_completion_tokens": 8192}` for OpenAI reasoning models, `{"max_tokens": 8192}` for Anthropic, or `{"generationConfig": {"maxOutputTokens": 8192}}` for Gemini.
 
 ## "API key is invalid" or 401/403 errors
 
@@ -63,6 +63,18 @@ Symptoms: the model ignores the image, describes only the text, or returns nonse
 - Open **Test / Load Models** and keep **Vision-capable only** checked — non-vision models are hidden.
 - Some providers report modality metadata inaccurately; if a model consistently fails, try another.
 - Local models must be multimodal; `qwen2.5vl:7b` is a good default.
+
+## Provider rejects a custom request parameter
+
+The **Custom request parameters** JSON is merged into the provider request body exactly as entered. If the provider returns a 400 error after you add a parameter, check the [log window](../configuration/logs.md) for its message.
+
+- Use the provider's own field names and nesting. Gemini options such as `temperature` and `topP` belong inside `generationConfig`; OpenAI and Anthropic options belong at the top level.
+- OpenAI reasoning models reject `temperature` and `max_tokens`; use `max_completion_tokens`.
+- `model`, `messages`, `contents`, `system`, `systemInstruction`, and `stream` are reserved; remove them from the JSON.
+- Set a field to `null` to remove a default, for example `{"temperature": null}`.
+- Clear the box and save to return to the application defaults.
+
+See [AI Settings](settings.md#custom-request-parameters) for examples.
 
 ## Timeouts
 

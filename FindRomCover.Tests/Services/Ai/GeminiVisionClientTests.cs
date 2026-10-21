@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text;
+using System.Text.Json;
 using FindRomCover.Models;
 using FindRomCover.Services.Ai;
 using FluentAssertions;
@@ -48,6 +49,23 @@ public class GeminiVisionClientTests
         body.Should().Contain("inlineData");
         body.Should().Contain("mimeType");
         body.Should().Contain("systemInstruction");
+    }
+
+    [Fact]
+    public void BuildRequestBodyShouldApplyCustomRequestParameters()
+    {
+        var options = CreateOptions() with
+        {
+            RequestParametersJson = "{\"generationConfig\":{\"temperature\":0.4,\"topP\":0.9}}"
+        };
+
+        var body = GeminiVisionClient.BuildRequestBody(options, "system", "user", CreateImages());
+
+        using var document = JsonDocument.Parse(body);
+        var generationConfig = document.RootElement.GetProperty("generationConfig");
+        generationConfig.GetProperty("temperature").GetDouble().Should().Be(0.4);
+        generationConfig.GetProperty("topP").GetDouble().Should().Be(0.9);
+        generationConfig.GetProperty("maxOutputTokens").GetInt32().Should().Be(4096);
     }
 
     [Fact]
