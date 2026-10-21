@@ -3,18 +3,8 @@ name: Docs
 on:
   push:
     branches: [ master ]
-    paths:
-      - 'docs/**'
-      - 'mkdocs.yml'
-      - 'scripts/Sync-Wiki.ps1'
-      - '.github/workflows/docs.yml'
   pull_request:
     branches: [ master ]
-    paths:
-      - 'docs/**'
-      - 'mkdocs.yml'
-      - 'scripts/Sync-Wiki.ps1'
-      - '.github/workflows/docs.yml'
   workflow_dispatch:
 
 concurrency:
@@ -52,6 +42,27 @@ jobs:
         with:
           path: site
 
+  wiki-preview:
+    name: Generate wiki pages
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Generate wiki pages
+        shell: pwsh
+        run: ./scripts/Sync-Wiki.ps1 -OutputPath wiki-out
+
+      - name: Upload wiki pages
+        uses: actions/upload-artifact@v7
+        with:
+          name: wiki-pages
+          path: wiki-out
+          if-no-files-found: error
+          retention-days: 7
+
   deploy:
     name: Deploy to GitHub Pages
     if: github.event_name != 'pull_request'
@@ -75,14 +86,11 @@ jobs:
   wiki:
     name: Sync GitHub wiki
     if: github.event_name != 'pull_request'
-    needs: build
+    needs: wiki-preview
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
       - name: Check wiki token
         id: wiki-token
         shell: pwsh
@@ -96,10 +104,12 @@ jobs:
             'available=true' >> $env:GITHUB_OUTPUT
           }
 
-      - name: Generate wiki pages
+      - name: Download generated wiki pages
         if: steps.wiki-token.outputs.available == 'true'
-        shell: pwsh
-        run: ./scripts/Sync-Wiki.ps1 -OutputPath wiki-out
+        uses: actions/download-artifact@v8
+        with:
+          name: wiki-pages
+          path: wiki-out
 
       - name: Publish wiki
         if: steps.wiki-token.outputs.available == 'true'

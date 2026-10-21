@@ -68,13 +68,9 @@ Findings appear under **Security > Code scanning**. CodeQL needs the `security-e
 
 ## Docs — GitHub Pages and wiki
 
-`docs.yml` runs on:
+`docs.yml` runs on every push to `master`, every pull request targeting `master`, and manual dispatch. It is intentionally not path-filtered: the documentation build and wiki generation are required checks, so they must run for every change.
 
-- pushes to `master` that touch `docs/**`, `mkdocs.yml`, `scripts/Sync-Wiki.ps1`, or `.github/workflows/docs.yml`;
-- pull requests with the same path filter (build only, nothing is deployed);
-- manual dispatch.
-
-### GitHub Pages job
+### Documentation build job
 
 1. Checks out the repository and installs Python 3.13 with a cached `pip` download directory.
 2. Installs MkDocs Material from `docs/requirements.txt`.
@@ -96,12 +92,14 @@ https://purelogiccode.github.io/FindRomCover/
 
 The left-hand navigation is generated from the `nav` section of `mkdocs.yml`.
 
-### Wiki job
+### Wiki generation and sync jobs
 
-The wiki job also runs only outside pull requests and waits for the documentation build:
+Every run generates the wiki pages with `scripts/Sync-Wiki.ps1` and uploads them as the `wiki-pages` artifact. The `Generate wiki pages` job is a required check, so a broken wiki conversion fails the pull request before merge.
+
+On non-pull-request runs, the sync job additionally:
 
 1. Checks whether the `WIKI_TOKEN` secret is configured; if not, the job stops with a clear message instead of failing.
-2. Runs `scripts/Sync-Wiki.ps1`, which converts `docs/` into wiki pages.
+2. Downloads the generated `wiki-pages` artifact.
 3. Clones `<owner>/<repo>.wiki.git` using the token.
 4. Copies the generated pages, `_Sidebar.md`, and `_Footer.md` into the wiki repository.
 5. Commits and pushes only when something changed.
@@ -171,23 +169,24 @@ The in-app update checker picks up the new release automatically: it reads the l
 
 Every Dependabot pull request runs the same CI, CodeQL, and dependency-review checks as a human contribution.
 
-## Recommended repository settings
+## Branch protection
 
-CI is only effective when it gates `master`. The workflows are ready, but GitHub does not enforce them until a ruleset or branch protection rule is configured:
+`master` is protected by a repository ruleset:
 
-1. Open **Settings > Rules > Rulesets** (or **Settings > Branches**).
-2. Target the `master` branch.
-3. Require the following status checks:
-   - `Build and test (Windows)`
-   - `Build app (ubuntu-latest)`
-   - `Build app (macos-latest)`
-   - `Formatting and analyzers`
-   - `Analyze C#` (CodeQL)
-4. Optionally require the branch to be up to date before merging.
+- force pushes and branch deletion are blocked;
+- these status checks are required before a pull request can merge:
+  - `Build and test (Windows)`
+  - `Build app (ubuntu-latest)`
+  - `Build app (macos-latest)`
+  - `Formatting and analyzers`
+  - `Analyze C#` (CodeQL)
+  - `Build documentation site`
+  - `Generate wiki pages`
+- the branch does not have to be up to date before merging, so unrelated pull requests are not forced to rebase.
 
-Do **not** require `Build documentation site` as a global check: `docs.yml` is path-filtered, so it does not run for every pull request.
+Direct pushes by maintainers remain allowed, and every push still runs the full check suite. The ruleset is configured under **Settings > Rules > Rulesets**.
 
-Administrators can keep a bypass rule for emergency direct pushes if the project does not enforce pull requests.
+`Dependency review` is intentionally not a required check: it depends on GitHub's advisory service and should not block an otherwise healthy pull request when that service is unavailable.
 
 ## Versioning
 
