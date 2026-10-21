@@ -38,6 +38,7 @@ jobs:
         run: mkdocs build --strict
 
       - name: Upload Pages artifact
+        if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v5
         with:
           path: site
@@ -56,6 +57,7 @@ jobs:
         run: ./scripts/Sync-Wiki.ps1 -OutputPath wiki-out
 
       - name: Upload wiki pages
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v7
         with:
           name: wiki-pages
