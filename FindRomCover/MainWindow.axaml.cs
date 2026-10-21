@@ -493,20 +493,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         };
     }
 
-    private Task<bool> EnsureWebViewReadyAsync(NativeWebView webView, string viewName)
+    private bool IsWebViewReady()
     {
-        if (_webView2Unavailable)
-            return Task.FromResult(false);
-
-        try
-        {
-            return Task.FromResult(true);
-        }
-        catch (Exception ex)
-        {
-            LogService.WarningTransient(ex, $"Failed to initialize the {viewName} web view");
-            return Task.FromResult(false);
-        }
+        return !_webView2Unavailable;
     }
 
     /// <summary>
@@ -553,8 +542,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             var result = await Dialogs.ShowQuestionAsync(this,
                 $"The embedded {runtimeName} is not available, so {viewName} web search cannot be displayed.\n\n" +
                 "Would you like to open the download page?",
-                "Web View Runtime Required",
-                MessageIcon.Warning);
+                "Web View Runtime Required");
 
             if (result == MessageResult.Yes && !UrlService.TryOpenUrl(downloadUrl))
                 await Dialogs.ShowMessageAsync(this,
@@ -821,7 +809,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             {
                 await Dialogs.ShowMessageAsync(this,
                     $"You are running the latest version (v{updateInfo.CurrentVersion}).",
-                    "No Updates Available", MessageIcon.Information);
+                    "No Updates Available");
             }
         }
         catch (Exception ex)
@@ -1077,7 +1065,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             {
                 await Dialogs.ShowMessageAsync(this,
                     "AI Assist is disabled.\n\nEnable it in Settings > AI Settings... to use this feature.",
-                    "AI Batch Fill", MessageIcon.Information);
+                    "AI Batch Fill");
                 return;
             }
 
@@ -1086,8 +1074,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
             if (MissingImages.Count == 0)
             {
-                await Dialogs.ShowMessageAsync(this, "There are no missing covers to process.", "AI Batch Fill",
-                    MessageIcon.Information);
+                await Dialogs.ShowMessageAsync(this, "There are no missing covers to process.", "AI Batch Fill");
                 return;
             }
 
@@ -1387,7 +1374,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
             var result = await Dialogs.ShowQuestionAsync(this,
                 $"Are you sure you want to permanently delete this file?\n\n{romFilePath}\n\nThis action cannot be undone.",
-                "Confirm Delete", MessageIcon.Warning);
+                "Confirm Delete");
 
             if (result != MessageResult.Yes) return;
 
@@ -2031,8 +2018,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             {
                 await Dialogs.ShowMessageAsync(this,
                     "A Google API key is required to use the Google API search.\n\nPlease enter your API key in the settings window that will open.",
-                    "API Key Required",
-                    MessageIcon.Information);
+                    "API Key Required");
 
                 var apiSettingsWindow = new ApiSettingsWindow(Settings);
                 await apiSettingsWindow.ShowDialog(this);

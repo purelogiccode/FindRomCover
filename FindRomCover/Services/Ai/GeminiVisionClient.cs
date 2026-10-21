@@ -90,7 +90,7 @@ public sealed class GeminiVisionClient : VisionModelClientBase
         if (string.IsNullOrWhiteSpace(baseUrl))
             throw new InvalidOperationException("AI Base URL is not configured.");
 
-        var modelId = model?.Trim() ?? string.Empty;
+        var modelId = model.Trim();
         if (modelId.StartsWith("models/", StringComparison.OrdinalIgnoreCase))
             modelId = modelId["models/".Length..];
 

@@ -55,7 +55,7 @@ public class VisionImagePreparerTests : IDisposable
     {
         var path = CreateImage("small.png", 64, 48);
 
-        var prepared = VisionImagePreparer.Prepare(path, 512);
+        var prepared = VisionImagePreparer.Prepare(path);
 
         using var result = new MagickImage(prepared.JpegBytes);
         result.Width.Should().Be(64);

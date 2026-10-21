@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using FindRomCover.Models;
 using Serilog;
@@ -42,6 +43,8 @@ public static class LogService
     ///     Gets the live collection of log entries displayed by <see cref="DebugWindow" />.
     /// </summary>
     /// <returns>The observable collection of log entries (maximum 5000 entries).</returns>
+    [SuppressMessage("ReSharper", "InconsistentlySynchronizedField",
+        Justification = "The live collection is returned for UI binding. Log mutations are marshalled to the UI thread by UiDispatcher; the collection lock only protects early or dispatcher-less writers.")]
     public static ObservableCollection<LogEntry> GetLogMessages()
     {
         return LogMessages;

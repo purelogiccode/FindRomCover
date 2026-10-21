@@ -121,7 +121,7 @@ public partial class SettingsWindow : Window
                     $"The following extensions contain invalid characters: {invalidList}\n\n" +
                     "Only letters, numbers, and hyphens are allowed in file extensions.\n\n" +
                     "Would you like to remove these invalid extensions and save the rest?",
-                    "Invalid Extensions", MessageIcon.Warning);
+                    "Invalid Extensions");
 
                 if (result == MessageResult.Yes)
                 {

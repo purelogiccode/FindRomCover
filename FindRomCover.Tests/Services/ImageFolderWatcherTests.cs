@@ -41,10 +41,11 @@ public class ImageFolderWatcherTests : IDisposable
         var (convertedPath, error) = await ImageFolderWatcher.ConvertToPngAsync(sourcePath);
 
         error.Should().BeNull();
-        convertedPath.Should().Be(Path.Combine(_testDir, "cover.png"));
+        var expectedPath = Path.Combine(_testDir, "cover.png");
+        convertedPath.Should().Be(expectedPath);
         File.Exists(sourcePath).Should().BeFalse();
-        File.Exists(convertedPath).Should().BeTrue();
-        ImageProcessor.IsValidPng(convertedPath!).Should().BeTrue();
+        File.Exists(expectedPath).Should().BeTrue();
+        ImageProcessor.IsValidPng(expectedPath).Should().BeTrue();
     }
 
     [Fact]
@@ -69,10 +70,11 @@ public class ImageFolderWatcherTests : IDisposable
         var (convertedPath, error) = await ImageFolderWatcher.ConvertToPngAsync(sourcePath);
 
         error.Should().BeNull();
-        convertedPath.Should().Be(Path.Combine(_testDir, "cover.png"));
+        var expectedPath = Path.Combine(_testDir, "cover.png");
+        convertedPath.Should().Be(expectedPath);
         File.Exists(sourcePath).Should().BeFalse();
-        File.Exists(convertedPath).Should().BeTrue();
-        ImageProcessor.IsValidPng(convertedPath!).Should().BeTrue();
+        File.Exists(expectedPath).Should().BeTrue();
+        ImageProcessor.IsValidPng(expectedPath).Should().BeTrue();
     }
 
     [Fact]

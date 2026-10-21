@@ -171,7 +171,7 @@ public sealed class AiQueryHistory
                     "ON CONFLICT(TargetPath) DO UPDATE SET QueriedUtc = excluded.QueriedUtc, Outcome = excluded.Outcome";
                 command.Parameters.AddWithValue("$path", key);
                 command.Parameters.AddWithValue("$queried", FormatTimestamp(DateTimeOffset.UtcNow));
-                command.Parameters.AddWithValue("$outcome", outcome ?? string.Empty);
+                command.Parameters.AddWithValue("$outcome", outcome);
                 command.ExecuteNonQuery();
 
                 Prune(connection);

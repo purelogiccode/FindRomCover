@@ -139,7 +139,7 @@ public sealed class OpenAiCompatibleVisionClient : VisionModelClientBase
         if (options.Provider is not (AppConstants.AiProviders.OpenAi or AppConstants.AiProviders.CustomOpenAi))
             return false;
 
-        var modelId = (options.Model ?? string.Empty).Trim();
+        var modelId = options.Model.Trim();
         var slash = modelId.LastIndexOf('/');
         if (slash >= 0) modelId = modelId[(slash + 1)..];
 

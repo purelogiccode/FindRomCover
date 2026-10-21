@@ -44,8 +44,7 @@ public partial class MainWindow
                 {
                     Dialogs.ShowMessage(this,
                         "A Google API key is required to use the Google API search.\n\nPlease enter your API key in the settings window that will open.",
-                        "API Key Required",
-                        MessageIcon.Information);
+                        "API Key Required");
 
                     var apiSettingsWindow = new ApiSettingsWindow(Settings);
                     _ = ShowApiSettingsAndResumeAsync(apiSettingsWindow, searchQuery);
@@ -235,7 +234,7 @@ public partial class MainWindow
         {
             await Dialogs.ShowMessageAsync(this,
                 "AI Assist is disabled.\n\nEnable it in Settings > AI Settings... to use this feature.",
-                "AI Assist", MessageIcon.Information);
+                "AI Assist");
             return;
         }
 
@@ -350,7 +349,7 @@ public partial class MainWindow
             var choice = await Dialogs.ShowQuestionAsync(this,
                 $"AI thinks this image is not a cover for '{romName}'.\n\n" +
                 $"{verification.Reason}\n\nSave it anyway?",
-                "AI Verification", MessageIcon.Warning);
+                "AI Verification");
 
             if (choice != MessageResult.Yes) return;
         }

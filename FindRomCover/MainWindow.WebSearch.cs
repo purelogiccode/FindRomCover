@@ -20,7 +20,7 @@ public partial class MainWindow
     {
         try
         {
-            if (!await EnsureWebViewReadyAsync(BingWebView, "Bing"))
+            if (!IsWebViewReady())
             {
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
@@ -54,7 +54,7 @@ public partial class MainWindow
     {
         try
         {
-            if (!await EnsureWebViewReadyAsync(GoogleWebView, "Google"))
+            if (!IsWebViewReady())
             {
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
@@ -207,7 +207,6 @@ public partial class MainWindow
         // The ".tmp<hex>" suffix keeps the watcher away and lets startup cleanup
         // remove the file if the app crashes mid-download.
         var tempFileName = newFileName + ".tmp" + Guid.NewGuid().ToString("N")[..8];
-        var saved = false;
 
         try
         {
@@ -229,7 +228,7 @@ public partial class MainWindow
                 var choice = await Dialogs.ShowQuestionAsync(this,
                     $"AI thinks this image is not a cover for '{romName}'.\n\n" +
                     $"{verification.Reason}\n\nKeep the downloaded file anyway?",
-                    "AI Verification", MessageIcon.Warning);
+                    "AI Verification");
 
                 if (choice != MessageResult.Yes) return;
             }
@@ -243,8 +242,7 @@ public partial class MainWindow
             }
 
             _imageFolderWatcher?.PreRegisterExpectedFile(newFileName);
-            saved = await MoveFileWithRetryAsync(tempFileName, newFileName);
-            if (!saved)
+            if (!await MoveFileWithRetryAsync(tempFileName, newFileName))
             {
                 _imageFolderWatcher?.UnregisterExpectedFile(newFileName);
                 await Dialogs.ShowMessageAsync(this, $"The image could not be saved to '{newFileName}'.", "Save Failed",
@@ -270,8 +268,6 @@ public partial class MainWindow
                 LogService.WarningTransient(cleanupEx, $"Could not remove temporary download '{tempFileName}'.");
             }
         }
-
-        if (!saved) return;
 
         App.AudioService.PlayClickSound();
         RemoveMissingItemByName(romName);
@@ -365,7 +361,7 @@ public partial class MainWindow
         {
             await Dialogs.ShowMessageAsync(this,
                 "AI Assist is disabled.\n\nEnable it in Settings > AI Settings... to use this feature.",
-                "AI Assist", MessageIcon.Information);
+                "AI Assist");
             return;
         }
 

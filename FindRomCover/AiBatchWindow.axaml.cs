@@ -47,7 +47,8 @@ public partial class AiBatchWindow : Window
         InitializeComponent();
 
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
-        _items = items?.ToList() ?? throw new ArgumentNullException(nameof(items));
+        ArgumentNullException.ThrowIfNull(items);
+        _items = items.ToList();
         _imageFolderPath = imageFolderPath;
         _preRegisterExpectedFile = preRegisterExpectedFile;
         _extraQuery = extraQuery ?? string.Empty;
@@ -85,7 +86,7 @@ public partial class AiBatchWindow : Window
             {
                 await Dialogs.ShowMessageAsync(this,
                     "AI Assist is disabled.\n\nEnable it in Settings > AI Settings... to use this feature.",
-                    "AI Batch Fill", MessageIcon.Information);
+                    "AI Batch Fill");
                 return;
             }
 

@@ -70,7 +70,7 @@ public class SimilarityCalculatorEdgeCaseTests
     public void CalculateLevenshteinSimilarityWithThresholdOfZeroShouldNotAffectResult()
     {
         var withoutThreshold = SimilarityCalculator.CalculateLevenshteinSimilarity("hello", "hallo");
-        var withZeroThreshold = SimilarityCalculator.CalculateLevenshteinSimilarity("hello", "hallo", 0);
+        var withZeroThreshold = SimilarityCalculator.CalculateLevenshteinSimilarity("hello", "hallo");
 
         withZeroThreshold.Should().Be(withoutThreshold);
     }

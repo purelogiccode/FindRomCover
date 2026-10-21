@@ -68,7 +68,7 @@ public class ImageData : INotifyPropertyChanged
             if (ReferenceEquals(_imageSource, value)) return;
 
             _imageSource = value;
-            OnPropertyChanged(nameof(ImageSource));
+            OnPropertyChanged();
             OnPropertyChanged(nameof(DisplayImage));
         }
     }

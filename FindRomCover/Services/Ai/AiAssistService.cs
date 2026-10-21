@@ -163,7 +163,7 @@ public sealed class AiAssistService : IDisposable
             return null;
         }
 
-        var input = new VisionImageInput(Path.GetFileName(imagePath) ?? imagePath, prepared, 0);
+        var input = new VisionImageInput(Path.GetFileName(imagePath), prepared, 0);
         var cacheKey = BuildCacheKey("verify", options, romName, searchName, [input]);
 
         if (_cache.TryGet<AiVerificationResult>(cacheKey, out var cached) && cached != null)
@@ -244,7 +244,7 @@ public sealed class AiAssistService : IDisposable
             {
                 var prepared = VisionImagePreparer.Prepare(path, maxDimension);
                 var name = string.IsNullOrWhiteSpace(candidates[i].ImageName)
-                    ? Path.GetFileNameWithoutExtension(path) ?? path
+                    ? Path.GetFileNameWithoutExtension(path)
                     : candidates[i].ImageName!;
 
                 inputs.Add(new VisionImageInput(name, prepared, i));

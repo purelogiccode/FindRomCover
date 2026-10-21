@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
@@ -512,6 +513,7 @@ public class SettingsManager : INotifyPropertyChanged
     /// <summary>
     ///     Gets or sets the custom AI API base URL; empty means the provider default is used.
     /// </summary>
+    [AllowNull]
     public string AiBaseUrl
     {
         get => _aiBaseUrl;
@@ -528,6 +530,7 @@ public class SettingsManager : INotifyPropertyChanged
     /// <summary>
     ///     Gets or sets the API key used for AI vision requests.
     /// </summary>
+    [AllowNull]
     public string AiApiKey
     {
         get => _aiApiKey;
@@ -544,6 +547,7 @@ public class SettingsManager : INotifyPropertyChanged
     /// <summary>
     ///     Gets or sets the AI model name; empty means the provider default is used.
     /// </summary>
+    [AllowNull]
     public string AiModel
     {
         get => _aiModel;
@@ -561,6 +565,7 @@ public class SettingsManager : INotifyPropertyChanged
     ///     Gets or sets optional JSON request parameters merged into every AI provider
     ///     request body. Empty means the provider defaults are used.
     /// </summary>
+    [AllowNull]
     public string AiRequestParameters
     {
         get => _aiRequestParameters;

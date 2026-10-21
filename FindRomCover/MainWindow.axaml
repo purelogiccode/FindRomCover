@@ -2,6 +2,7 @@
         xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="using:FindRomCover.Controls"
+        xmlns:models="using:FindRomCover.Models"
         xmlns:webview="using:Avalonia.Controls"
         Title="Find Rom Cover"
         MinWidth="900"
@@ -12,7 +13,7 @@
         ToolTip.Tip="Find ROM cover images for your collection">
 
     <Window.Resources>
-        <DataTemplate x:Key="LocalImageCellTemplate">
+        <DataTemplate x:Key="LocalImageCellTemplate" x:DataType="models:ImageData">
             <Button Theme="{StaticResource ImageSuggestionButtonTheme}"
                     Click="ImageCell_Click"
                     ToolTip.Tip="{Binding ImageName, StringFormat='Click to assign: {0}'}">
@@ -41,7 +42,7 @@
             </Button>
         </DataTemplate>
 
-        <DataTemplate x:Key="ApiImageCellTemplate">
+        <DataTemplate x:Key="ApiImageCellTemplate" x:DataType="models:ImageData">
             <Button Theme="{StaticResource ImageSuggestionButtonTheme}" Click="SaveApiImage_ClickAsync"
                     ToolTip.Tip="Click to save this image as cover art">
                 <StackPanel Width="{Binding ThumbnailWidth}">
@@ -371,7 +372,7 @@
                                      BorderThickness="0"
                                      ToolTip.Tip="Select a ROM to search for its cover image">
                                 <ListBox.ItemTemplate>
-                                    <DataTemplate>
+                                    <DataTemplate x:DataType="models:MissingImageItem">
                                         <TextBlock Text="{Binding RomName}"
                                                    ToolTip.Tip="ROM file name missing a cover" />
                                     </DataTemplate>

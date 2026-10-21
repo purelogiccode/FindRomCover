@@ -146,7 +146,7 @@ public static class ButtonFactory
 
             Dialogs.ShowMessage(TopLevel.GetTopLevel(owner) as Window,
                 $"Filename '{filenameWithoutExtension}' copied to clipboard!",
-                "Copied", MessageIcon.Information);
+                "Copied");
         }
         catch (Exception ex)
         {
@@ -166,24 +166,24 @@ public static class ButtonFactory
             if (OperatingSystem.IsWindows())
             {
                 var sanitizedPath = imagePath.Replace("\"", "", StringComparison.Ordinal);
-                Process.Start(new ProcessStartInfo
+                using var process = Process.Start(new ProcessStartInfo
                 {
                     FileName = "explorer.exe",
                     Arguments = $"/select,\"{sanitizedPath}\"",
                     UseShellExecute = true
-                })?.Dispose();
+                });
             }
             else if (OperatingSystem.IsMacOS())
             {
-                Process.Start("open", ["-R", imagePath])?.Dispose();
+                using var process = Process.Start("open", ["-R", imagePath]);
             }
             else
             {
-                Process.Start(new ProcessStartInfo
+                using var process = Process.Start(new ProcessStartInfo
                 {
                     FileName = Path.GetDirectoryName(imagePath) ?? ".",
                     UseShellExecute = true
-                })?.Dispose();
+                });
             }
         }
         catch (Exception ex)
