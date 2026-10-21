@@ -69,7 +69,7 @@ Zip the contents as `release_<version>_<rid>.zip` (for example `release_3.3.1_wi
 | `mame.dat` | Copied to the output directory on every build |
 | `settings.dat` | Never copied to the output directory |
 
-> **Note:** `FindRomCover.Tests.csproj` declares the same version; keep both project files in sync when preparing a release. See [CI/CD](ci-cd.md).
+> **Note:** `FindRomCover.Tests.csproj` declares the same version; keep both project files in sync when preparing a release. `release.yml` fails the release when a project version differs from the tag. See [CI/CD](ci-cd.md).
 
 ## Documentation build
 

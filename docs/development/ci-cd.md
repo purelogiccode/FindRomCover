@@ -1,37 +1,87 @@
 # CI/CD
 
-FindRomCover uses GitHub Actions for continuous integration, documentation publishing, and releases. Three workflows live in `.github/workflows`.
+FindRomCover uses GitHub Actions for continuous integration, code scanning, documentation publishing, and releases. Four workflows live in `.github/workflows`, and Dependabot keeps their dependencies current.
 
-## CI — build and test
+| Workflow | Purpose |
+|----------|---------|
+| `ci.yml` | Build, test, formatting, and dependency review |
+| `codeql.yml` | CodeQL code scanning |
+| `docs.yml` | GitHub Pages and GitHub wiki |
+| `release.yml` | Validate, test, and publish a tagged release |
+
+## CI — build, test, and formatting
 
 `ci.yml` runs on every push to `master`, every pull request targeting `master`, and manually via `workflow_dispatch`.
+
+### Build and test job
 
 | Step | Detail |
 |------|--------|
 | Runner | `windows-latest` |
 | SDK | .NET `10.0.x` |
+| Cache | NuGet packages, keyed by the project files |
 | Restore | `dotnet restore CSharp_FindRomCover.sln` |
-| Build | `dotnet build --configuration Release --no-restore` |
-| Test | `dotnet test --configuration Release --no-build --verbosity normal` |
+| Build | `dotnet build --configuration Release --no-restore -warnaserror` |
+| Test | `dotnet test --configuration Release --no-build` with Cobertura coverage and TRX results |
+| Artifacts | `test-results` (TRX + `coverage.cobertura.xml`, kept for 14 days) |
+
+The test project targets `net10.0-windows`, so the suite always runs on Windows even though the application itself is cross-platform.
+
+The build treats warnings as errors. This enforces the warning-free policy for the Meziantou, Roslynator, and Microsoft.CodeAnalysis analyzers configured in the projects.
+
+Coverage is summarized in the workflow run page and uploaded as an artifact. It is informational: there is no coverage threshold gate, so the report shows trends without blocking unrelated changes.
+
+### Cross-platform build job
+
+The application is cross-platform, so a matrix job builds `FindRomCover/FindRomCover.csproj` on `ubuntu-latest` and `macos-latest` with the same Release configuration and warning-as-error setting. This catches platform-specific compile errors before the release workflow publishes bundles on those runners. The test project is excluded because it targets `net10.0-windows`.
+
+### Formatting and analyzers job
+
+A separate Windows job runs:
+
+```bash
+dotnet format CSharp_FindRomCover.sln --verify-no-changes
+```
+
+It verifies whitespace, style, and analyzer fixes together. Run the same command locally before pushing. To apply the fixes:
+
+```bash
+dotnet format CSharp_FindRomCover.sln
+```
+
+### Dependency review job
+
+Pull requests run `actions/dependency-review-action`. It compares the dependency graph before and after the PR and fails on newly introduced dependencies with a **high** or **critical** advisory.
 
 Concurrency is configured with `cancel-in-progress`, so a new push cancels an in-progress run for the same branch.
 
+## CodeQL
+
+`codeql.yml` scans the C# sources on pushes to `master`, pull requests, a weekly schedule (Mondays at 03:17 UTC), and manual dispatch.
+
+1. Installs the .NET 10 SDK.
+2. Initializes CodeQL with `build-mode: manual`.
+3. Restores and builds the solution in Release so the extractor sees the compiled code.
+4. Uploads the results as the `/language:csharp` analysis category.
+
+Findings appear under **Security > Code scanning**. CodeQL needs the `security-events: write` permission, which is declared in the workflow and available to public repositories.
+
 ## Docs — GitHub Pages and wiki
 
-`docs.yml` publishes the documentation site and synchronizes the GitHub wiki. It runs on pushes to `master` that touch any of these paths, and can be triggered manually:
+`docs.yml` runs on:
 
-- `docs/**`
-- `mkdocs.yml`
-- `scripts/Sync-Wiki.ps1`
-- `.github/workflows/docs.yml`
+- pushes to `master` that touch `docs/**`, `mkdocs.yml`, `scripts/Sync-Wiki.ps1`, or `.github/workflows/docs.yml`;
+- pull requests with the same path filter (build only, nothing is deployed);
+- manual dispatch.
 
 ### GitHub Pages job
 
-1. Checks out the repository and installs Python 3.13.
+1. Checks out the repository and installs Python 3.13 with a cached `pip` download directory.
 2. Installs MkDocs Material from `docs/requirements.txt`.
 3. Builds the site with `mkdocs build --strict`.
 4. Uploads the `site/` artifact.
-5. Deploys it with the official `actions/deploy-pages` action.
+
+On non-pull-request runs, the deploy job publishes the artifact with the official `actions/deploy-pages` action.
 
 Required repository setting:
 
@@ -47,6 +97,8 @@ https://purelogiccode.github.io/FindRomCover/
 The left-hand navigation is generated from the `nav` section of `mkdocs.yml`.
 
 ### Wiki job
+
+The wiki job also runs only outside pull requests and waits for the documentation build:
 
 1. Checks whether the `WIKI_TOKEN` secret is configured; if not, the job stops with a clear message instead of failing.
 2. Runs `scripts/Sync-Wiki.ps1`, which converts `docs/` into wiki pages.
@@ -74,11 +126,13 @@ Then copy the contents of `wiki-out` into a clone of the wiki repository and pus
 
 ## Release process
 
-Releases are produced automatically by `release.yml`, which runs when a tag named `release_*` (for example `release_3.3.1`) is pushed:
+Releases are produced by `release.yml`, which runs when a tag named `release_*` (for example `release_3.3.1`) is pushed.
 
-1. Update the version in `FindRomCover/FindRomCover.csproj` (`Version`, `AssemblyVersion`, and `FileVersion`) and in `FindRomCover.Tests/FindRomCover.Tests.csproj` (`AssemblyVersion` and `FileVersion`) — keep both in sync.
+### Before tagging
+
+1. Update the version in `FindRomCover/FindRomCover.csproj` (`Version`, `AssemblyVersion`, and `FileVersion`) and in `FindRomCover.Tests/FindRomCover.Tests.csproj` (`AssemblyVersion` and `FileVersion`) — keep both in sync. The release workflow fails when any of them differs from the tag.
 2. Update `README.md`, `WhatsNew.md`, and `docs/release-notes.md`.
-3. Build and test locally, then push to `master` and confirm CI is green. This push also redeploys the documentation site and the wiki through `docs.yml`.
+3. Build, test, and format locally, then push to `master` and confirm CI is green. This push also redeploys the documentation site and the wiki through `docs.yml`.
 4. Create and push the tag:
 
    ```bash
@@ -86,7 +140,11 @@ Releases are produced automatically by `release.yml`, which runs when a tag name
    git push origin release_3.3.1
    ```
 
-5. `release.yml` builds five framework-dependent single-file bundles (the native libraries are embedded into the executable; the .NET runtime is never bundled) and creates the GitHub release with them attached:
+### Release workflow jobs
+
+1. **Validate** — parses the tag, requires `release_<major>.<minor>.<patch>`, and compares it with `Version`, `AssemblyVersion`, and `FileVersion` in both project files.
+2. **Test** — builds with warnings as errors and runs the full suite on `windows-latest` before any bundle is produced.
+3. **Build** — publishes five framework-dependent single-file bundles (the native libraries are embedded into the executable; the .NET runtime is never bundled):
 
    | Runner | Bundles |
    |--------|---------|
@@ -96,14 +154,44 @@ Releases are produced automatically by `release.yml`, which runs when a tag name
 
    There is no Intel-Mac (`osx-x64`) bundle because Magick.NET 15 no longer ships a macOS x64 native library.
 
-   Each archive contains the published application plus `LICENSE.txt`, `README.md`, and `WhatsNew.md`. The release notes link to the full changelog in `WhatsNew.md` at the tagged commit.
-6. The in-app update checker picks up the new release automatically: it reads the latest release's `tag_name` from the GitHub API and parses the version after the `release_` prefix, so tags must keep the `release_<major>.<minor>.<patch>` format.
+   Each archive contains the published application plus `LICENSE.txt`, `README.md`, and `WhatsNew.md`.
+4. **Release** — downloads the bundles and creates the GitHub release. The body is the version's own `# FindRomCover <version> — What's New` section from `WhatsNew.md`; it falls back to a changelog link only when the section cannot be found.
 
-> **Note:** The release job needs `contents: write` permission (already declared in `release.yml`) to create the GitHub release. No extra secrets are required.
+The in-app update checker picks up the new release automatically: it reads the latest release's `tag_name` from the GitHub API and parses the version after the `release_` prefix, so tags must keep the `release_<major>.<minor>.<patch>` format.
+
+> **Note:** The release job needs `contents: write` permission (declared on that job only) to create the GitHub release. No extra secrets are required.
+
+## Dependabot
+
+`.github/dependabot.yml` opens grouped weekly pull requests, on Mondays, for:
+
+- NuGet packages in the solution (minor and patch updates are grouped);
+- GitHub Actions used by the workflows;
+- Python packages in `docs/requirements.txt`.
+
+Every Dependabot pull request runs the same CI, CodeQL, and dependency-review checks as a human contribution.
+
+## Recommended repository settings
+
+CI is only effective when it gates `master`. The workflows are ready, but GitHub does not enforce them until a ruleset or branch protection rule is configured:
+
+1. Open **Settings > Rules > Rulesets** (or **Settings > Branches**).
+2. Target the `master` branch.
+3. Require the following status checks:
+   - `Build and test (Windows)`
+   - `Build app (ubuntu-latest)`
+   - `Build app (macos-latest)`
+   - `Formatting and analyzers`
+   - `Analyze C#` (CodeQL)
+4. Optionally require the branch to be up to date before merging.
+
+Do **not** require `Build documentation site` as a global check: `docs.yml` is path-filtered, so it does not run for every pull request.
+
+Administrators can keep a bypass rule for emergency direct pushes if the project does not enforce pull requests.
 
 ## Versioning
 
-Versions follow a `major.minor.patch` scheme. Tags use the `release_` prefix (for example `release_3.3.1`). The application version lives in the project file, and the documentation release notes mirror the GitHub releases.
+Versions follow a `major.minor.patch` scheme. Tags use the `release_` prefix (for example `release_3.3.1`). The application version lives in the project file, and the documentation release notes mirror the GitHub releases. `release.yml` refuses to publish a tag that does not match the project files.
 
 ## Related pages
 

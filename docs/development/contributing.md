@@ -31,8 +31,9 @@ Include:
 2. Build and test:
 
    ```bash
-   dotnet build CSharp_FindRomCover.sln
+   dotnet build CSharp_FindRomCover.sln -warnaserror
    dotnet test CSharp_FindRomCover.sln
+   dotnet format CSharp_FindRomCover.sln --verify-no-changes
    ```
 
    The test project targets `net10.0-windows`, so run the test suite on Windows even though the application itself builds and runs cross-platform.
@@ -71,8 +72,9 @@ docs: document batch fill outcomes
 
 ## Pull request checklist
 
-- [ ] Build is warning-free.
+- [ ] Build is warning-free (`dotnet build -warnaserror`).
 - [ ] All tests pass.
+- [ ] `dotnet format --verify-no-changes` passes.
 - [ ] New behavior is covered by tests.
 - [ ] User-facing changes are reflected in `docs/` and, where relevant, `README.md` and `WhatsNew.md`.
 - [ ] No secrets, tokens, or personal paths are committed.

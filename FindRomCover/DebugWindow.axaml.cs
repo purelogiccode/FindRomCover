@@ -82,15 +82,15 @@ public partial class DebugWindow : Window
         {
             // When a new log is added to the source collection...
             case NotifyCollectionChangedAction.Add when e.NewItems is not null:
-            {
-                var newText = new StringBuilder();
-                foreach (LogEntry item in e.NewItems) newText.AppendLine(item.Message);
+                {
+                    var newText = new StringBuilder();
+                    foreach (LogEntry item in e.NewItems) newText.AppendLine(item.Message);
 
-                // ...append it to our TextBox.
-                LogTextBox.Text += newText.ToString();
-                ScrollLogToEnd();
-                break;
-            }
+                    // ...append it to our TextBox.
+                    LogTextBox.Text += newText.ToString();
+                    ScrollLogToEnd();
+                    break;
+                }
             // When the source collection is cleared...
             case NotifyCollectionChangedAction.Reset:
                 // ...clear our TextBox.

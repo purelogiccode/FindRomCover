@@ -137,7 +137,7 @@ public partial class MainWindow
             textBlock.Inlines.Add(new Run($"{romName} ") { FontWeight = Avalonia.Media.FontWeight.Bold });
             textBlock.Inlines.Add(new Run("with "));
             textBlock.Inlines.Add(new Run($"{Settings.SelectedSimilarityAlgorithm} ")
-                { FontWeight = Avalonia.Media.FontWeight.Bold });
+            { FontWeight = Avalonia.Media.FontWeight.Bold });
             textBlock.Inlines.Add(new Run("algorithm"));
             if (Settings.IgnoreBracketedText)
                 textBlock.Inlines.Add(new Run(" (ignoring bracketed text)"));

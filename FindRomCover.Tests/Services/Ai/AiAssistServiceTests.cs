@@ -72,7 +72,7 @@ public class AiAssistServiceTests
             request.RequestUri!.AbsolutePath.Contains("bad", StringComparison.Ordinal)
                 ? new HttpResponseMessage(HttpStatusCode.NotFound)
                 : new HttpResponseMessage(HttpStatusCode.OK)
-                    { Content = new ByteArrayContent(CreatePngBytes(64, 64)) });
+                { Content = new ByteArrayContent(CreatePngBytes(64, 64)) });
         using var httpClient = new HttpClient(handler);
 
         var candidates = new List<ImageData>

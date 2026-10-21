@@ -103,10 +103,13 @@ CSharp_FindRomCover/
 │   └── assets/images/
 ├── scripts/
 │   └── Sync-Wiki.ps1                 # Generates the GitHub wiki from docs/
-├── .github/workflows/
-│   ├── ci.yml                        # Build and test
-│   ├── docs.yml                      # Publish GitHub Pages and wiki
-│   └── release.yml                   # Build bundles and publish GitHub releases
+├── .github/
+│   ├── dependabot.yml                # Weekly grouped dependency updates
+│   └── workflows/
+│       ├── ci.yml                    # Build, test, formatting, dependency review
+│       ├── codeql.yml                # CodeQL code scanning
+│       ├── docs.yml                  # Validate, publish Pages, sync wiki
+│       └── release.yml               # Validate, test, build bundles, publish release
 ├── mkdocs.yml                        # Documentation site configuration
 ├── CSharp_FindRomCover.sln
 ├── global.json                       # .NET SDK version

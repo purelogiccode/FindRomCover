@@ -11,25 +11,146 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  SOLUTION: CSharp_FindRomCover.sln
+
 jobs:
   build-and-test:
     name: Build and test (Windows)
     runs-on: windows-latest
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
+          cache: true
+          cache-dependency-path: '**/*.csproj'
 
       - name: Restore
-        run: dotnet restore CSharp_FindRomCover.sln
+        run: dotnet restore ${{ env.SOLUTION }}
 
       - name: Build
-        run: dotnet build CSharp_FindRomCover.sln --configuration Release --no-restore
+        run: dotnet build ${{ env.SOLUTION }} --configuration Release --no-restore -warnaserror
 
       - name: Test
-        run: dotnet test CSharp_FindRomCover.sln --configuration Release --no-build --verbosity normal
+        run: >
+          dotnet test ${{ env.SOLUTION }} --configuration Release --no-build
+          --collect:"XPlat Code Coverage"
+          --results-directory TestResults
+          --logger "trx;LogFileName=test-results.trx"
+          --verbosity normal
+
+      - name: Write coverage summary
+        if: always()
+        shell: pwsh
+        run: |
+          $coverageFile = Get-ChildItem -Path 'TestResults' -Filter 'coverage.cobertura.xml' -Recurse -ErrorAction SilentlyContinue |
+            Select-Object -First 1
+          if (-not $coverageFile) {
+            Write-Host 'No coverage report was produced, skipping the summary.'
+            exit 0
+          }
+
+          [xml]$coverage = Get-Content -LiteralPath $coverageFile.FullName
+          $root = $coverage.coverage
+          $lineRate = [math]::Round([double]$root.'line-rate' * 100, 2)
+          $branchRate = [math]::Round([double]$root.'branch-rate' * 100, 2)
+
+          @(
+            '## Code coverage'
+            ''
+            '| Metric | Covered | Total | Rate |'
+            '|--------|---------|-------|------|'
+            "| Lines | $($root.'lines-covered') | $($root.'lines-valid') | $lineRate% |"
+            "| Branches | $($root.'branches-covered') | $($root.'branches-valid') | $branchRate% |"
+            ''
+            'The full Cobertura report is attached to this run as the `test-results` artifact.'
+          ) | Add-Content -Path $env:GITHUB_STEP_SUMMARY
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results
+          path: |
+            TestResults/**/*.trx
+            TestResults/**/coverage.cobertura.xml
+          if-no-files-found: warn
+          retention-days: 14
+
+  build-cross-platform:
+    name: Build app (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, macos-latest ]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+          cache: true
+          cache-dependency-path: '**/*.csproj'
+
+      - name: Restore application
+        run: dotnet restore FindRomCover/FindRomCover.csproj
+
+      - name: Build application
+        run: dotnet build FindRomCover/FindRomCover.csproj --configuration Release --no-restore -warnaserror
+
+  format:
+    name: Formatting and analyzers
+    runs-on: windows-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+          cache: true
+          cache-dependency-path: '**/*.csproj'
+
+      - name: Restore
+        run: dotnet restore ${{ env.SOLUTION }}
+
+      - name: Verify formatting, style, and analyzers
+        run: dotnet format ${{ env.SOLUTION }} --verify-no-changes --no-restore --verbosity minimal
+
+  dependency-review:
+    name: Dependency review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Review dependency changes
+        uses: actions/dependency-review-action@v5.0.0
+        with:
+          fail-on-severity: high
+          comment-summary-in-pr: on-failure

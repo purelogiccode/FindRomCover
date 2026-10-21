@@ -3,6 +3,9 @@ obj/
 **/bin/
 **/obj/
 
+# Test and coverage output
+TestResults/
+
 # Documentation build output
 site/
 wiki-out/

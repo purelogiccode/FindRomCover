@@ -113,54 +113,54 @@ public static class Google
             switch (response.StatusCode)
             {
                 case HttpStatusCode.TooManyRequests:
-                {
-                    LogService.WarningTransient($"{logMessagePrefix} API rate limit exceeded (429).");
-                    var rateLimitException = new HttpRequestException(
-                        "Response status code does not indicate success: 429 (Too Many Requests).", null,
-                        HttpStatusCode.TooManyRequests);
-                    throw new InvalidOperationException(
-                        $"{ProviderName} API rate limit has been exceeded. Please wait a moment before trying again.",
-                        rateLimitException);
-                }
+                    {
+                        LogService.WarningTransient($"{logMessagePrefix} API rate limit exceeded (429).");
+                        var rateLimitException = new HttpRequestException(
+                            "Response status code does not indicate success: 429 (Too Many Requests).", null,
+                            HttpStatusCode.TooManyRequests);
+                        throw new InvalidOperationException(
+                            $"{ProviderName} API rate limit has been exceeded. Please wait a moment before trying again.",
+                            rateLimitException);
+                    }
                 case HttpStatusCode.Forbidden:
-                {
-                    LogService.WarningTransient(
-                        $"{logMessagePrefix} Access Forbidden (403). Check API Key and API Permissions.");
-                    var forbiddenEx = new HttpRequestException("403 (Forbidden)", null, HttpStatusCode.Forbidden);
+                    {
+                        LogService.WarningTransient(
+                            $"{logMessagePrefix} Access Forbidden (403). Check API Key and API Permissions.");
+                        var forbiddenEx = new HttpRequestException("403 (Forbidden)", null, HttpStatusCode.Forbidden);
 
-                    throw new InvalidOperationException(
-                        $"{ProviderName} API Access Forbidden (403).\n\n" +
-                        "This usually means:\n" +
-                        "1. Your API Key is incorrect.\n" +
-                        "2. Your daily free limit has been reached.", forbiddenEx);
-                }
+                        throw new InvalidOperationException(
+                            $"{ProviderName} API Access Forbidden (403).\n\n" +
+                            "This usually means:\n" +
+                            "1. Your API Key is incorrect.\n" +
+                            "2. Your daily free limit has been reached.", forbiddenEx);
+                    }
                 case HttpStatusCode.Unauthorized:
-                {
-                    LogService.WarningTransient($"{logMessagePrefix} Unauthorized (401). The API key was rejected.");
-                    var unauthorizedEx = new HttpRequestException(
-                        "Response status code does not indicate success: 401 (Unauthorized).", null,
-                        HttpStatusCode.Unauthorized);
-                    throw new InvalidOperationException(
-                        $"{ProviderName} API rejected the API key (401 Unauthorized). " +
-                        "Please check your Google API Key in Settings > API Settings.", unauthorizedEx);
-                }
+                    {
+                        LogService.WarningTransient($"{logMessagePrefix} Unauthorized (401). The API key was rejected.");
+                        var unauthorizedEx = new HttpRequestException(
+                            "Response status code does not indicate success: 401 (Unauthorized).", null,
+                            HttpStatusCode.Unauthorized);
+                        throw new InvalidOperationException(
+                            $"{ProviderName} API rejected the API key (401 Unauthorized). " +
+                            "Please check your Google API Key in Settings > API Settings.", unauthorizedEx);
+                    }
                 case HttpStatusCode.BadRequest:
-                {
-                    var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
-                    // The body can be arbitrarily long and may echo the request back:
-                    // keep only a short excerpt in the warning and the rest at Debug.
-                    var excerpt = errorBody.Length > 300 ? errorBody[..300] + "…" : errorBody;
-                    LogService.WarningTransient($"{logMessagePrefix} Bad Request (400): {excerpt}");
-                    LogService.Debug($"{logMessagePrefix} Bad Request (400) body: {errorBody}");
-                    var badRequestEx = new HttpRequestException(
-                        "Response status code does not indicate success: 400 (Bad Request).", null,
-                        HttpStatusCode.BadRequest);
-                    var friendlyReason = ExtractGoogleErrorMessage(errorBody);
-                    throw new InvalidOperationException(
-                        $"{ProviderName} API error: {friendlyReason}. " +
-                        "Please check your Google API Key and Search Engine ID in Settings > API Settings.",
-                        badRequestEx);
-                }
+                    {
+                        var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
+                        // The body can be arbitrarily long and may echo the request back:
+                        // keep only a short excerpt in the warning and the rest at Debug.
+                        var excerpt = errorBody.Length > 300 ? errorBody[..300] + "…" : errorBody;
+                        LogService.WarningTransient($"{logMessagePrefix} Bad Request (400): {excerpt}");
+                        LogService.Debug($"{logMessagePrefix} Bad Request (400) body: {errorBody}");
+                        var badRequestEx = new HttpRequestException(
+                            "Response status code does not indicate success: 400 (Bad Request).", null,
+                            HttpStatusCode.BadRequest);
+                        var friendlyReason = ExtractGoogleErrorMessage(errorBody);
+                        throw new InvalidOperationException(
+                            $"{ProviderName} API error: {friendlyReason}. " +
+                            "Please check your Google API Key and Search Engine ID in Settings > API Settings.",
+                            badRequestEx);
+                    }
             }
 
             var json = await response.Content.ReadAsStringAsync(cancellationToken);

@@ -6,15 +6,94 @@ on:
       - 'release_*'
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
+  validate:
+    name: Validate release
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Verify tag and project versions
+        id: version
+        shell: pwsh
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          $tag = $env:TAG
+          $version = $tag -replace '^release_', ''
+          if ($version -notmatch '^\d+\.\d+\.\d+$') {
+            throw "Tag '$tag' must match 'release_<major>.<minor>.<patch>'."
+          }
+
+          function Get-MSBuildProperty([string]$Path, [string]$Name) {
+            [xml]$project = Get-Content -LiteralPath $Path
+            $node = $project.SelectSingleNode("/Project/PropertyGroup/$Name")
+            if ($null -eq $node -or [string]::IsNullOrWhiteSpace($node.InnerText)) {
+              throw "Property '$Name' is missing from $Path."
+            }
+            return $node.InnerText.Trim()
+          }
+
+          $checks = @(
+            @{ Path = 'FindRomCover/FindRomCover.csproj'; Name = 'Version' },
+            @{ Path = 'FindRomCover/FindRomCover.csproj'; Name = 'AssemblyVersion' },
+            @{ Path = 'FindRomCover/FindRomCover.csproj'; Name = 'FileVersion' },
+            @{ Path = 'FindRomCover.Tests/FindRomCover.Tests.csproj'; Name = 'AssemblyVersion' },
+            @{ Path = 'FindRomCover.Tests/FindRomCover.Tests.csproj'; Name = 'FileVersion' }
+          )
+
+          foreach ($check in $checks) {
+            $actual = Get-MSBuildProperty -Path $check.Path -Name $check.Name
+            if ($actual -ne $version) {
+              throw "$($check.Name) in $($check.Path) is '$actual', but tag '$tag' expects '$version'. Bump the project files before tagging."
+            }
+            Write-Host "$($check.Path): $($check.Name) = $actual"
+          }
+
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+
+  test:
+    name: Test release commit
+    needs: validate
+    runs-on: windows-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+          cache: true
+          cache-dependency-path: '**/*.csproj'
+
+      - name: Restore
+        run: dotnet restore CSharp_FindRomCover.sln
+
+      - name: Build
+        run: dotnet build CSharp_FindRomCover.sln --configuration Release --no-restore -warnaserror
+
+      - name: Test
+        run: dotnet test CSharp_FindRomCover.sln --configuration Release --no-build --verbosity normal
+
   build:
     name: Build ${{ matrix.rid }}
+    needs: [ validate, test ]
     strategy:
       fail-fast: false
       matrix:
@@ -30,30 +109,18 @@ jobs:
           - os: macos-latest
             rid: osx-arm64
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
-
-      - name: Resolve version from tag
-        id: version
-        shell: pwsh
-        run: |
-          $tag = '${{ github.ref_name }}'
-          $version = $tag -replace '^release_', ''
-          try {
-            $null = [System.Version]$version
-          } catch {
-            throw "Tag '$tag' does not contain a valid version after the 'release_' prefix."
-          }
-          "version=$version" >> $env:GITHUB_OUTPUT
-          "tag=$tag" >> $env:GITHUB_OUTPUT
-          Write-Host "Building $tag ($version) for ${{ matrix.rid }}"
+          cache: true
+          cache-dependency-path: '**/*.csproj'
 
       - name: Publish framework-dependent single file
         run: >
@@ -61,9 +128,9 @@ jobs:
           --runtime ${{ matrix.rid }} --self-contained false
           -p:PublishSingleFile=true
           -p:IncludeNativeLibrariesForSelfExtract=true
-          -p:Version=${{ steps.version.outputs.version }}
-          -p:AssemblyVersion=${{ steps.version.outputs.version }}
-          -p:FileVersion=${{ steps.version.outputs.version }}
+          -p:Version=${{ needs.validate.outputs.version }}
+          -p:AssemblyVersion=${{ needs.validate.outputs.version }}
+          -p:FileVersion=${{ needs.validate.outputs.version }}
 
       - name: Stage bundle contents
         shell: pwsh
@@ -88,7 +155,7 @@ jobs:
       - name: Create bundle archive
         shell: pwsh
         run: |
-          $tag = '${{ steps.version.outputs.tag }}'
+          $tag = '${{ needs.validate.outputs.tag }}'
           $zipName = "${tag}_${{ matrix.rid }}.zip"
           $stageDir = "bundle-stage/${{ matrix.rid }}"
           if (Test-Path -LiteralPath $zipName) { Remove-Item -LiteralPath $zipName -Force }
@@ -99,25 +166,28 @@ jobs:
             Write-Host
 
       - name: Upload bundle artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: bundle-${{ matrix.rid }}
-          path: ${{ steps.version.outputs.tag }}_${{ matrix.rid }}.zip
+          path: ${{ needs.validate.outputs.tag }}_${{ matrix.rid }}.zip
           if-no-files-found: error
 
   release:
     name: Create GitHub release
-    needs: build
+    needs: [ validate, build ]
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.ref }}
 
       - name: Download bundle artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: bundle-*
           merge-multiple: true
@@ -126,8 +196,8 @@ jobs:
       - name: Write release notes
         shell: pwsh
         run: |
-          $tag = '${{ github.ref_name }}'
-          $version = $tag -replace '^release_', ''
+          $tag = '${{ needs.validate.outputs.tag }}'
+          $version = '${{ needs.validate.outputs.version }}'
 
           # Put the version's own "What's New" section into the release body instead of
           # merely linking to WhatsNew.md. Fall back to a changelog link only when the
@@ -184,7 +254,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create '${{ github.ref_name }}' \
-            --title '${{ github.ref_name }}' \
+          gh release create '${{ needs.validate.outputs.tag }}' \
+            --title '${{ needs.validate.outputs.tag }}' \
             --notes-file NOTES.md \
             assets/*.zip
