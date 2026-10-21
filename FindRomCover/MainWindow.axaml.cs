@@ -509,6 +509,20 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
     }
 
+    /// <summary>
+    ///     Disables the embedded web views after the WebView2 runtime or its loader could not be
+    ///     initialized, and shows the runtime guidance once. Called by the global exception
+    ///     handlers when Avalonia reports that the WebView2 runtime is unavailable (issues
+    ///     #68439 and #68440).
+    /// </summary>
+    internal void NotifyWebViewRuntimeUnavailable()
+    {
+        if (_disposed) return;
+
+        _webView2Unavailable = true;
+        _ = NotifyWebViewUnavailableAsync("Google and Bing");
+    }
+
     private void NavigateWebView(NativeWebView webView, string viewName, string url)
     {
         try
@@ -527,28 +541,40 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private async Task NotifyWebViewUnavailableAsync(string viewName)
     {
-        if (_webView2NotificationShown)
+        if (_webView2NotificationShown || _disposed)
             return;
 
         _webView2NotificationShown = true;
 
-        var (runtimeName, downloadUrl) = OperatingSystem.IsWindows()
+        try
+        {
+            var (runtimeName, downloadUrl) = GetWebViewRuntimeInfo();
+
+            var result = await Dialogs.ShowQuestionAsync(this,
+                $"The embedded {runtimeName} is not available, so {viewName} web search cannot be displayed.\n\n" +
+                "Would you like to open the download page?",
+                "Web View Runtime Required",
+                MessageIcon.Warning);
+
+            if (result == MessageResult.Yes && !UrlService.TryOpenUrl(downloadUrl))
+                await Dialogs.ShowMessageAsync(this,
+                    "Could not open the download page automatically.\n\nPlease copy this address into your browser:\n" +
+                    downloadUrl,
+                    "Open Browser Failed", MessageIcon.Warning);
+        }
+        catch (Exception ex)
+        {
+            LogService.WarningTransient(ex, "Could not show the WebView runtime guidance.");
+        }
+    }
+
+    private static (string RuntimeName, string DownloadUrl) GetWebViewRuntimeInfo()
+    {
+        return OperatingSystem.IsWindows()
             ? ("WebView2 Runtime", "https://developer.microsoft.com/en-us/microsoft-edge/webview2/")
             : OperatingSystem.IsMacOS()
                 ? ("WebKit", "https://support.apple.com/guide/safari")
                 : ("WebKitGTK", "https://webkitgtk.org/releases/");
-
-        var result = await Dialogs.ShowQuestionAsync(this,
-            $"The embedded {runtimeName} is not available, so the {viewName} web search tab cannot be displayed.\n\n" +
-            "Would you like to open the download page?",
-            "Web View Runtime Required",
-            MessageIcon.Warning);
-
-        if (result == MessageResult.Yes && !UrlService.TryOpenUrl(downloadUrl))
-            await Dialogs.ShowMessageAsync(this,
-                "Could not open the download page automatically.\n\nPlease copy this address into your browser:\n" +
-                downloadUrl,
-                "Open Browser Failed", MessageIcon.Warning);
     }
 
     private async Task LoadMameDataAsync()

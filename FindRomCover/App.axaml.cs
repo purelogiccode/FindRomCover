@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -33,6 +32,8 @@ public class App : Application
             return new NullAudioService();
         }
     });
+
+    private static WeakReference<MainWindow>? _mainWindow;
 
     /// <summary>
     ///     Gets the application service provider, or <see langword="null"/> before startup completes.
@@ -119,6 +120,7 @@ public class App : Application
 
                 var mainWindow = new MainWindow(SettingsManager, StartupImageFolderPath, StartupRomFolderPath);
                 desktop.MainWindow = mainWindow;
+                _mainWindow = new WeakReference<MainWindow>(mainWindow);
                 desktop.ShutdownMode = ShutdownMode.OnMainWindowClose;
                 desktop.Exit += OnDesktopExit;
 
@@ -145,24 +147,24 @@ public class App : Application
         switch (args.Length)
         {
             case >= 2:
-            {
-                var imageFolderPath = args[0];
-                var romFolderPath = args[1];
-
-                if (Directory.Exists(imageFolderPath) && Directory.Exists(romFolderPath))
                 {
-                    StartupImageFolderPath = imageFolderPath;
-                    StartupRomFolderPath = romFolderPath;
+                    var imageFolderPath = args[0];
+                    var romFolderPath = args[1];
+
+                    if (Directory.Exists(imageFolderPath) && Directory.Exists(romFolderPath))
+                    {
+                        StartupImageFolderPath = imageFolderPath;
+                        StartupRomFolderPath = romFolderPath;
+                    }
+
+                    break;
                 }
-
-                break;
-            }
             case 1:
-            {
-                if (Directory.Exists(args[0])) StartupImageFolderPath = args[0];
+                {
+                    if (Directory.Exists(args[0])) StartupImageFolderPath = args[0];
 
-                break;
-            }
+                    break;
+                }
         }
     }
 
@@ -210,7 +212,15 @@ public class App : Application
 
         TaskScheduler.UnobservedTaskException += (_, args) =>
         {
-            if (IsWebViewAdapterLifecycleFailure(args.Exception))
+            if (WebViewExceptionClassifier.IsRuntimeUnavailable(args.Exception))
+            {
+                // A missing WebView2 runtime or loader (issues #68439, #68440) is an
+                // environment problem on the user's machine, not an application bug.
+                LogService.WarningTransient(args.Exception,
+                    "The WebView2 runtime is not available; the embedded web search is disabled.");
+                NotifyWebViewRuntimeUnavailable();
+            }
+            else if (WebViewExceptionClassifier.IsAdapterLifecycleFailure(args.Exception))
                 LogService.WarningTransient(args.Exception,
                     "Ignored a WebView2 adapter exception during initialization/teardown.");
             else
@@ -220,7 +230,19 @@ public class App : Application
 
         Dispatcher.UIThread.UnhandledException += (_, args) =>
         {
-            if (IsWebViewAdapterLifecycleFailure(args.Exception))
+            if (WebViewExceptionClassifier.IsRuntimeUnavailable(args.Exception))
+            {
+                // Missing WebView2 runtime/loader (issues #68439, #68440): disable the
+                // embedded web search and show the runtime guidance instead of a generic
+                // application error dialog.
+                LogService.WarningTransient(args.Exception,
+                    "The WebView2 runtime is not available; the embedded web search is disabled.");
+                NotifyWebViewRuntimeUnavailable();
+                args.Handled = true;
+                return;
+            }
+
+            if (WebViewExceptionClassifier.IsAdapterLifecycleFailure(args.Exception))
             {
                 // Known race inside Avalonia's WebView2 adapter, not an application bug:
                 // the adapter either completes its async initialization after the window
@@ -244,32 +266,15 @@ public class App : Application
     }
 
     /// <summary>
-    ///     Detects the WebView2 adapter lifecycle failures reported by issues #68251, #68252,
-    ///     #68285 and #68286: Avalonia's WebView2 adapter throws a COM exception (E_ABORT or
-    ///     ERROR_INVALID_STATE) from its asynchronous initialization or from a pending
-    ///     size-change notification after its controller was already closed. These originate
-    ///     inside the framework during window startup or shutdown, so they are environmental
-    ///     races instead of application bugs.
+    ///     Tells the main window that the embedded web views cannot be initialized because the
+    ///     WebView2 runtime (or its loader) is unavailable, so it can disable web search and show
+    ///     the runtime guidance once.
     /// </summary>
-    /// <param name="exception">The exception (possibly an AggregateException) to inspect.</param>
-    /// <returns>True when the failure is a known WebView2 adapter lifecycle race.</returns>
-    private static bool IsWebViewAdapterLifecycleFailure(Exception? exception)
+    private static void NotifyWebViewRuntimeUnavailable()
     {
-        for (var current = exception; current != null; current = current.InnerException)
-        {
-            if (current is AggregateException aggregateException)
-            {
-                if (aggregateException.InnerExceptions.Any(IsWebViewAdapterLifecycleFailure)) return true;
-                continue;
-            }
+        if (_mainWindow is null || !_mainWindow.TryGetTarget(out var mainWindow)) return;
 
-            if (current is COMException comException &&
-                (uint)comException.HResult is 0x80004004 or 0x8007139F &&
-                comException.StackTrace?.Contains("WebView", StringComparison.OrdinalIgnoreCase) == true)
-                return true;
-        }
-
-        return false;
+        Dispatcher.UIThread.Post(mainWindow.NotifyWebViewRuntimeUnavailable);
     }
 
     private static void OnDesktopExit(object? sender, ControlledApplicationLifetimeExitEventArgs e)
