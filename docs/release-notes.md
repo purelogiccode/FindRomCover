@@ -2,6 +2,38 @@
 
 Complete version history for FindRomCover. Download links for each release are available on the [Releases](https://github.com/purelogiccode/FindRomCover/releases) page.
 
+## 3.4.0 — 2026-10-21
+
+### New
+
+- **Custom AI request parameters** — AI Settings now has an advanced JSON editor whose contents are merged into every vision request body. Tune temperature, `top_p`, output-token budgets, reasoning options, or provider-specific fields without an application update. Nested objects are merged recursively, `null` removes a default, and structural keys are protected. See [AI Settings](ai/settings.md#custom-request-parameters) for examples.
+
+### Fixes & Improvements
+
+- **Missing WebView2 runtime handled cleanly** — a missing or incompatible WebView2 runtime/loader is classified as an environmental failure, logged as a transient warning, and no longer produces a generic error dialog or automatic bug report ([#68439](https://github.com/purelogiccode/FindRomCover/issues/68439), [#68440](https://github.com/purelogiccode/FindRomCover/issues/68440)).
+- **Web-tab covers convert reliably** — Google Web and Bing Web saves use the same tolerant Magick.NET pipeline as manual saves. Mislabeled `.png`/`.jpg` files, WebP/JPEG content with the wrong extension, truncated PNGs, and `.jfif`/`.jpe`/`.apng` files are normalized to real PNGs. The watcher waits for a stable file and retries transient failures.
+- **AI parameter validation** — invalid custom JSON is rejected when saving; an invalid hand-edited value is ignored and logged at runtime.
+
+### Under the Hood
+
+- **930 passing tests** (up from 885).
+- CI now covers warnings-as-errors builds, coverage artifacts, cross-platform builds, formatting/analyzers, CodeQL, dependency review, grouped Dependabot updates, release version validation, and documentation/wiki generation on every pull request.
+- `master` has rulesets that block force pushes and deletion and require all CI, CodeQL, Pages, and wiki checks before a pull request merges.
+- Meziantou.Analyzer 3.0.315.
+- Version bumped to **3.4.0**.
+
+### Downloads
+
+- `release_3.4.0_win-x64.zip` — Windows x64
+- `release_3.4.0_win-arm64.zip` — Windows ARM64
+- `release_3.4.0_linux-x64.zip` — Linux x64
+- `release_3.4.0_linux-arm64.zip` — Linux ARM64
+- `release_3.4.0_osx-arm64.zip` — macOS Apple Silicon
+
+> **Note:** there is no Intel-Mac build: Magick.NET 15 (the image conversion engine) no longer ships a macOS x64 native library.
+
+All builds are framework-dependent single-file executables and require the [.NET 10.0 runtime](https://dotnet.microsoft.com/download/dotnet/10.0) (the base runtime; the Windows Desktop Runtime is not required because the UI is Avalonia). Each archive also contains `LICENSE.txt`, `README.md`, and `WhatsNew.md`.
+
 ## 3.3.1 — 2026-10-16
 
 ### Fixes & Improvements

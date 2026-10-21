@@ -157,10 +157,28 @@ jobs:
         run: |
           $tag = '${{ needs.validate.outputs.tag }}'
           $zipName = "${tag}_${{ matrix.rid }}.zip"
+          $zipPath = Join-Path (Get-Location).Path $zipName
           $stageDir = "bundle-stage/${{ matrix.rid }}"
-          if (Test-Path -LiteralPath $zipName) { Remove-Item -LiteralPath $zipName -Force }
-          Compress-Archive -Path (Join-Path $stageDir '*') -DestinationPath $zipName
-          Get-Item -LiteralPath $zipName |
+          if (Test-Path -LiteralPath $zipPath) { Remove-Item -LiteralPath $zipPath -Force }
+
+          if ($IsWindows) {
+            Compress-Archive -Path (Join-Path $stageDir '*') -DestinationPath $zipPath
+          }
+          else {
+            # The zip CLI preserves the executable bit, which Compress-Archive
+            # does not store on Unix runners.
+            & chmod +x (Join-Path $stageDir 'FindRomCover')
+            Push-Location $stageDir
+            try {
+              & zip -r -q $zipPath .
+              if ($LASTEXITCODE -ne 0) { throw "zip failed for $zipName" }
+            }
+            finally {
+              Pop-Location
+            }
+          }
+
+          Get-Item -LiteralPath $zipPath |
             Format-Table Name, Length -AutoSize |
             Out-String -Width 200 |
             Write-Host

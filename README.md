@@ -32,17 +32,24 @@
 # FindRomCover
 
 A powerful cross-platform desktop application (Windows, Linux, and macOS) designed to help you automatically find and download missing cover art for your retro gaming ROM collection.
-It supports **Local Similarity Search** across your existing image folder, plus **Google Web Image Search**, **Bing Web Image Search**, and the **Google Custom Search API** to fetch high-quality game cover images. Version **3.3** migrated the app to Avalonia and added an optional **AI Vision Assist** that looks at the candidates and picks the best cover for you.
+It supports **Local Similarity Search** across your existing image folder, plus **Google Web Image Search**, **Bing Web Image Search**, and the **Google Custom Search API** to fetch high-quality game cover images. Version **3.3** migrated the app to Avalonia and added an optional **AI Vision Assist** that looks at the candidates and picks the best cover for you. Version **3.4** adds custom AI request parameters and hardens web-tab image handling.
 
 ![Main Window](screenshot.png)
 
 ![Main Window](screenshot2.png)
 
+## What's New in 3.4
+
+- **Custom AI request parameters** — merge an advanced JSON object into every AI request to tune temperature, token budgets, reasoning options, or provider-specific fields from AI Settings.
+- **Reliable web-tab saves** — Google Web and Bing Web images now convert through the same tolerant Magick.NET pipeline as manual saves, including mislabeled, truncated, `.jfif`, `.jpe`, and `.apng` files.
+- **Missing WebView2 runtime handled** — the app shows the runtime prompt once instead of a generic error dialog or automatic bug report.
+- **Protected CI/CD** — required build, formatting, CodeQL, documentation, and wiki checks are enforced through branch rulesets.
+
 ## Documentation
 
 - **Documentation site**: [purelogiccode.github.io/FindRomCover](https://purelogiccode.github.io/FindRomCover/)
 - **Wiki**: [github.com/purelogiccode/FindRomCover/wiki](https://github.com/purelogiccode/FindRomCover/wiki)
-- **What's New in 3.3.1**: [WhatsNew.md](WhatsNew.md)
+- **What's New in 3.4.0**: [WhatsNew.md](WhatsNew.md)
 - **Source**: [`docs/`](docs/) — built with MkDocs Material and synced to the wiki by CI
 - **Recommended AI models**: [RecommendedModels.md](RecommendedModels.md)
 

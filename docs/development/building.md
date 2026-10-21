@@ -53,7 +53,17 @@ dotnet publish FindRomCover/FindRomCover.csproj -c Release -r osx-arm64 --self-c
 
 Add `-p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true` to produce a single executable with the native libraries (Skia, HarfBuzz, Magick.NET, SQLite) embedded inside it. The .NET runtime itself is never bundled — releases stay framework-dependent. The archive also carries `mame.dat`, `audio/click.mp3`, and `FindRomCover.xml` next to the executable.
 
-Zip the contents as `release_<version>_<rid>.zip` (for example `release_3.3.1_win-x64.zip`) to match the naming used on the Releases page.
+Zip the contents as `release_<version>_<rid>.zip` (for example `release_3.4.0_win-x64.zip`) to match the naming used on the Releases page.
+
+### Release bundles
+
+`release.yml` builds the five official archives. To reproduce them locally:
+
+1. Publish each RID with `-p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true --self-contained false`.
+2. Copy `LICENSE.txt`, `README.md`, and `WhatsNew.md` next to the executable and remove any `*.pdb` files.
+3. Zip the contents as `release_<version>_<rid>.zip` into `FindRomCover/bin/Release`.
+
+Do not embed the .NET runtime, and do not delete existing archives in `FindRomCover/bin/Release`; historical bundles are kept there.
 
 > **Note:** Published builds are framework-dependent. Users need the [.NET 10.0 Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) — the Windows Desktop Runtime is **not** required, because the UI is Avalonia rather than WPF.
 
@@ -65,7 +75,7 @@ Zip the contents as `release_<version>_<rid>.zip` (for example `release_3.3.1_wi
 | Language version | C# 14 |
 | Nullable | Enabled |
 | UI framework | Avalonia `12.1.4` |
-| Assembly/file version | `3.3.1` (kept in `FindRomCover.csproj`) |
+| Assembly/file version | `3.4.0` (kept in `FindRomCover.csproj`) |
 | `mame.dat` | Copied to the output directory on every build |
 | `settings.dat` | Never copied to the output directory |
 

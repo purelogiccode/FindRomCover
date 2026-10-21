@@ -1,4 +1,38 @@
-# FindRomCover 3.3.1 — What's New
+# FindRomCover 3.4.0 - What's New
+
+## New
+
+- **Custom AI request parameters** - AI Settings now includes an advanced JSON box that is merged into every vision request. Change temperature, `top_p`, output-token budgets, reasoning options, or provider-specific fields without waiting for an application update. Nested objects are merged recursively, `null` removes a default, and structural keys are protected. OpenAI, Anthropic, and Gemini examples are documented in [AI Settings](https://github.com/purelogiccode/FindRomCover/blob/master/docs/ai/settings.md#custom-request-parameters).
+
+## Fixes & Improvements
+
+- **Missing WebView2 runtime is handled cleanly** - when the WebView2 runtime or its loader is missing or incompatible, the app logs an environmental warning, suppresses the generic error dialog, and shows the normal runtime prompt once instead of submitting bug reports ([#68439](https://github.com/purelogiccode/FindRomCover/issues/68439), [#68440](https://github.com/purelogiccode/FindRomCover/issues/68440)).
+- **Browser-saved covers convert reliably** - Google Web and Bing Web saves now use the same tolerant Magick.NET pipeline as manual saves. Mislabeled `.png`/`.jpg` files, WebP or JPEG content saved under the wrong extension, truncated PNGs, and `.jfif`, `.jpe`, and `.apng` files are converted to real PNGs. The watcher waits for a stable file before converting and retries transient failures.
+- **Custom AI parameters are validated** - invalid JSON is rejected when saving; a hand-edited invalid value is ignored and logged instead of breaking every AI request.
+
+## Under the Hood
+
+- **930 passing tests** (up from 885), including new suites for WebView exception classification, AI request-parameter merging, and watcher conversion.
+- **CI/CD hardened** - warnings-as-errors builds, coverage artifacts, cross-platform builds, a formatting/analyzer gate, CodeQL, dependency review, grouped Dependabot updates, release version validation, and documentation/wiki checks on every pull request.
+- **Protected releases** - `master` now has rulesets that block force pushes and deletion and require the CI, CodeQL, Pages, and wiki checks before a pull request merges.
+- Dependency update: Meziantou.Analyzer 3.0.315.
+- Version bumped to **3.4.0**.
+
+## Download
+
+- `release_3.4.0_win-x64.zip` - Windows x64
+- `release_3.4.0_win-arm64.zip` - Windows ARM64
+- `release_3.4.0_linux-x64.zip` - Linux x64
+- `release_3.4.0_linux-arm64.zip` - Linux ARM64
+- `release_3.4.0_osx-arm64.zip` - macOS Apple Silicon
+
+> **Note:** there is no Intel-Mac build: Magick.NET 15 (the image conversion engine) no longer ships a macOS x64 native library.
+
+All builds are framework-dependent single-file executables and require the [.NET 10.0 runtime](https://dotnet.microsoft.com/download/dotnet/10.0) (the base runtime; the Windows Desktop Runtime is not required because the UI is Avalonia). Extract and run `FindRomCover.exe` on Windows or `FindRomCover` on Linux/macOS. Each archive also contains `LICENSE.txt`, `README.md`, and `WhatsNew.md`.
+
+---
+
+# FindRomCover 3.3.1 - What's New
 
 ## Fixes & Improvements
 
