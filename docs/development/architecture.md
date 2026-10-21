@@ -101,7 +101,7 @@ AiAssistService ──uses──> IVisionModelClient
         └── AiQueryHistory       (skip previously queried, corrupt-file quarantine)
 ```
 
-`AiAssistService` serializes requests with a `SemaphoreSlim` and always uses the shared `AiVerdictCache`, so the main window and the batch window never read-modify-write over each other. `AiBatchFillService` orchestrates batch runs on top of `AiAssistService`, with optional Google API fallback. All clients share prompts, JSON parsing, timeout handling, and friendly error messages through `VisionModelClientBase`.
+`AiAssistService` serializes requests with a `SemaphoreSlim` and always uses the shared `AiVerdictCache`, so the main window and the batch window never read-modify-write over each other. `AiBatchFillService` orchestrates batch runs on top of `AiAssistService`, with optional Google API fallback. All clients share prompts, JSON parsing, timeout handling, and friendly error messages through `VisionModelClientBase`. Each client also merges the optional custom request-parameter JSON from AI Settings into its serialized request body, so provider parameters can be tuned without code changes.
 
 ## Data flow: finding a cover
 
@@ -132,7 +132,7 @@ AiAssistService ──uses──> IVisionModelClient
 
 ## Testing and CI
 
-The test project covers services, managers, models, and AI clients with xUnit, FluentAssertions, and Moq. GitHub Actions builds and tests every push and pull request on Windows. See [Testing](testing.md) and [CI/CD](ci-cd.md).
+The test project covers services, managers, models, and AI clients with xUnit, FluentAssertions, and Moq. GitHub Actions builds and tests every push and pull request on Windows, enforces formatting and analyzer rules, and scans the code with CodeQL. See [Testing](testing.md) and [CI/CD](ci-cd.md).
 
 ## Related pages
 

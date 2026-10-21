@@ -48,12 +48,24 @@ FindRomCover.Tests/
 
 Coverage highlights:
 
-- **AI subsystem** — each vision client (OpenAI-compatible, Anthropic, Gemini) is tested for request building, response parsing, empty-response diagnostics, and error mapping; the factory, model catalog, image preparer, verdict cache, query history, assist service, and batch fill service have dedicated suites.
+- **AI subsystem** — each vision client (OpenAI-compatible, Anthropic, Gemini) is tested for request building, response parsing, empty-response diagnostics, and error mapping; the factory, model catalog, image preparer, verdict cache, query history, assist service, and batch fill service have dedicated suites. Request-parameter merging is covered for each provider, including nested Gemini configuration, null removal, and reserved keys.
 - **Settings** — defaults, clamping, persistence round-trips, secret encryption, SQLite migration from the legacy encrypted format, and corrupt-file recovery.
 - **Similarity** — all three algorithms, edge cases such as empty strings, and n-gram indexing.
-- **Services** — image processing and saving, screenshot saving, query cleaning, URL generation, update checks, logging, and bug-report suppression.
+- **Services** — image processing and saving, screenshot saving, query cleaning, URL generation, update checks, logging, and bug-report suppression. The watcher conversion path is covered for JPEG, WebP, mislabeled `.png` files, and corrupt input.
 
-The suite currently contains **879 test cases** (685 `[Fact]` plus 194 `[InlineData]` theory cases) across 68 files, all expected to pass.
+The suite currently contains **930 test cases** (714 `[Fact]` plus 216 `[InlineData]` theory cases) across 71 files, all expected to pass.
+
+## Coverage
+
+CI runs the suite with coverlet and uploads the Cobertura report as the `test-results` artifact, together with the TRX log. The run page shows line and branch coverage in its summary.
+
+To produce the same report locally:
+
+```bash
+dotnet test CSharp_FindRomCover.sln --collect:"XPlat Code Coverage" --results-directory TestResults
+```
+
+Coverage is currently reported for visibility and is not a merge gate. The Cobertura XML output lands under `TestResults/`, which is ignored by Git.
 
 ## Test isolation
 

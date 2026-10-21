@@ -1,5 +1,6 @@
 [![GitHub release](https://img.shields.io/github/v/release/purelogiccode/FindRomCover)](https://github.com/purelogiccode/FindRomCover/releases)
 [![CI](https://github.com/purelogiccode/FindRomCover/actions/workflows/ci.yml/badge.svg)](https://github.com/purelogiccode/FindRomCover/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/purelogiccode/FindRomCover/actions/workflows/codeql.yml/badge.svg)](https://github.com/purelogiccode/FindRomCover/actions/workflows/codeql.yml)
 [![Docs](https://github.com/purelogiccode/FindRomCover/actions/workflows/docs.yml/badge.svg)](https://github.com/purelogiccode/FindRomCover/actions/workflows/docs.yml)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-blue)](https://github.com/purelogiccode/FindRomCover/releases)
 [![.NET](https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/download/dotnet/10.0)
@@ -22,7 +23,7 @@
 [![Top language](https://img.shields.io/github/languages/top/purelogiccode/FindRomCover)](https://github.com/purelogiccode/FindRomCover)
 [![C# 14](https://img.shields.io/badge/C%23-14-239120?logo=csharp&logoColor=white)](https://learn.microsoft.com/dotnet/csharp/)
 [![UI: Avalonia 12](https://img.shields.io/badge/UI-Avalonia%2012-8B44AC)](https://avaloniaui.net)
-[![Tests](https://img.shields.io/badge/tests-879%20passing-brightgreen)](https://github.com/purelogiccode/FindRomCover/actions/workflows/ci.yml)
+[![Tests](https://img.shields.io/badge/tests-930%20passing-brightgreen)](https://github.com/purelogiccode/FindRomCover/actions/workflows/ci.yml)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](https://github.com/purelogiccode/FindRomCover/blob/master/docs/development/contributing.md)
 [![Maintained](https://img.shields.io/badge/maintained-yes-brightgreen)](https://github.com/purelogiccode/FindRomCover/commits/master)
 [![Discussions](https://img.shields.io/badge/discussions-available-blue?logo=github)](https://github.com/purelogiccode/FindRomCover/discussions)
@@ -78,7 +79,7 @@ It supports **Local Similarity Search** across your existing image folder, plus 
 
 You can add or remove supported extensions through the `Settings > Edit Supported Extensions...` menu.
 
-**Recognized Cover Image Formats**: The application recognizes and converts `.jpg`, `.jpeg`, `.bmp`, `.gif`, `.tiff`, `.tif`, `.webp`, `.avif`, `.heic`, `.heif`, `.jxl`, `.jp2`, `.ico`, and `.svg` files to `.png` format.
+**Recognized Cover Image Formats**: The application recognizes and converts `.jpg`, `.jpeg`, `.jfif`, `.jpe`, `.bmp`, `.gif`, `.tiff`, `.tif`, `.webp`, `.avif`, `.heic`, `.heif`, `.jxl`, `.jp2`, `.ico`, `.apng`, and `.svg` files to `.png` format.
 
 ## Getting Started
 
@@ -140,6 +141,7 @@ AI Vision Assist uses a vision-capable model to choose the best cover among cand
     - **Verify images with AI** before renaming or saving.
     - **Candidate similarity (%)**: only local images whose filename similarity (using the algorithm selected in the main window) is at or above this value are sent to the AI. Raise it to reduce cost and noise; lower it to let the AI look at weaker filename matches.
     - **Skip missing covers already queried in previous sessions**: queried items are remembered so the AI is not asked twice for the same cover; use **Clear query history** to start over.
+    - **Custom request parameters** (advanced): optional JSON merged into every request, for example `{"temperature": 0.2}` or `{"generationConfig": {"temperature": 0.2}}` for Gemini. See [AI Settings](docs/ai/settings.md#custom-request-parameters).
 5. Use the **AI Pick Best** button on the Local Files and Google API tabs, or **AI Fill Missing Covers...** on the missing covers list for batch processing.
 
 Images are downscaled before upload (default 512px) and verdicts are cached for 30 days to limit API usage. Queried covers are remembered in the SQLite database `QueryHistory.dat` inside the per-user data folder (180 days).
@@ -159,7 +161,7 @@ All settings — theme, folders, similarity options, Google key, AI provider, mo
    - The status bar reports how many ROM files matched the supported extensions and how many are missing covers.
 
 2. **Missing Covers List**
-   - The app lists all ROMs without a corresponding `.png`, `.jpg`, `.jpeg`, `.bmp`, `.gif`, `.tiff`, `.tif`, `.webp`, `.avif`, `.heic`, `.heif`, `.jxl`, `.jp2`, `.ico`, or `.svg` cover in your image folder.
+   - The app lists all ROMs without a corresponding `.png`, `.apng`, `.jpg`, `.jpeg`, `.jfif`, `.jpe`, `.bmp`, `.gif`, `.tiff`, `.tif`, `.webp`, `.avif`, `.heic`, `.heif`, `.jxl`, `.jp2`, `.ico`, or `.svg` cover in your image folder.
    - If no ROM files are found, the status bar tells you explicitly so you can verify the folder and supported extensions.
 
 3. **Find Covers**
