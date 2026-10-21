@@ -86,7 +86,7 @@ public static class ImageProcessor
                 MessageIcon.Error);
 
         const int maxAttempts = 3;
-        for (var attempt = 0;; attempt++)
+        for (var attempt = 0; ; attempt++)
             try
             {
                 var testFile = Path.Combine(directory, $"{Guid.NewGuid()}.tmp");
@@ -313,8 +313,8 @@ public static class ImageProcessor
 
         settings.Format = ext switch
         {
-            ".png" => MagickFormat.Png,
-            ".jpg" or ".jpeg" => MagickFormat.Jpeg,
+            ".png" or ".apng" => MagickFormat.Png,
+            ".jpg" or ".jpeg" or ".jfif" or ".jpe" => MagickFormat.Jpeg,
             ".bmp" => MagickFormat.Bmp,
             ".gif" => MagickFormat.Gif,
             ".tiff" or ".tif" => MagickFormat.Tiff,
@@ -330,6 +330,31 @@ public static class ImageProcessor
         };
 
         return settings;
+    }
+
+    /// <summary>
+    ///     Determines whether the file is a complete, strictly readable PNG. A file named
+    ///     <c>.png</c> that contains WebP/JPEG data or is truncated returns
+    ///     <see langword="false"/> so the caller can normalize it through the tolerant
+    ///     conversion path.
+    /// </summary>
+    /// <param name="filePath">The image file to inspect.</param>
+    /// <returns><see langword="true"/> when the file is a valid PNG; otherwise <see langword="false"/>.</returns>
+    internal static bool IsValidPng(string filePath)
+    {
+        try
+        {
+            using var image = new MagickImage(filePath, GetMagickReadSettings(filePath));
+            return image.Format == MagickFormat.Png && image.Width > 0 && image.Height > 0;
+        }
+        catch (MagickException)
+        {
+            return false;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
     }
 
     /// <summary>

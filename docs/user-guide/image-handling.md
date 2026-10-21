@@ -8,7 +8,7 @@ The following image formats are recognized and converted to PNG:
 
 | Format | Extensions |
 |--------|------------|
-| Common web formats | `.png`, `.jpg`, `.jpeg`, `.bmp`, `.gif`, `.webp` |
+| Common web formats | `.png`, `.apng`, `.jpg`, `.jpeg`, `.jfif`, `.jpe`, `.bmp`, `.gif`, `.webp` |
 | High-efficiency formats | `.avif`, `.heic`, `.heif`, `.jxl`, `.jp2` |
 | TIFF | `.tiff`, `.tif` |
 | Vector and icon | `.svg`, `.ico` |
@@ -40,7 +40,7 @@ The watcher monitors the **top level** of the image folder (subfolders are not w
 2. **Wait for stability** — the watcher waits until the file is no longer being written.
 3. **Verify (optional)** — when **Verify images with AI before renaming or saving** is enabled, the image is checked against the selected game first.
 4. **Rename** — the file is renamed to match the currently selected missing ROM.
-5. **Convert** — non-PNG images are converted to PNG.
+5. **Convert** — images are converted to PNG with Magick.NET. A file named `.png` whose bytes are actually JPEG/WebP (common when saving from a browser) or whose PNG data is truncated is normalized to a real PNG in place.
 6. **Refresh** — the game is removed from the missing covers list.
 
 The watcher never overwrites an existing cover:
@@ -56,7 +56,9 @@ There is no overwrite confirmation dialog in the watcher workflow.
 ## Retries and robustness
 
 - Transient failures such as file locks and slow network drives are retried with a short delay.
-- Corrupt or misformatted images are detected immediately and skipped without repeated retries.
+- Conversion uses the same Magick.NET path as manual saves: content sniffing handles files whose extension lies about their contents, and PNG CRC mismatches from partial downloads are tolerated.
+- A file is only processed after its size has been stable for about a second (waiting up to 20 seconds), so browser downloads are not converted mid-write.
+- Corrupt files are reported after a few short retries and skipped without repeated error dialogs.
 - Orphaned temporary files from interrupted conversions are cleaned up on startup.
 - Access-denied situations on the watched folder are logged as warnings, and the watcher attempts to recover automatically instead of crashing.
 

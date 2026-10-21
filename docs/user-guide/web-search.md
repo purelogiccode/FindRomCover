@@ -24,10 +24,11 @@ FindRomCover's file-system watcher notices the new file, renames it to the selec
 The image folder watcher runs in the background and:
 
 1. detects newly created image files in the **top level** of the image folder (subfolders are not watched);
-2. renames the file to match the currently selected missing ROM;
-3. converts non-PNG files to PNG;
-4. removes the entry from the missing covers list;
-5. optionally asks AI Vision Assist to verify the image first (see below).
+2. waits until the browser has finished writing the file;
+3. renames the file to match the currently selected missing ROM;
+4. converts it to PNG with the shared Magick.NET pipeline, including files whose `.png` name hides JPEG/WebP bytes or a truncated download;
+5. removes the entry from the missing covers list;
+6. optionally asks AI Vision Assist to verify the image first (see below).
 
 The watcher never overwrites an existing cover:
 

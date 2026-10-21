@@ -446,6 +446,15 @@ public class ImageProcessorTests : IDisposable
         savedImage.Height.Should().Be(30);
     }
 
+    [Theory]
+    [InlineData(".jfif", MagickFormat.Jpeg)]
+    [InlineData(".jpe", MagickFormat.Jpeg)]
+    [InlineData(".apng", MagickFormat.Png)]
+    public void GetMagickReadSettingsShouldMapBrowserImageExtensions(string extension, MagickFormat expected)
+    {
+        ImageProcessor.GetMagickReadSettings("cover" + extension).Format.Should().Be(expected);
+    }
+
     [Fact]
     public async Task ConvertAndSaveImageAsyncShouldFallBackToContentSniffingWhenExtensionIsWrong()
     {

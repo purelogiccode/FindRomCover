@@ -187,8 +187,8 @@ public static class SimilarityCalculator
 
         string[] imageExtensions =
         [
-            "*.png", "*.jpg", "*.jpeg", "*.avif", "*.bmp", "*.gif", "*.webp", "*.tiff", "*.tif", "*.ico", "*.svg",
-            "*.jxl", "*.jp2", "*.heic", "*.heif"
+            "*.png", "*.apng", "*.jpg", "*.jpeg", "*.jfif", "*.jpe", "*.avif", "*.bmp", "*.gif", "*.webp", "*.tiff",
+            "*.tif", "*.ico", "*.svg", "*.jxl", "*.jp2", "*.heic", "*.heif"
         ];
 
         List<string> allImageFiles;

@@ -22,12 +22,12 @@ The full list is maintained in the application and can be edited under `Settings
 
 | Family | Extensions |
 |--------|------------|
-| Web and common | `.png`, `.jpg`, `.jpeg`, `.bmp`, `.gif`, `.webp` |
+| Web and common | `.png`, `.apng`, `.jpg`, `.jpeg`, `.jfif`, `.jpe`, `.bmp`, `.gif`, `.webp` |
 | High efficiency | `.avif`, `.heic`, `.heif`, `.jxl`, `.jp2` |
 | TIFF | `.tiff`, `.tif` |
 | Vector and icons | `.svg`, `.ico` |
 
-All of these are recognized when checking whether a ROM already has a cover. Non-PNG images are converted to PNG when they are saved through FindRomCover or picked up by the watcher.
+All of these are recognized when checking whether a ROM already has a cover. Images are converted to PNG when they are saved through FindRomCover or picked up by the watcher. A file with a misleading `.png` extension (for example WebP bytes saved as `.png`) is normalized to a real PNG.
 
 ### Output format
 

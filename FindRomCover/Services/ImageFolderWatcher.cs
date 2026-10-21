@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using ImageMagick;
 
 namespace FindRomCover.Services;
 
@@ -11,7 +10,7 @@ public sealed class ImageFolderWatcher : IDisposable
 {
     private static readonly HashSet<string> SupportedExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
-        ".png", ".jpg", ".jpeg", ".bmp", ".gif", ".webp", ".tiff", ".tif",
+        ".png", ".apng", ".jpg", ".jpeg", ".jfif", ".jpe", ".bmp", ".gif", ".webp", ".tiff", ".tif",
         ".avif", ".heic", ".heif", ".ico", ".svg", ".jxl", ".jp2"
     };
 
@@ -750,20 +749,26 @@ public sealed class ImageFolderWatcher : IDisposable
                     return;
                 }
 
-                if (!Path.GetExtension(filePath).Equals(".png", StringComparison.OrdinalIgnoreCase))
+                var isPng = extension.Equals(".png", StringComparison.OrdinalIgnoreCase);
+                var needsConversion = !isPng || !ImageProcessor.IsValidPng(filePath);
+
+                if (needsConversion)
                 {
-                    // Never overwrite an existing cover with the converted PNG: the
-                    // dropped file is kept under its current name instead.
-                    var pngTarget = Path.Combine(Path.GetDirectoryName(filePath) ?? ".",
-                        Path.GetFileNameWithoutExtension(filePath) + ".png");
-                    if (File.Exists(pngTarget))
+                    if (!isPng)
                     {
-                        _recentlyProcessed.TryRemove(filePath, out _);
-                        LogService.WarningTransient(
-                            $"ImageFolderWatcher: '{Path.GetFileName(pngTarget)}' already exists — '{Path.GetFileName(filePath)}' was kept as-is to protect the existing cover");
-                        ConversionFailed?.Invoke(filePath,
-                            $"A cover named '{Path.GetFileName(pngTarget)}' already exists.\n\nThe dropped file was kept unchanged.");
-                        return;
+                        // Never overwrite an existing cover with the converted PNG: the
+                        // dropped file is kept under its current name instead.
+                        var pngTarget = Path.Combine(Path.GetDirectoryName(filePath) ?? ".",
+                            Path.GetFileNameWithoutExtension(filePath) + ".png");
+                        if (File.Exists(pngTarget))
+                        {
+                            _recentlyProcessed.TryRemove(filePath, out _);
+                            LogService.WarningTransient(
+                                $"ImageFolderWatcher: '{Path.GetFileName(pngTarget)}' already exists — '{Path.GetFileName(filePath)}' was kept as-is to protect the existing cover");
+                            ConversionFailed?.Invoke(filePath,
+                                $"A cover named '{Path.GetFileName(pngTarget)}' already exists.\n\nThe dropped file was kept unchanged.");
+                            return;
+                        }
                     }
 
                     var (convertedPath, convertError) = await ConvertToPngWithRetryAsync(filePath);
@@ -817,9 +822,9 @@ public sealed class ImageFolderWatcher : IDisposable
 
     private static async Task<bool> WaitForFileReadyAsync(string filePath)
     {
-        const int maxWaitMs = 10000;
+        const int maxWaitMs = 20000;
         const int pollIntervalMs = 250;
-        const int stableChecksRequired = 2;
+        const int stableChecksRequired = 4;
         var elapsed = 0;
         long lastSize = -1;
         var stableCount = 0;
@@ -828,6 +833,8 @@ public sealed class ImageFolderWatcher : IDisposable
         {
             try
             {
+                // Keep the sharing mode permissive so the browser can finish writing;
+                // readiness is determined by a stable file size (1 s by default).
                 await using var stream = File.Open(filePath, FileMode.Open, FileAccess.Read,
                     FileShare.ReadWrite | FileShare.Delete);
                 if (stream.Length > 0)
@@ -936,74 +943,88 @@ public sealed class ImageFolderWatcher : IDisposable
         string? lastError = null;
 
         for (var attempt = 1; attempt <= maxRetries; attempt++)
-            try
+        {
+            var (convertedPath, error) = await ConvertToPngAsync(sourcePath);
+            if (convertedPath != null) return (convertedPath, null);
+
+            lastError = error;
+            if (attempt < maxRetries)
             {
-                return await ConvertToPngAsync(sourcePath);
+                LogService.Debug($"ImageFolderWatcher: convert retry {attempt}/{maxRetries} for '{sourcePath}'");
+                var delay = baseDelayMs * Math.Pow(2, attempt - 1);
+                await Task.Delay((int)delay);
             }
-            catch (MagickException ex)
-            {
-                LogService.ErrorWatcher(ex,
-                    $"ImageFolderWatcher: image conversion skipped for corrupt/misformatted file: {sourcePath}");
-                return (null, ex.Message);
-            }
-            catch (Exception ex)
-            {
-                lastError = ex.Message;
-                LogService.ErrorWatcher(ex, $"Failed to convert image to PNG: {sourcePath}");
-                if (attempt < maxRetries)
-                {
-                    LogService.Debug($"ImageFolderWatcher: convert retry {attempt}/{maxRetries} for '{sourcePath}'");
-                    var delay = baseDelayMs * Math.Pow(2, attempt - 1);
-                    await Task.Delay((int)delay);
-                }
-            }
+        }
+
+        // Conversion failures are environmental (partial browser download, unsupported
+        // format, locked file): keep them out of automatic bug reports.
+        LogService.ErrorWatcher(
+            new InvalidOperationException(lastError ?? "Unknown image conversion error"),
+            $"ImageFolderWatcher: failed to convert '{sourcePath}' to PNG after {maxRetries} attempts.");
 
         return (null, lastError);
     }
 
-    private static async Task<(string? Path, string? Error)> ConvertToPngAsync(string sourcePath)
+    /// <summary>
+    ///     Converts a dropped image to PNG through the shared tolerant image processor.
+    ///     A valid PNG is left as-is; an invalid file named <c>.png</c> is normalized in
+    ///     place, while other formats are written next to the source and the original is
+    ///     deleted after a successful conversion.
+    /// </summary>
+    /// <param name="sourcePath">The dropped image path.</param>
+    /// <returns>The final PNG path and an error message when conversion fails.</returns>
+    internal static async Task<(string? Path, string? Error)> ConvertToPngAsync(string sourcePath)
     {
-        var directory = Path.GetDirectoryName(sourcePath);
+        var directory = Path.GetDirectoryName(sourcePath) ?? ".";
         var fileNameWithoutExt = Path.GetFileNameWithoutExtension(sourcePath);
-        var targetPath = Path.Combine(directory ?? ".", fileNameWithoutExt + ".png");
-        var tempPath = Path.Combine(directory ?? ".", Guid.NewGuid().ToString("N") + ".tmp");
+        var isPng = Path.GetExtension(sourcePath).Equals(".png", StringComparison.OrdinalIgnoreCase);
 
+        if (isPng && ImageProcessor.IsValidPng(sourcePath))
+            return (sourcePath, null);
+
+        // A valid .png is left untouched by the caller. An invalid .png (browser saved
+        // WebP/JPEG bytes or a truncated PNG under a .png name) is normalized in place
+        // through a temporary file; other formats are converted next to the source.
+        var targetPath = isPng
+            ? Path.Combine(directory, $"{fileNameWithoutExt}.{Guid.NewGuid():N}.tmp")
+            : Path.Combine(directory, fileNameWithoutExt + ".png");
+
+        // Use the shared ImageProcessor path so the watcher gets the same tolerant
+        // fallback as manual saves: content sniffing for lying extensions, PNG CRC
+        // tolerance, atomic temp writes and retry handling (issues #68280, #68282).
+        var result = await ImageProcessor.ConvertAndSaveImageAsync(sourcePath, targetPath, CancellationToken.None);
+        if (!result.Success)
+        {
+            LogService.Debug($"ImageFolderWatcher: conversion failed for '{sourcePath}': {result.ErrorMessage}");
+            TryDeleteFile(targetPath);
+            return (null, result.ErrorMessage);
+        }
+
+        if (isPng)
+            try
+            {
+                File.Move(targetPath, sourcePath, true);
+                return (sourcePath, null);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                TryDeleteFile(targetPath);
+                return (null, $"Could not replace the invalid PNG file: {ex.Message}");
+            }
+
+        TryDeleteFile(sourcePath);
+        return (targetPath, null);
+    }
+
+    private static void TryDeleteFile(string path)
+    {
         try
         {
-            var settings = ImageProcessor.GetMagickReadSettings(sourcePath);
-            using var magickImage = new MagickImage(sourcePath, settings);
-            magickImage.AutoOrient();
-            magickImage.Quality = 90;
-            magickImage.Format = MagickFormat.Png;
-
-            // Write to a temp file and move into place so a crash or locked target
-            // never leaves a truncated cover behind.
-            await magickImage.WriteAsync(tempPath);
-            File.Move(tempPath, targetPath, true);
+            if (File.Exists(path)) File.Delete(path);
         }
-        finally
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            try
-            {
-                if (File.Exists(tempPath)) File.Delete(tempPath);
-            }
-            catch (Exception ex)
-            {
-                LogService.WarningTransient(ex, $"ImageFolderWatcher: failed to clean up temp file '{tempPath}'.");
-            }
+            LogService.WarningTransient(ex, $"ImageFolderWatcher: failed to delete file '{path}'.");
         }
-
-        if (File.Exists(sourcePath) && !string.Equals(sourcePath, targetPath, StringComparison.OrdinalIgnoreCase))
-            try
-            {
-                File.Delete(sourcePath);
-            }
-            catch (Exception ex)
-            {
-                LogService.WarningTransient(ex,
-                    $"ImageFolderWatcher: failed to delete source file after PNG conversion: '{sourcePath}'");
-            }
-
-        return (targetPath, null);
     }
 }

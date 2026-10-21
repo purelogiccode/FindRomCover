@@ -8,7 +8,7 @@ public static class CoverFileResolver
 {
     private static readonly string[] RecognizedImageExtensions =
     [
-        ".png", ".jpg", ".jpeg", ".bmp", ".gif", ".tiff", ".tif", ".webp", ".avif",
+        ".png", ".apng", ".jpg", ".jpeg", ".jfif", ".jpe", ".bmp", ".gif", ".tiff", ".tif", ".webp", ".avif",
         ".heic", ".heif", ".ico", ".svg", ".jxl", ".jp2"
     ];
 
