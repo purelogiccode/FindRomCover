@@ -171,10 +171,10 @@ Every Dependabot pull request runs the same CI, CodeQL, and dependency-review ch
 
 ## Branch protection
 
-`master` is protected by a repository ruleset:
+`master` is protected by two repository rulesets:
 
-- force pushes and branch deletion are blocked;
-- these status checks are required before a pull request can merge:
+- **master safety** blocks force pushes and branch deletion for everyone, including repository administrators.
+- **master status checks** requires these checks before a pull request can merge:
   - `Build and test (Windows)`
   - `Build app (ubuntu-latest)`
   - `Build app (macos-latest)`
@@ -182,9 +182,8 @@ Every Dependabot pull request runs the same CI, CodeQL, and dependency-review ch
   - `Analyze C#` (CodeQL)
   - `Build documentation site`
   - `Generate wiki pages`
-- the branch does not have to be up to date before merging, so unrelated pull requests are not forced to rebase.
 
-Direct pushes by maintainers remain allowed, and every push still runs the full check suite. The ruleset is configured under **Settings > Rules > Rulesets**.
+The status-check ruleset has an administrator bypass so direct pushes keep working; every push still runs the full check suite, and collaborators without the admin role must use a pull request. The branch does not have to be up to date before merging, so unrelated pull requests are not forced to rebase. Both rulesets are managed under **Settings > Rules > Rulesets**.
 
 `Dependency review` is intentionally not a required check: it depends on GitHub's advisory service and should not block an otherwise healthy pull request when that service is unavailable.
 
