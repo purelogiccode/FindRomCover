@@ -41,6 +41,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     private Task? _findSimilarTask;
     private ImageFolderWatcher? _imageFolderWatcher;
     private bool _isExiting;
+    private bool _windowSettingsPersisted;
+    private WindowState _lastNonMinimizedState = WindowState.Normal;
+    private IDisposable? _folderTextDebounce;
+    private int _folderTextVersion;
+    private readonly List<string> _pendingWatcherMessages = [];
+    private bool _watcherMessageScheduled;
     private CancellationTokenSource? _loadMissingCts;
     private Task? _loadMissingTask;
     private Task? _mameLoadTask;
@@ -62,6 +68,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         Settings = settingsManager;
         InitializeComponent();
+
+        // Keep the "Log Window" checkmark in sync when the log window is closed with X
+        // (it hides instead of closing, so the menu item would stay checked).
+        if (App.LogWindow != null)
+            App.LogWindow.Hidden += () => ToggleDebugWindow.IsChecked = false;
 
         CheckForMissingImagesCommand = new DelegateCommand(
             _ => ExecuteCheckForMissingImagesCommand(),
@@ -355,6 +366,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         _disposed = true;
         Settings.PropertyChanged -= AppSettingsManagerPropertyChangedAsync;
 
+        _folderTextDebounce?.Dispose();
+        _folderTextDebounce = null;
+        _pendingWatcherMessages.Clear();
+
         _findSimilarCts?.Cancel();
         _loadMissingCts?.Cancel();
         _aiAssistCts?.Cancel();
@@ -372,13 +387,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         _aiAssistCts = null;
         _webSearchCts?.Dispose();
         _webSearchCts = null;
+        // Stop the watcher before the AI service: an in-flight verification must not
+        // run against a disposed client (it would "fail open" and accept the image).
+        _imageFolderWatcher?.Dispose();
         _aiAssistService?.Dispose();
         _aiAssistService = null;
 
         // The semaphore is intentionally not disposed: cancelled background tasks may
         // still release it while settling, and SemaphoreSlim does not own OS handles
         // unless AvailableWaitHandle is used.
-        _imageFolderWatcher?.Dispose();
         _systemTrayIcon?.Dispose();
 
         if (CheckForMissingImagesCommand is IDisposable disposableCheckCommand)
@@ -430,7 +447,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         try
         {
-            if (e.Property == WindowStateProperty && WindowState == WindowState.Minimized) MinimizeToTray();
+            if (e.Property != WindowStateProperty) return;
+
+            if (e.OldValue is WindowState oldState && oldState != WindowState.Minimized)
+                _lastNonMinimizedState = oldState;
+
+            if (WindowState == WindowState.Minimized) MinimizeToTray();
         }
         catch (Exception ex)
         {
@@ -461,7 +483,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         try
         {
             Show();
-            WindowState = WindowState.Normal;
+            WindowState = _lastNonMinimizedState;
             Activate();
             _systemTrayIcon?.Visible = false;
         }
@@ -979,9 +1001,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return;
         }
 
-        // X button or Alt+F4: cancel the raw close and use the explicit shutdown path
+        // X button or Alt+F4: cancel the raw close and run the explicit shutdown after
+        // this Closing dispatch completes. Calling desktop.Shutdown() from inside the
+        // handler re-enters Closing/Exit and saves/disposes everything twice.
         e.Cancel = true;
-        ExitApplication();
+        Dispatcher.UIThread.Post(ExitApplication);
     }
 
     /// <summary>
@@ -990,6 +1014,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     /// </summary>
     private void PersistWindowSettings()
     {
+        // The forced shutdown re-raises Closing; never write the settings twice.
+        if (_windowSettingsPersisted) return;
+        _windowSettingsPersisted = true;
+
         try
         {
             var imageFolder = TxtImageFolder.Text?.Trim();
@@ -1212,6 +1240,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
         var cts = new CancellationTokenSource();
         _loadMissingCts = cts;
+        // The flag belongs to the refresh wrapper: a superseded run cannot clear it,
+        // and a new run that returns early (invalid folders/extensions) never sets it.
+        IsCheckingMissing = true;
         var task = LoadMissingImagesListAsync(cts.Token);
         _loadMissingTask = task;
         try
@@ -1227,7 +1258,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
         finally
         {
-            if (_loadMissingCts == cts) _loadMissingCts = null;
+            if (_loadMissingCts == cts)
+            {
+                _loadMissingCts = null;
+                IsCheckingMissing = false;
+            }
+
             if (ReferenceEquals(_loadMissingTask, task)) _loadMissingTask = null;
             cts.Dispose();
         }
@@ -1242,17 +1278,27 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return;
         }
 
-        var romFolderPath = GetValidatedRomFolderPath();
-        var imageFolderPath = GetValidatedImageFolderPath();
+        // Validate without showing per-folder dialogs; the caller shows one combined message.
+        var romFolderPath = GetValidatedRomFolderPath(showWarning: false);
+        var imageFolderPath = GetValidatedImageFolderPath(showWarning: false);
 
         if (string.IsNullOrEmpty(romFolderPath) || string.IsNullOrEmpty(imageFolderPath))
         {
-            await Dialogs.ShowMessageAsync(this, "Please select both ROM and Image folders.", "Warning",
-                MessageIcon.Warning);
+            var problems = new List<string>();
+            var romText = TxtRomFolder.Text?.Trim();
+            var imageText = TxtImageFolder.Text?.Trim();
+
+            if (string.IsNullOrEmpty(romFolderPath) && !string.IsNullOrEmpty(romText))
+                problems.Add($"The ROM folder path '{romText}' is invalid or does not exist.");
+            if (string.IsNullOrEmpty(imageFolderPath) && !string.IsNullOrEmpty(imageText))
+                problems.Add($"The image folder path '{imageText}' is invalid or does not exist.");
+            if (problems.Count == 0)
+                problems.Add("Please select both ROM and Image folders.");
+
+            await Dialogs.ShowMessageAsync(this, string.Join("\n\n", problems), "Warning", MessageIcon.Warning);
             return;
         }
 
-        IsCheckingMissing = true;
         try
         {
             var missingResult = await Task.Run(async () =>
@@ -1327,13 +1373,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 MessageIcon.Error);
             LogService.Error(ex, "Error checking for missing images");
         }
-        finally
-        {
-            // Only the current run may clear the flag — a stale run that was cancelled
-            // by a newer scan must not stop the new run's spinner.
-            if (_loadMissingCts is null || cancellationToken.Equals(_loadMissingCts.Token))
-                IsCheckingMissing = false;
-        }
     }
 
     private void RemoveSelectedItem(int? index = null)
@@ -1366,8 +1405,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private static void DisposeAndClearImages(ObservableCollection<ImageData> images)
     {
-        foreach (var image in images) image.Dispose();
+        // Remove the items before disposing: the ItemsControl must stop binding to the
+        // bitmaps before they are destroyed, otherwise a render pass can hit a disposed
+        // image.
+        var snapshot = images.ToList();
         images.Clear();
+        foreach (var image in snapshot) image.Dispose();
     }
 
     private void UpdateStatusImageCount()
@@ -1422,19 +1465,20 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
     }
 
-    private void CopyFileName_Click(object? sender, RoutedEventArgs e)
+    private async void CopyFileName_Click(object? sender, RoutedEventArgs e)
     {
         try
         {
             if (LstMissingImages.SelectedItem is MissingImageItem item)
             {
                 var clipboard = GetTopLevel(this)?.Clipboard;
-                if (clipboard != null) _ = clipboard.SetTextAsync(item.RomName);
+                if (clipboard != null)
+                    await clipboard.SetTextAsync(item.RomName);
             }
         }
         catch (Exception ex)
         {
-            LogService.Error(ex, "Error in CopyFileName_Click");
+            LogService.WarningTransient(ex, "Could not copy the ROM name to the clipboard.");
         }
     }
 
@@ -1459,7 +1503,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
             var result = await Dialogs.ShowQuestionAsync(this,
                 $"Are you sure you want to permanently delete this file?\n\n{romFilePath}\n\nThis action cannot be undone.",
-                "Confirm Delete");
+                "Confirm Delete", MessageIcon.Warning, MessageResult.No);
 
             if (result != MessageResult.Yes) return;
 
@@ -1658,7 +1702,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
     }
 
-    private void LstMissingImages_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+    private async void LstMissingImages_SelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
         try
         {
@@ -1709,7 +1753,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             try
             {
                 var clipboard = GetTopLevel(this)?.Clipboard;
-                if (clipboard != null) _ = clipboard.SetTextAsync(selectedItemRomName);
+                if (clipboard != null)
+                    await clipboard.SetTextAsync(selectedItemRomName);
             }
             catch (Exception ex)
             {
@@ -1797,7 +1842,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         try
         {
-            UpdateUiStateForFolderPaths();
+            ScheduleFolderStateUpdate();
         }
         catch (Exception ex)
         {
@@ -1809,12 +1854,36 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         try
         {
-            UpdateUiStateForFolderPaths();
+            ScheduleFolderStateUpdate();
         }
         catch (Exception ex)
         {
             LogService.Error(ex, "Error in TxtImageFolder_TextChanged");
         }
+    }
+
+    /// <summary>
+    ///     Debounces folder-path validation so typing or pasting a path does not call
+    ///     Directory.Exists (which can block on a slow UNC share) and restart the
+    ///     file-system watcher for every character.
+    /// </summary>
+    private void ScheduleFolderStateUpdate()
+    {
+        var version = ++_folderTextVersion;
+        _folderTextDebounce?.Dispose();
+        _folderTextDebounce = DispatcherTimer.RunOnce(() =>
+        {
+            if (version != _folderTextVersion) return;
+
+            try
+            {
+                UpdateUiStateForFolderPaths();
+            }
+            catch (Exception ex)
+            {
+                LogService.Error(ex, "Error updating folder state after a path change");
+            }
+        }, TimeSpan.FromMilliseconds(300));
     }
 
     private void TxtRomFolder_LostFocus(object? sender, RoutedEventArgs e)
@@ -1942,10 +2011,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 _webSearchCts?.Cancel();
                 _aiAssistCts?.Cancel();
 
+                SetGoogleWebSearching(false);
+                SetBingWebSearching(false);
+                SetApiSearching(false);
+
                 _imageFolderWatcher?.KnownRomNames = null;
                 MissingImages.Clear();
                 DisposeAndClearImages(SimilarImages);
+                DisposeAndClearImages(PanelImages);
+                LblApiSearchQuery.Content = null;
+                HasSearchedApi = false;
                 UpdateMissingCount();
+                UpdateStatusImageCount();
             }
 
             StartImageFolderWatcher(imagePathValid ? imageText : null);
@@ -2021,27 +2098,67 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private void OnImageFolderConversionFailed(string filePath, string errorMessage)
     {
-        _ = Dispatcher.UIThread.InvokeAsync(() =>
-        {
-            Dialogs.ShowMessage(this,
-                $"Failed to convert image:\n\n{Path.GetFileName(filePath)}\n\n{errorMessage}",
-                "Image Conversion Failed",
-                MessageIcon.Warning);
-        });
+        QueueWatcherMessage(
+            $"Failed to convert image '{Path.GetFileName(filePath)}': {errorMessage}");
     }
 
     private void OnImageFolderVerificationFailed(string filePath, string romName)
     {
-        _ = Dispatcher.UIThread.InvokeAsync(() =>
+        Dispatcher.UIThread.Post(() =>
         {
-            StatusMessage.Text =
-                $"AI thinks '{Path.GetFileName(filePath)}' is not a cover for '{romName}' — rename skipped.";
-            Dialogs.ShowMessage(this,
-                $"The AI model does not think this image is a cover for '{romName}'.\n\n" +
-                $"The file was left as-is:\n{filePath}\n\n" +
-                "You can still assign it manually or save a different image.",
-                "AI Verification", MessageIcon.Warning);
+            try
+            {
+                StatusMessage.Text =
+                    $"AI thinks '{Path.GetFileName(filePath)}' is not a cover for '{romName}' — rename skipped.";
+            }
+            catch (Exception ex)
+            {
+                LogService.WarningTransient(ex, "Could not update the status for an AI verification rejection.");
+            }
         });
+
+        QueueWatcherMessage(
+            $"AI thinks '{Path.GetFileName(filePath)}' is not a cover for '{romName}' — the file was left as-is.");
+    }
+
+    /// <summary>
+    ///     Collects watcher failures for a short window and shows a single summary dialog.
+    ///     A folder of unsupported images used to stack one modal dialog per file.
+    /// </summary>
+    private void QueueWatcherMessage(string message)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            try
+            {
+                _pendingWatcherMessages.Add(message);
+                if (_watcherMessageScheduled) return;
+
+                _watcherMessageScheduled = true;
+                DispatcherTimer.RunOnce(FlushWatcherMessages, TimeSpan.FromMilliseconds(750));
+            }
+            catch (Exception ex)
+            {
+                LogService.WarningTransient(ex, "Could not queue an image-watcher message.");
+            }
+        });
+    }
+
+    private void FlushWatcherMessages()
+    {
+        _watcherMessageScheduled = false;
+        if (_disposed || _pendingWatcherMessages.Count == 0) return;
+
+        var messages = _pendingWatcherMessages.ToList();
+        _pendingWatcherMessages.Clear();
+
+        var body = messages.Count == 1
+            ? messages[0]
+            : $"{messages.Count} images could not be processed:\n\n" +
+              string.Join("\n", messages.Take(5)) +
+              (messages.Count > 5 ? $"\n...and {messages.Count - 5} more." : string.Empty);
+
+        Dialogs.ShowMessage(this, body, "Image Processing", MessageIcon.Warning);
     }
 
     private async Task<bool> VerifyImageWithAiAsync(string filePath, string romName,
@@ -2064,6 +2181,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
         catch (Exception ex)
         {
+            // During shutdown the AI service is disposed; reject the rename instead of
+            // letting a possibly wrong image become a cover.
+            if (_disposed) return false;
+
             LogService.WarningTransient(ex, "AI verification failed; proceeding without verification.");
             return true;
         }

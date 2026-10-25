@@ -11,7 +11,9 @@ namespace FindRomCover.Services;
 /// </summary>
 public sealed class LocalAudioService : IAudioService
 {
-    private const string MciAlias = "FindRomCoverClick";
+    // Include the process id: a fixed alias let a second instance close the first
+    // instance's open alias mid-playback.
+    private static string MciAlias => $"FindRomCoverClick_{Environment.ProcessId}";
 
     private readonly Lock _playbackLock = new();
     private readonly string _soundPath =
@@ -92,7 +94,10 @@ public sealed class LocalAudioService : IAudioService
     {
         _ = Task.Run(() =>
         {
-            lock (playbackLock)
+            // Drop overlapping clicks instead of queueing one blocked thread per click.
+            if (!playbackLock.TryEnter()) return;
+
+            try
             {
                 if (isDisposed()) return;
 
@@ -105,6 +110,10 @@ public sealed class LocalAudioService : IAudioService
                 // kept click.mp3 locked for the whole session and blocked updates.
                 _ = mciSendStringW($"play {MciAlias} wait", null, 0, IntPtr.Zero);
                 CloseWindowsAlias();
+            }
+            finally
+            {
+                playbackLock.Exit();
             }
         });
     }

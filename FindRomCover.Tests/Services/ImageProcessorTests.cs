@@ -102,6 +102,7 @@ public class ImageProcessorTests : IDisposable
     [InlineData("target.png.tmp1a2b3c4d", true)]
     [InlineData("Backup.tmp.png", false)]
     [InlineData("Mega Man.tmpdata.png", false)]
+    [InlineData("cover.tmp20240101", false)]
     [InlineData("image.png", false)]
     public void IsOrphanedTempFileNameShouldMatchOnlyAppTempNames(string fileName, bool expected)
     {

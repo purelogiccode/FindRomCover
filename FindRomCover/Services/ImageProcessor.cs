@@ -60,11 +60,14 @@ public static class ImageProcessor
             return candidate.Length == 32 && candidate.All(char.IsAsciiHexDigit);
         }
 
-        // Current temp scheme: "<output>.tmp<8 hex chars>".
-        var index = fileName.LastIndexOf(".tmp", StringComparison.OrdinalIgnoreCase);
+        // Current temp scheme: "<output>.png.tmp<8 hex chars>". Requiring the .png
+        // segment keeps a user file such as "cover.tmp20240101" (a date suffix is
+        // valid hex) out of the cleanup.
+        const string marker = ".png.tmp";
+        var index = fileName.LastIndexOf(marker, StringComparison.OrdinalIgnoreCase);
         if (index < 0) return false;
 
-        var suffix = fileName[(index + 4)..];
+        var suffix = fileName[(index + marker.Length)..];
         return suffix.Length == 8 && suffix.All(char.IsAsciiHexDigit);
     }
 

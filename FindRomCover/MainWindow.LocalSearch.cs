@@ -14,6 +14,39 @@ namespace FindRomCover;
 public partial class MainWindow
 {
     private CancellationTokenSource? _webSearchCts;
+    private Task _aiAutoPickQueue = Task.CompletedTask;
+
+    /// <summary>
+    ///     Queues an automatic AI pick behind any pick already running. Both the local and
+    ///     the API search auto-run a pick; without serialization the second one saw
+    ///     <see cref="IsAiBusy"/> and was silently dropped.
+    /// </summary>
+    private void QueueAutoAiPick(Func<Task> pick)
+    {
+        var previous = _aiAutoPickQueue;
+        _aiAutoPickQueue = RunQueuedAiPickAsync(previous, pick);
+    }
+
+    private static async Task RunQueuedAiPickAsync(Task previous, Func<Task> pick)
+    {
+        try
+        {
+            await previous.ConfigureAwait(true);
+        }
+        catch
+        {
+            // Each pick observes its own failures; keep the queue alive.
+        }
+
+        try
+        {
+            await pick().ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            LogService.WarningTransient(ex, "Queued AI pick failed.");
+        }
+    }
 
     private void TriggerActiveTabSearch(string searchName)
     {
@@ -22,6 +55,10 @@ public partial class MainWindow
         // Build the search query for web/API tabs
         var extraQuery = TxtExtraQuery.Text?.Trim() ?? string.Empty;
         var cleanedSearchName = SearchQueryHelper.CleanSearchQuery(searchName);
+        // A literal quote in the title or extra terms would terminate the quoted phrase
+        // early and change the search into free text.
+        cleanedSearchName = cleanedSearchName.Replace("\"", string.Empty, StringComparison.Ordinal);
+        extraQuery = extraQuery.Replace("\"", string.Empty, StringComparison.Ordinal);
         var searchQuery = !string.IsNullOrWhiteSpace(extraQuery)
             ? $"\"{cleanedSearchName}\" {extraQuery}"
             : $"\"{cleanedSearchName}\"";
@@ -60,28 +97,61 @@ public partial class MainWindow
 
     private async Task ShowApiSettingsAndResumeAsync(string searchQuery)
     {
-        await Dialogs.ShowMessageAsync(this,
-            "A Google API key is required to use the Google API search.\n\nPlease enter your API key in the settings window that will open.",
-            "API Key Required");
-
-        if (_disposed) return;
-
-        var apiSettingsWindow = new ApiSettingsWindow(Settings);
-        await apiSettingsWindow.ShowDialog(this);
-
-        if (string.IsNullOrWhiteSpace(Settings.GoogleKey))
+        try
         {
-            StatusMessage.Text = "API key not set. Google API search is unavailable.";
-            return;
-        }
+            await Dialogs.ShowMessageAsync(this,
+                "A Google API key is required to use the Google API search.\n\nPlease enter your API key in the settings window that will open.",
+                "API Key Required");
 
-        SetApiSearching(true);
-        StatusMessage.Text = "Searching Google API...";
-        _webSearchCts?.Cancel();
-        _webSearchCts?.Dispose();
-        _webSearchCts = new CancellationTokenSource();
-        LblApiSearchQuery.Content = BuildQueryLabel("API search for: ", searchQuery);
-        _ = HandleApiSearchAsync(searchQuery, _webSearchCts);
+            if (_disposed) return;
+
+            var apiSettingsWindow = new ApiSettingsWindow(Settings);
+            if (IsVisible)
+            {
+                try
+                {
+                    await apiSettingsWindow.ShowDialog(this);
+                }
+                catch (InvalidOperationException)
+                {
+                    // The main window was hidden/closed between the check and the call.
+                    await ShowWithoutOwnerAsync(apiSettingsWindow);
+                }
+            }
+            else
+            {
+                await ShowWithoutOwnerAsync(apiSettingsWindow);
+            }
+
+            if (_disposed) return;
+
+            if (string.IsNullOrWhiteSpace(Settings.GoogleKey))
+            {
+                StatusMessage.Text = "API key not set. Google API search is unavailable.";
+                return;
+            }
+
+            SetApiSearching(true);
+            StatusMessage.Text = "Searching Google API...";
+            _webSearchCts?.Cancel();
+            _webSearchCts?.Dispose();
+            _webSearchCts = new CancellationTokenSource();
+            LblApiSearchQuery.Content = BuildQueryLabel("API search for: ", searchQuery);
+            _ = HandleApiSearchAsync(searchQuery, _webSearchCts);
+        }
+        catch (Exception ex)
+        {
+            LogService.WarningTransient(ex, "Could not open the API settings window to resume the search.");
+            SetApiSearching(false);
+        }
+    }
+
+    private static async Task ShowWithoutOwnerAsync(Window window)
+    {
+        var closed = new TaskCompletionSource();
+        window.Closed += (_, _) => closed.TrySetResult();
+        window.Show();
+        await closed.Task;
     }
 
     private static TextBlock BuildQueryLabel(string prefix, string query)
@@ -201,7 +271,15 @@ public partial class MainWindow
                     LocalImageScrollViewer.ScrollToHome();
 
                     if (Settings.AiAutoRun && Settings.AiAssistEnabled && SimilarImages.Count > 0)
-                        _ = RunAiPickAsync();
+                        QueueAutoAiPick(RunAiPickAsync);
+                }
+                else
+                {
+                    // The calculator returned after cancellation, so the posted additions
+                    // were skipped. Dispose the images that never reached the collection.
+                    foreach (var image in similarityResult.SimilarImages)
+                        if (!SimilarImages.Contains(image))
+                            image.Dispose();
                 }
             }
             finally
@@ -313,7 +391,10 @@ public partial class MainWindow
         }
         catch (Exception ex)
         {
-            LogService.Warning(ex, "AI assist failed");
+            // AI request failures are environmental (provider outage, invalid key,
+            // rate limit); the user is informed below and the docs promise they never
+            // create automatic bug reports.
+            LogService.WarningTransient(ex, "AI assist failed");
             StatusMessage.Text = "AI assist failed. Check the log for details.";
             Dialogs.ShowMessage(this, ex.Message, "AI Assist", MessageIcon.Warning);
         }
@@ -353,7 +434,7 @@ public partial class MainWindow
             var choice = await Dialogs.ShowQuestionAsync(this,
                 $"AI thinks this image is not a cover for '{romName}'.\n\n" +
                 $"{verification.Reason}\n\nSave it anyway?",
-                "AI Verification");
+                "AI Verification", MessageIcon.Warning, MessageResult.No);
 
             if (choice != MessageResult.Yes) return;
         }

@@ -53,9 +53,10 @@ When **Verify images with AI before renaming or saving** is enabled, every save 
 | Image folder watcher | The image is left untouched and a message is shown; no rename or conversion happens |
 | Manual local save | A confirmation prompt appears ("Save it anyway?"); saving continues only if you confirm |
 | Manual Google API save | The download is verified before it replaces anything, and a "Save it anyway?" prompt asks whether to keep the downloaded file |
+| Batch local fill | The local pick is rejected and reported as **SkippedLowConfidence** ("AI verification rejected the local image.") |
 | Batch API download | The downloaded image is rejected, deleted, and reported as **SkippedLowConfidence** ("AI verification rejected the downloaded image.") |
 
-When the AI considers an image a match, or verification cannot run because of an error, saving proceeds as usual. Rejections in Batch Fill are recorded in the query history with the outcome `api-verification-rejected`.
+When the AI considers an image a match, or verification cannot run because of an error, saving proceeds as usual. Rejections in Batch Fill are recorded in the query history with the outcome `local-verification-rejected` or `api-verification-rejected`.
 
 ## Verdict caching
 

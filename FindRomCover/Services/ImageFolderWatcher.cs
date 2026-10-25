@@ -246,11 +246,21 @@ public sealed class ImageFolderWatcher : IDisposable
     /// <returns>True when watching started; false when the folder is missing or cannot be watched.</returns>
     public bool Start(string folderPath, bool resetErrorCount = true)
     {
+        return StartCore(folderPath, resetErrorCount, expectedGeneration: null);
+    }
+
+    private bool StartCore(string folderPath, bool resetErrorCount, long? expectedGeneration)
+    {
         if (_disposed) return false;
 
         long generation;
         lock (_restartLock)
         {
+            // An automatic restart must not overwrite a watcher that the user started
+            // after the restart was scheduled.
+            if (expectedGeneration.HasValue && _watchGeneration != expectedGeneration.Value)
+                return false;
+
             generation = ++_watchGeneration;
         }
 
@@ -336,6 +346,22 @@ public sealed class ImageFolderWatcher : IDisposable
         }
 
         StopCore(clearWatchedPath: true);
+    }
+
+    /// <summary>
+    ///     Stops the current watcher only when no newer Start/Stop superseded the caller.
+    ///     The check and the stop run under the restart lock so a concurrent user Start
+    ///     cannot be disposed by a stale automatic restart.
+    /// </summary>
+    private bool TryStopForRestart(long expectedGeneration)
+    {
+        lock (_restartLock)
+        {
+            if (_disposed || _watchGeneration != expectedGeneration) return false;
+
+            StopCore(clearWatchedPath: false);
+            return true;
+        }
     }
 
     private void StopCore(bool clearWatchedPath)
@@ -437,10 +463,13 @@ public sealed class ImageFolderWatcher : IDisposable
     {
         string? folderPath;
         CancellationToken token;
+        long generation;
         var gaveUp = false;
         lock (_restartLock)
         {
             if (_disposed) return;
+
+            generation = _watchGeneration;
 
             var now = DateTime.UtcNow;
             if (now - _lastErrorUtc > RestartCooldown)
@@ -503,6 +532,7 @@ public sealed class ImageFolderWatcher : IDisposable
             lock (_restartLock)
             {
                 if (_disposed) return;
+                if (_watchGeneration != generation) return;
                 if (!AppConstants.FilePathComparer.Equals(_watchedFolderPath, folderPath)) return;
             }
 
@@ -510,16 +540,23 @@ public sealed class ImageFolderWatcher : IDisposable
             {
                 LogService.WarningTransient(
                     $"ImageFolderWatcher: watched folder no longer exists, not restarting: '{folderPath}'");
+
+                // Drop the broken watcher so IsWatching reports false and a re-selection
+                // can revive it, then retry a few times in case the drive is only briefly
+                // unavailable (the normal backoff gives up after MaxConsecutiveRestarts).
+                if (TryStopForRestart(generation)) ScheduleRestart();
                 return;
             }
 
             try
             {
                 // Drop the broken watcher without clearing the path intent, then re-start.
-                StopCore(clearWatchedPath: false);
+                // The generation check prevents a stale restart from replacing a watcher
+                // the user started for a different folder in the meantime.
+                if (!TryStopForRestart(generation)) return;
                 if (_disposed) return;
 
-                if (Start(folderPath, resetErrorCount: false))
+                if (StartCore(folderPath, resetErrorCount: false, generation))
                     LogService.Information($"ImageFolderWatcher: recovered watching '{folderPath}'");
             }
             catch (Exception restartEx)
@@ -845,7 +882,15 @@ public sealed class ImageFolderWatcher : IDisposable
                     var directory = Path.GetDirectoryName(filePath);
                     var renamedPath = Path.Combine(directory ?? ".", renameTarget + extension);
 
-                    if (AppConstants.FilePathComparer.Equals(filePath, renamedPath))
+                    // macOS defaults to a case-insensitive file system, so "game.png" and
+                    // "Game.png" can be the same file even though FilePathComparer is
+                    // ordinal there. Treating it as a different file produced "Game (1).png".
+                    var sameFile = AppConstants.FilePathComparer.Equals(filePath, renamedPath);
+                    if (!sameFile && OperatingSystem.IsMacOS())
+                        sameFile = string.Equals(Path.GetFullPath(filePath), Path.GetFullPath(renamedPath),
+                            StringComparison.OrdinalIgnoreCase);
+
+                    if (sameFile)
                     {
                         LogService.Debug(
                             $"ImageFolderWatcher: source and target are the same ('{Path.GetFileName(filePath)}'), skipping rename");
@@ -992,6 +1037,11 @@ public sealed class ImageFolderWatcher : IDisposable
 
         while (elapsed < maxWaitMs)
         {
+            // A duplicate/late event can reference a path that was already renamed away.
+            // Without this check File.Open throws FileNotFoundException (an IOException)
+            // and the loop would hold the single processing slot for the full 20 s.
+            if (!File.Exists(filePath)) return false;
+
             try
             {
                 // Keep the sharing mode permissive so the browser can finish writing;
@@ -1017,6 +1067,14 @@ public sealed class ImageFolderWatcher : IDisposable
                     stableCount = 0;
                     lastSize = 0;
                 }
+            }
+            catch (FileNotFoundException)
+            {
+                return false;
+            }
+            catch (DirectoryNotFoundException)
+            {
+                return false;
             }
             catch (IOException)
             {

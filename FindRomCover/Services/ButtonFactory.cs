@@ -87,7 +87,7 @@ public static class ButtonFactory
             Header = "Copy Image Filename",
             Icon = CreateIcon("copy.png")
         };
-        copyMenuItem.Click += (_, _) => CopyImageFilename(contextMenu, state.ImagePath);
+        copyMenuItem.Click += async (_, _) => await CopyImageFilenameAsync(contextMenu, state.ImagePath);
         contextMenu.Items.Add(copyMenuItem);
 
         var openLocationMenuItem = new MenuItem
@@ -135,23 +135,30 @@ public static class ButtonFactory
         }
     }
 
-    private static void CopyImageFilename(Control owner, string imagePath)
+    private static async Task CopyImageFilenameAsync(Control owner, string imagePath)
     {
         var filenameWithoutExtension = Path.GetFileNameWithoutExtension(imagePath);
+        var window = TopLevel.GetTopLevel(owner) as Window;
 
         try
         {
             var clipboard = TopLevel.GetTopLevel(owner)?.Clipboard;
-            if (clipboard != null) _ = clipboard.SetTextAsync(filenameWithoutExtension);
+            if (clipboard == null)
+            {
+                Dialogs.ShowMessage(window, "Could not copy to clipboard: no clipboard is available.",
+                    "Clipboard Error", MessageIcon.Warning);
+                return;
+            }
 
-            Dialogs.ShowMessage(TopLevel.GetTopLevel(owner) as Window,
-                $"Filename '{filenameWithoutExtension}' copied to clipboard!",
-                "Copied");
+            // Await the clipboard write: the task faults asynchronously when another
+            // process owns the clipboard, which a synchronous try/catch cannot observe.
+            await clipboard.SetTextAsync(filenameWithoutExtension);
+            Dialogs.ShowMessage(window, $"Filename '{filenameWithoutExtension}' copied to clipboard!", "Copied");
         }
         catch (Exception ex)
         {
             LogService.WarningTransient(ex, "Could not copy to clipboard.");
-            Dialogs.ShowMessage(TopLevel.GetTopLevel(owner) as Window,
+            Dialogs.ShowMessage(window,
                 "Could not copy to clipboard. It might be in use by another application.",
                 "Clipboard Error", MessageIcon.Warning);
         }

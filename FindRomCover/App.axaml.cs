@@ -86,6 +86,7 @@ public class App : Application
                 LogService.Initialize();
                 ConfigureCoreServices();
                 RegisterGlobalExceptionHandlers();
+                FireAndForget(ErrorLogger.RetryPendingReportsAsync);
 
                 var services = new ServiceCollection();
                 services.AddSingleton<SettingsManager>();

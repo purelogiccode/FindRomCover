@@ -60,15 +60,26 @@ public sealed class SettingsDatabase
         {
             try
             {
-                using var connection = OpenConnection();
-                using var command = connection.CreateCommand();
-                command.CommandText = "SELECT Key, Value FROM Settings";
-
-                using var reader = command.ExecuteReader();
-                while (reader.Read())
-                    values[reader.GetString(0)] = reader.GetString(1);
-
-                return true;
+                using var connection = OpenConnection(readOnly: false);
+                return TryReadAll(connection, values);
+            }
+            catch (SqliteException ex) when (IsReadOnlyOrCannotOpen(ex))
+            {
+                // A readable database with a read-only attribute (backup restore, root
+                // ownership, sync client) still contains the user's settings. Read it
+                // without attempting the CREATE TABLE.
+                try
+                {
+                    using var connection = OpenConnection(readOnly: true);
+                    return TryReadAll(connection, values);
+                }
+                catch (Exception readOnlyEx)
+                {
+                    LogService.WarningTransient(readOnlyEx,
+                        "Settings database could not be read even in read-only mode.");
+                    values = new Dictionary<string, string>(StringComparer.Ordinal);
+                    return false;
+                }
             }
             catch (Exception ex)
             {
@@ -78,6 +89,24 @@ public sealed class SettingsDatabase
                 return false;
             }
         }
+    }
+
+    private static bool TryReadAll(SqliteConnection connection, Dictionary<string, string> values)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT Key, Value FROM Settings";
+
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+            values[reader.GetString(0)] = reader.GetString(1);
+
+        return true;
+    }
+
+    private static bool IsReadOnlyOrCannotOpen(SqliteException exception)
+    {
+        // SQLITE_PERM (3), SQLITE_READONLY (8), SQLITE_CANTOPEN (14).
+        return exception.SqliteErrorCode is 3 or 8 or 14;
     }
 
     private static bool IsCorruptionException(Exception exception)
@@ -102,7 +131,7 @@ public sealed class SettingsDatabase
         {
             try
             {
-                using var connection = OpenConnection();
+                using var connection = OpenConnection(readOnly: false);
                 using var transaction = connection.BeginTransaction();
 
                 using (var command = connection.CreateCommand())
@@ -134,16 +163,19 @@ public sealed class SettingsDatabase
         }
     }
 
-    private SqliteConnection OpenConnection()
+    private SqliteConnection OpenConnection(bool readOnly)
     {
-        var directory = Path.GetDirectoryName(_filePath);
-        if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
-            Directory.CreateDirectory(directory);
+        if (!readOnly)
+        {
+            var directory = Path.GetDirectoryName(_filePath);
+            if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+                Directory.CreateDirectory(directory);
+        }
 
         var connectionString = new SqliteConnectionStringBuilder
         {
             DataSource = _filePath,
-            Mode = SqliteOpenMode.ReadWriteCreate,
+            Mode = readOnly ? SqliteOpenMode.ReadOnly : SqliteOpenMode.ReadWriteCreate,
             Pooling = false
         }.ToString();
 
@@ -152,9 +184,13 @@ public sealed class SettingsDatabase
         {
             connection.Open();
 
-            using var command = connection.CreateCommand();
-            command.CommandText = "CREATE TABLE IF NOT EXISTS Settings (Key TEXT PRIMARY KEY, Value TEXT NOT NULL)";
-            command.ExecuteNonQuery();
+            if (!readOnly)
+                using (var command = connection.CreateCommand())
+                {
+                    command.CommandText =
+                        "CREATE TABLE IF NOT EXISTS Settings (Key TEXT PRIMARY KEY, Value TEXT NOT NULL)";
+                    command.ExecuteNonQuery();
+                }
 
             return connection;
         }

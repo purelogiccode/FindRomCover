@@ -116,6 +116,7 @@ public partial class MainWindow
                 {
                     Dialogs.ShowMessage(null, "Please configure your API keys in Settings > API Settings.",
                         "Missing API Key", MessageIcon.Warning);
+                    SetApiSearching(false);
                     StatusMessage.Text = "API key is not set.";
                 });
                 return;
@@ -159,6 +160,11 @@ public partial class MainWindow
 
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
+                // InvokeAsync queues the callback, so the search may have been superseded
+                // after the token check above. Never let an old ROM's results replace the
+                // current selection's panel (they could otherwise be saved as its cover).
+                if (!ReferenceEquals(_webSearchCts, searchCts) || token.IsCancellationRequested) return;
+
                 DisposeAndClearImages(PanelImages);
 
                 if (coverImageUrls.Count > 0)
@@ -177,8 +183,9 @@ public partial class MainWindow
                     : "No images found.";
             });
 
-            if (Settings.AiAutoRun && Settings.AiAssistEnabled && PanelImages.Count > 0)
-                _ = RunAiPickApiAsync();
+            if (!token.IsCancellationRequested && ReferenceEquals(_webSearchCts, searchCts) &&
+                Settings.AiAutoRun && Settings.AiAssistEnabled && PanelImages.Count > 0)
+                QueueAutoAiPick(RunAiPickApiAsync);
         }
         catch (OperationCanceledException)
         {
@@ -224,7 +231,9 @@ public partial class MainWindow
             if (!result)
             {
                 await Dialogs.ShowMessageAsync(this,
-                    "The image could not be downloaded. The server may have blocked the request or the image is no longer available.\n\nPlease try a different image.",
+                    "The image could not be downloaded, or it is narrower than the minimum cover width " +
+                    $"({Settings.AiMinCoverWidth} px).\n\nThe server may also have blocked the request or the " +
+                    "image may no longer be available.\n\nPlease try a different image.",
                     "Download Failed",
                     MessageIcon.Warning);
                 return;
@@ -236,7 +245,7 @@ public partial class MainWindow
                 var choice = await Dialogs.ShowQuestionAsync(this,
                     $"AI thinks this image is not a cover for '{romName}'.\n\n" +
                     $"{verification.Reason}\n\nKeep the downloaded file anyway?",
-                    "AI Verification");
+                    "AI Verification", MessageIcon.Warning, MessageResult.No);
 
                 if (choice != MessageResult.Yes) return;
             }
@@ -245,7 +254,7 @@ public partial class MainWindow
             {
                 var replace = await Dialogs.ShowQuestionAsync(this,
                     $"A cover named '{Path.GetFileName(newFileName)}' already exists.\n\nReplace it?",
-                    "Cover Exists", MessageIcon.Question);
+                    "Cover Exists", MessageIcon.Question, MessageResult.No);
                 if (replace != MessageResult.Yes) return;
             }
 
@@ -329,13 +338,18 @@ public partial class MainWindow
                 request.Headers.UserAgent.ParseAdd(ImageSaveService.BrowserUserAgent);
 
                 using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-                using var response = await HttpClientHelper.Client.SendAsync(request, timeoutCts.Token);
+                using var response = await HttpClientHelper.Client.SendAsync(request,
+                    HttpCompletionOption.ResponseHeadersRead, timeoutCts.Token);
                 if (!response.IsSuccessStatusCode) return;
 
-                var bytes = await response.Content.ReadAsByteArrayAsync(timeoutCts.Token);
-                if (bytes.Length == 0) return;
+                if (response.Content.Headers.ContentLength is > ImageSaveService.MaxDownloadBytes) return;
 
-                var bitmap = DecodeThumbnail(bytes);
+                await using var stream = await response.Content.ReadAsStreamAsync(timeoutCts.Token);
+                var bytes = await ImageSaveService
+                    .ReadAllBytesBoundedAsync(stream, ImageSaveService.MaxDownloadBytes, timeoutCts.Token);
+                if (bytes is not { Length: > 0 } || !ImageSaveService.LooksLikeImageData(bytes)) return;
+
+                var bitmap = DecodeThumbnail(bytes, imageData.ThumbnailWidth);
                 if (bitmap == null) return;
 
                 await Dispatcher.UIThread.InvokeAsync(() => { imageData.ImageSource = bitmap; });
@@ -350,12 +364,14 @@ public partial class MainWindow
         });
     }
 
-    private static Bitmap? DecodeThumbnail(byte[] bytes)
+    private static Bitmap? DecodeThumbnail(byte[] bytes, int targetWidth)
     {
         try
         {
             using var stream = new MemoryStream(bytes);
-            return new Bitmap(stream);
+            // Decode at display size: a full-size result can be tens of megabytes of
+            // native memory for a ~120 px cell.
+            return targetWidth > 0 ? Bitmap.DecodeToWidth(stream, targetWidth) : new Bitmap(stream);
         }
         catch (Exception ex)
         {
@@ -434,7 +450,7 @@ public partial class MainWindow
         }
         catch (Exception ex)
         {
-            LogService.Warning(ex, "AI assist failed for API results");
+            LogService.WarningTransient(ex, "AI assist failed for API results");
             StatusMessage.Text = "AI assist failed. Check the log for details.";
             await Dialogs.ShowMessageAsync(this, ex.Message, "AI Assist", MessageIcon.Warning);
         }

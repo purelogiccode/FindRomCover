@@ -40,7 +40,11 @@ public static class ErrorLogger
     /// <summary>Path of the log file holding internal diagnostics of the logger itself.</summary>
     internal static readonly string InternalLogFilePath = AppDataPaths.LogFilePath("InternalLog.txt");
 
+    /// <summary>Path of the JSON queue used to retry reports that could not be sent.</summary>
+    internal static readonly string PendingReportsFilePath = AppDataPaths.LogFilePath("PendingBugReports.json");
+
     private static readonly SemaphoreSlim LogFileLock = new(1, 1);
+    private static readonly SemaphoreSlim PendingQueueLock = new(1, 1);
     private static readonly SemaphoreSlim InternalLogSemaphore = new(1, 1);
     private const long MaxLogFileBytes = 4L * 1024 * 1024;
 
@@ -94,6 +98,7 @@ public static class ErrorLogger
 
             var bugReport = BugReportModel.FromException(ex, contextMessage);
             var currentErrorMessage = bugReport.ToString();
+            var pendingId = await EnqueuePendingReportAsync(bugReport);
 
             // Append to the log files first, while holding the lock only for the local
             // writes. The network send runs OUTSIDE the lock so that a burst of errors
@@ -135,6 +140,7 @@ public static class ErrorLogger
             if (sendSuccess)
                 try
                 {
+                    await RemovePendingReportAsync(pendingId);
                     await ClearSentReportAsync(currentErrorMessage);
                 }
                 catch (Exception loggingEx)
@@ -146,6 +152,142 @@ public static class ErrorLogger
         {
             Interlocked.Decrement(ref _pendingOperations);
         }
+    }
+
+    /// <summary>
+    ///     Re-sends reports left in the pending queue by an earlier offline session. Called
+    ///     once at startup; entries accepted by the API are removed from the queue.
+    /// </summary>
+    public static async Task RetryPendingReportsAsync()
+    {
+        if (IsDisposed) return;
+
+        List<PendingReport> pending;
+        await PendingQueueLock.WaitAsync();
+        try
+        {
+            pending = await ReadPendingReportsAsync();
+        }
+        finally
+        {
+            PendingQueueLock.Release();
+        }
+
+        if (pending.Count == 0) return;
+
+        var timeout = ResolveApiTimeoutSeconds(DefaultApiTimeoutSeconds);
+        var delivered = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var entry in pending)
+        {
+            if (IsDisposed) break;
+
+            try
+            {
+                if (await SendLogToApiAsync(entry.Report, timeout)) delivered.Add(entry.Id);
+            }
+            catch (Exception ex)
+            {
+                _ = WriteInternalLogAsync("A pending bug report could not be re-sent.", ex);
+            }
+        }
+
+        if (delivered.Count == 0) return;
+
+        await PendingQueueLock.WaitAsync();
+        try
+        {
+            var current = await ReadPendingReportsAsync();
+            current.RemoveAll(entry => delivered.Contains(entry.Id));
+            await WritePendingReportsAsync(current);
+        }
+        finally
+        {
+            PendingQueueLock.Release();
+        }
+    }
+
+    private static async Task<string?> EnqueuePendingReportAsync(BugReportModel report)
+    {
+        var id = Guid.NewGuid().ToString("N");
+
+        await PendingQueueLock.WaitAsync();
+        try
+        {
+            var entries = await ReadPendingReportsAsync();
+            entries.Add(new PendingReport { Id = id, Report = report });
+
+            // Bound the queue so a long offline period cannot grow it without limit.
+            const int maxEntries = 200;
+            if (entries.Count > maxEntries)
+                entries.RemoveRange(0, entries.Count - maxEntries);
+
+            await WritePendingReportsAsync(entries);
+            return id;
+        }
+        finally
+        {
+            PendingQueueLock.Release();
+        }
+    }
+
+    private static async Task RemovePendingReportAsync(string? id)
+    {
+        if (string.IsNullOrEmpty(id)) return;
+
+        await PendingQueueLock.WaitAsync();
+        try
+        {
+            var entries = await ReadPendingReportsAsync();
+            if (entries.RemoveAll(entry => string.Equals(entry.Id, id, StringComparison.Ordinal)) > 0)
+                await WritePendingReportsAsync(entries);
+        }
+        finally
+        {
+            PendingQueueLock.Release();
+        }
+    }
+
+    private static async Task<List<PendingReport>> ReadPendingReportsAsync()
+    {
+        try
+        {
+            if (!File.Exists(PendingReportsFilePath)) return [];
+
+            var json = await File.ReadAllTextAsync(PendingReportsFilePath);
+            if (string.IsNullOrWhiteSpace(json)) return [];
+
+            return JsonSerializer.Deserialize<List<PendingReport>>(json, CachedJsonSerializerOptions) ?? [];
+        }
+        catch (Exception ex)
+        {
+            _ = WriteInternalLogAsync("Could not read the pending bug-report queue.", ex);
+            return [];
+        }
+    }
+
+    private static async Task WritePendingReportsAsync(List<PendingReport> entries)
+    {
+        try
+        {
+            AppDataPaths.EnsureBaseDirectory();
+            var json = JsonSerializer.Serialize(entries, CachedJsonSerializerOptions);
+            var tempPath = PendingReportsFilePath + ".tmp" + Guid.NewGuid().ToString("N")[..8];
+
+            await File.WriteAllTextAsync(tempPath, json);
+            File.Move(tempPath, PendingReportsFilePath, true);
+        }
+        catch (Exception ex)
+        {
+            _ = WriteInternalLogAsync("Could not write the pending bug-report queue.", ex);
+        }
+    }
+
+    private sealed class PendingReport
+    {
+        public string Id { get; set; } = string.Empty;
+
+        public BugReportModel Report { get; set; } = new();
     }
 
     /// <summary>
@@ -165,7 +307,27 @@ public static class ErrorLogger
             var cut = content.IndexOf("BUG REPORT - FindRomCover", searchStart, StringComparison.Ordinal);
             if (cut < 0) cut = searchStart;
 
-            await File.WriteAllTextAsync(path, content[cut..]);
+            // Write through a temp file and replace atomically: a crash or disk-full
+            // during an in-place rewrite would truncate the pending report queue.
+            var tempPath = path + ".tmp" + Guid.NewGuid().ToString("N")[..8];
+            try
+            {
+                await File.WriteAllTextAsync(tempPath, content[cut..]);
+                File.Move(tempPath, path, true);
+            }
+            catch
+            {
+                try
+                {
+                    if (File.Exists(tempPath)) File.Delete(tempPath);
+                }
+                catch
+                {
+                    // Best effort cleanup.
+                }
+
+                throw;
+            }
         }
         catch (Exception ex)
         {
@@ -356,6 +518,9 @@ public static class ErrorLogger
             try
             {
                 await File.AppendAllTextAsync(InternalLogFilePath, logMessage.ToString());
+                // Unlike the two report logs, this file used to grow without bound on a
+                // machine that stays offline.
+                await TrimLogFileAsync(InternalLogFilePath);
             }
             finally
             {

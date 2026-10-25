@@ -1,5 +1,7 @@
+using System.Globalization;
 using FindRomCover.Services.Ai;
 using FluentAssertions;
+using Microsoft.Data.Sqlite;
 using Xunit;
 
 namespace FindRomCover.Tests.Services.Ai;
@@ -43,12 +45,12 @@ public class AiQueryHistoryTests : IDisposable
     }
 
     [Fact]
-    public void WasQueriedShouldBeCaseInsensitive()
+    public void WasQueriedShouldMatchPlatformPathSemantics()
     {
         var history = new AiQueryHistory(_historyPath);
         history.MarkQueried(_targetPath, "manual");
 
-        history.WasQueried(_targetPath.ToUpperInvariant()).Should().BeTrue();
+        history.WasQueried(_targetPath.ToUpperInvariant()).Should().Be(OperatingSystem.IsWindows());
     }
 
     [Fact]
@@ -100,6 +102,30 @@ public class AiQueryHistoryTests : IDisposable
 
         second.WasQueried(_targetPath).Should().BeTrue();
         second.Count.Should().Be(1);
+    }
+
+    [Fact]
+    public void ExistingNoCaseSchemaShouldBeMigratedWithoutLosingRows()
+    {
+        using (var connection = new SqliteConnection($"Data Source={_historyPath}"))
+        {
+            connection.Open();
+            using var command = connection.CreateCommand();
+            command.CommandText =
+                "CREATE TABLE QueryHistory (TargetPath TEXT PRIMARY KEY COLLATE NOCASE, " +
+                "QueriedUtc TEXT NOT NULL, Outcome TEXT NOT NULL);" +
+                "INSERT INTO QueryHistory (TargetPath, QueriedUtc, Outcome) " +
+                "VALUES ($path, $queried, 'manual');";
+            command.Parameters.AddWithValue("$path", AiQueryHistory.NormalizeKey(_targetPath));
+            command.Parameters.AddWithValue("$queried",
+                DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture));
+            command.ExecuteNonQuery();
+        }
+
+        var history = new AiQueryHistory(_historyPath);
+
+        history.Count.Should().Be(1);
+        history.WasQueried(_targetPath).Should().BeTrue();
     }
 
     [Fact]

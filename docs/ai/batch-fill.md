@@ -25,9 +25,9 @@ For every item, FindRomCover performs these steps in order:
 1. **Cover already exists?** If a cover for the game is already in the image folder, the item is skipped.
 2. **Already queried?** If the item is in the query history and the skip option is on, it is skipped without an API call.
 3. **Local candidates** — the top local images above the **Candidate similarity** threshold are sent to the model with the local pick prompt.
-4. **Confident local match?** If the pick has a valid index and the confidence is at or above the **Auto-save threshold**, the image is saved as `[gamename].png` and the item is removed from the query history.
-5. **Google API fallback** (when enabled and a Google key is configured) — Google image results are ranked by the model with the API-fallback prompt; a confident pick is downloaded, optionally verified, and saved.
-6. **No confident match** — the item is reported as `SkippedLowConfidence` and, when the model actually evaluated candidates, recorded in the query history (`local-no-match` or `api-no-match`) so it is not re-queried later. A downloaded image rejected by AI verification is recorded as `api-verification-rejected`.
+4. **Confident local match?** If the pick has a valid index and the confidence is at or above the **Auto-save threshold**, the image is verified (when enabled), saved as `[gamename].png`, and the item is removed from the query history.
+5. **Google API fallback** (when enabled and a Google key is configured) — Google image results are ranked by the model with the API-fallback prompt; a confident pick is downloaded, verified (when enabled), and saved.
+6. **No confident match** — the item is reported as `SkippedLowConfidence` and, when the model actually evaluated candidates, recorded in the query history (`local-no-match` or `api-no-match`) so it is not re-queried later. A local pick rejected by AI verification is recorded as `local-verification-rejected`; a downloaded image rejected by AI verification is recorded as `api-verification-rejected`.
 
 ## Outcomes
 
@@ -37,7 +37,7 @@ Each item ends with one of these outcomes:
 |---------|---------|
 | **FilledFromLocal** | A local image was chosen and saved |
 | **FilledFromApi** | A Google API image was chosen, downloaded, and saved |
-| **SkippedLowConfidence** | The model evaluated candidates but none reached the auto-save threshold, or AI verification rejected the downloaded image ("AI verification rejected the downloaded image.") |
+| **SkippedLowConfidence** | The model evaluated candidates but none reached the auto-save threshold, or AI verification rejected the local pick ("AI verification rejected the local image.") or the downloaded image ("AI verification rejected the downloaded image.") |
 | **SkippedAlreadyExists** | A cover for this game already exists (or appeared while the API download was being verified) |
 | **SkippedAlreadyQueried** | The cover was queried in a previous session and the skip option is on |
 | **NoCandidates** | No local candidates and no API fallback results were available |
@@ -79,7 +79,7 @@ Done: {filled} filled, {skipped} skipped, {failed} failed.
 ## Interpreting results
 
 - Items marked **FilledFromLocal** or **FilledFromApi** have covers on disk and will disappear from the missing list.
-- **SkippedLowConfidence** items stay in the list; you can fill them manually or re-run with a lower threshold. Items whose downloaded image was rejected by AI verification are remembered as `api-verification-rejected`.
+- **SkippedLowConfidence** items stay in the list; you can fill them manually or re-run with a lower threshold. Items rejected by AI verification are remembered as `local-verification-rejected` or `api-verification-rejected`.
 - **Failed** items can be retried — failures are not written to the query history.
 - **SkippedAlreadyQueried** items are intentionally ignored; clear the history in [AI Settings](settings.md) if you want to retry them.
 

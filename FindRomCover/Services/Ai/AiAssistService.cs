@@ -447,6 +447,9 @@ public sealed class AiAssistService : IDisposable
         AppendKeyPart(builder, AppConstants.AiProviders.PromptVersion);
         AppendKeyPart(builder, kind);
         AppendKeyPart(builder, options.Provider);
+        // The provider label is coarse ("Custom", "Local"); include the endpoint so a
+        // gateway/host change cannot keep serving verdicts produced by another backend.
+        AppendKeyPart(builder, options.BaseUrl.Trim().ToLowerInvariant());
         AppendKeyPart(builder, options.Model);
         AppendKeyPart(builder, romName);
         AppendKeyPart(builder, searchName);

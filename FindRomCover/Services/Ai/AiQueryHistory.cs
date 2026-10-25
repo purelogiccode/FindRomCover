@@ -241,12 +241,15 @@ public sealed class AiQueryHistory
 
         try
         {
-            return Path.GetFullPath(targetPath.Trim()).ToLowerInvariant();
+            var fullPath = Path.GetFullPath(targetPath.Trim());
+            // Windows paths are case-insensitive; Linux and macOS (case-sensitive
+            // volumes) can legitimately contain both "Sonic.png" and "sonic.png".
+            return OperatingSystem.IsWindows() ? fullPath.ToLowerInvariant() : fullPath;
         }
         catch (Exception ex)
         {
             LogService.Debug($"Could not normalize key '{targetPath}': {ex.Message}");
-            return targetPath.Trim().ToLowerInvariant();
+            return OperatingSystem.IsWindows() ? targetPath.Trim().ToLowerInvariant() : targetPath.Trim();
         }
     }
 
@@ -290,21 +293,19 @@ public sealed class AiQueryHistory
         }.ToString();
 
         var connection = new SqliteConnection(connectionString);
-        var opened = false;
         try
         {
             connection.Open();
-            opened = true;
             CreateSchema(connection);
             return connection;
         }
-        catch (SqliteException ex) when (!opened || IsCorruptionError(ex))
+        catch (SqliteException ex) when (IsCorruptionError(ex))
         {
-            // Either the file could not be opened at all, or it opened but is not
-            // a valid SQLite database (SQLite reports "file is not a database"
-            // lazily on first access): quarantine it and start a fresh database.
-            // Any other failure (read-only file, disk full, locked database) must
-            // NOT move the healthy file aside.
+            // The file opened but is not a valid SQLite database (SQLite reports
+            // "file is not a database" lazily on first access): quarantine it and
+            // start a fresh database. Any other failure (read-only file, disk full,
+            // locked database, sharing violation) must NOT move the healthy file
+            // aside; those propagate and callers log them as transient.
             connection.Dispose();
             LogService.WarningTransient(ex,
                 $"AI query history file '{_filePath}' is corrupt; quarantining it and recreating the database.");
@@ -344,11 +345,31 @@ public sealed class AiQueryHistory
 
     private static void CreateSchema(SqliteConnection connection)
     {
-        using var command = connection.CreateCommand();
-        command.CommandText =
-            "CREATE TABLE IF NOT EXISTS QueryHistory (" +
-            "TargetPath TEXT PRIMARY KEY COLLATE NOCASE, QueriedUtc TEXT NOT NULL, Outcome TEXT NOT NULL)";
-        command.ExecuteNonQuery();
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText =
+                "CREATE TABLE IF NOT EXISTS QueryHistory (" +
+                "TargetPath TEXT PRIMARY KEY COLLATE BINARY, QueriedUtc TEXT NOT NULL, Outcome TEXT NOT NULL)";
+            command.ExecuteNonQuery();
+        }
+
+        // Older versions used COLLATE NOCASE, which merges paths that differ only in
+        // case on Linux/macOS. Rebuild the table once so the primary key is binary.
+        using var check = connection.CreateCommand();
+        check.CommandText = "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'QueryHistory'";
+        if (check.ExecuteScalar() is not string schema ||
+            !schema.Contains("NOCASE", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        using var migrate = connection.CreateCommand();
+        migrate.CommandText =
+            "ALTER TABLE QueryHistory RENAME TO QueryHistory_old;" +
+            "CREATE TABLE QueryHistory (" +
+            "TargetPath TEXT PRIMARY KEY COLLATE BINARY, QueriedUtc TEXT NOT NULL, Outcome TEXT NOT NULL);" +
+            "INSERT INTO QueryHistory (TargetPath, QueriedUtc, Outcome) " +
+            "SELECT TargetPath, QueriedUtc, Outcome FROM QueryHistory_old;" +
+            "DROP TABLE QueryHistory_old;";
+        migrate.ExecuteNonQuery();
     }
 
     private void QuarantineCorruptFile()

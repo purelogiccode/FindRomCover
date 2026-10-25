@@ -22,6 +22,7 @@ public partial class AiSettingsWindow : Window
     private bool _loading;
     private AiVerdictCache? _modelCache;
     private AiQueryHistory? _queryHistory;
+    private CancellationTokenSource? _testCts;
 
     /// <summary>
     ///     Initializes a new instance of the <see cref="AiSettingsWindow"/> class.
@@ -34,6 +35,13 @@ public partial class AiSettingsWindow : Window
         LoadSettings();
         _initialized = true;
         LoadCachedModels();
+
+        Closed += (_, _) =>
+        {
+            _testCts?.Cancel();
+            _testCts?.Dispose();
+            _testCts = null;
+        };
     }
 
     private string SelectedProvider => CmbProvider.SelectedItem as string ?? AppConstants.AiProviders.OpenRouter;
@@ -145,7 +153,7 @@ public partial class AiSettingsWindow : Window
             var baseUrl = (TxtBaseUrl.Text ?? string.Empty).Trim();
             var apiKey = (TxtApiKey.Text ?? string.Empty).Trim();
             var enabled = ChkAiEnabled.IsChecked == true;
-            var model = GetSingleModelId(CmbModel.Text, notifyUser: true);
+            var model = await GetSingleModelIdAsync(CmbModel.Text, notifyUser: true);
 
             if (!string.IsNullOrEmpty(baseUrl) && !Uri.TryCreate(baseUrl, UriKind.Absolute, out _))
             {
@@ -188,22 +196,28 @@ public partial class AiSettingsWindow : Window
                 return;
             }
 
+            var validationErrors = new List<string>();
             var (timeoutOk, timeout) = TryParseIntInRange(TxtTimeout.Text, 10, 300,
-                "Request timeout (seconds)");
+                "Request timeout (seconds)", validationErrors);
             var (maxCandidatesOk, maxCandidates) = TryParseIntInRange(TxtMaxCandidates.Text, 1, 20,
-                "Max candidates");
+                "Max candidates", validationErrors);
             var (imageMaxDimensionOk, imageMaxDimension) = TryParseIntInRange(TxtImageMaxDimension.Text, 128, 2048,
-                "Image max dimension");
+                "Image max dimension", validationErrors);
             var (minCoverWidthOk, minCoverWidth) = TryParseIntInRange(TxtMinCoverWidth.Text, 0, 2048,
-                "Minimum cover width");
+                "Minimum cover width", validationErrors);
             var (candidateThresholdOk, candidateThreshold) = TryParseDoubleInRange(TxtCandidateThreshold.Text, 0, 100,
-                "Candidate similarity");
+                "Candidate similarity", validationErrors);
             var (autoSaveThresholdOk, autoSaveThreshold) = TryParseDoubleInRange(TxtAutoSaveThreshold.Text, 0, 100,
-                "Auto-save threshold");
+                "Auto-save threshold", validationErrors);
 
             if (!timeoutOk || !maxCandidatesOk || !imageMaxDimensionOk || !minCoverWidthOk ||
                 !candidateThresholdOk || !autoSaveThresholdOk)
+            {
+                // One dialog listing every invalid field instead of one stacked dialog per field.
+                await Dialogs.ShowMessageAsync(this, string.Join("\n\n", validationErrors),
+                    "Invalid Value", MessageIcon.Warning);
                 return;
+            }
 
             _settingsManager.AiAssistEnabled = enabled;
             _settingsManager.AiProvider = provider;
@@ -257,7 +271,7 @@ public partial class AiSettingsWindow : Window
         {
             var provider = SelectedProvider;
             var baseUrl = (TxtBaseUrl.Text ?? string.Empty).Trim();
-            var model = GetSingleModelId(CmbModel.Text, notifyUser: true);
+            var model = await GetSingleModelIdAsync(CmbModel.Text, notifyUser: true);
 
             if (!string.IsNullOrEmpty(baseUrl) && !Uri.TryCreate(baseUrl, UriKind.Absolute, out _))
             {
@@ -273,7 +287,7 @@ public partial class AiSettingsWindow : Window
                 string.IsNullOrWhiteSpace(baseUrl) ? DefaultBaseUrl(provider) : baseUrl,
                 (TxtApiKey.Text ?? string.Empty).Trim(),
                 string.IsNullOrWhiteSpace(model) ? DefaultModel(provider) : model,
-                ParseInt(TxtTimeout.Text, 90),
+                Math.Clamp(ParseInt(TxtTimeout.Text, 90), 10, 300),
                 6,
                 512,
                 80,
@@ -289,7 +303,10 @@ public partial class AiSettingsWindow : Window
 
             using var httpClient = new HttpClient();
             httpClient.Timeout = Timeout.InfiniteTimeSpan;
-            var models = await VisionModelCatalog.FetchModelsAsync(options, httpClient, CancellationToken.None);
+            _testCts?.Cancel();
+            _testCts?.Dispose();
+            _testCts = new CancellationTokenSource();
+            var models = await VisionModelCatalog.FetchModelsAsync(options, httpClient, _testCts.Token);
 
             _allModels = models;
             ModelCache.Set(cacheKey, models);
@@ -341,7 +358,7 @@ public partial class AiSettingsWindow : Window
             var choice = await Dialogs.ShowQuestionAsync(this,
                 $"Forget the {count} missing cover(s) that were already queried?\n\n" +
                 "The AI may query them again in the next batch run.",
-                "Clear AI Query History", MessageIcon.Question);
+                "Clear AI Query History", MessageIcon.Question, MessageResult.No);
 
             if (choice != MessageResult.Yes) return;
 
@@ -422,7 +439,7 @@ public partial class AiSettingsWindow : Window
     /// <param name="rawText">The raw content of the Model box.</param>
     /// <param name="notifyUser">True to show a message and update the box when IDs were dropped.</param>
     /// <returns>A single trimmed model ID, or an empty string when none was entered.</returns>
-    private string GetSingleModelId(string? rawText, bool notifyUser)
+    private async Task<string> GetSingleModelIdAsync(string? rawText, bool notifyUser)
     {
         var trimmed = (rawText ?? string.Empty).Trim();
         if (trimmed.Length == 0) return string.Empty;
@@ -430,15 +447,15 @@ public partial class AiSettingsWindow : Window
         var tokens = trimmed.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
         if (tokens.Length <= 1) return trimmed;
 
+        CmbModel.Text = tokens[0];
         if (notifyUser)
-        {
-            CmbModel.Text = tokens[0];
-            Dialogs.ShowMessage(this,
+            // Await the message: Save closes the window right after this, and a
+            // fire-and-forget modal would be destroyed with its owner.
+            await Dialogs.ShowMessageAsync(this,
                 "The Model box contained multiple model IDs.\n\n" +
                 $"Only the first one will be used:\n\n{tokens[0]}\n\n" +
                 "Tip: click 'Test / Load Models' to pick a model from the provider's list.",
                 "Model Adjusted", MessageIcon.Warning);
-        }
 
         return tokens[0];
     }
@@ -449,7 +466,10 @@ public partial class AiSettingsWindow : Window
         {
             AppConstants.AiProviders.OpenAi => AppConstants.AiProviders.OpenAiBaseUrl,
             AppConstants.AiProviders.Anthropic => AppConstants.AiProviders.AnthropicBaseUrl,
-            AppConstants.AiProviders.CustomAnthropic => AppConstants.AiProviders.AnthropicBaseUrl,
+            // Custom providers must never inherit a public endpoint: sending a gateway
+            // key to api.anthropic.com would leak the credential. Leave it empty so the
+            // existing "Base URL is required" validation applies.
+            AppConstants.AiProviders.CustomAnthropic => string.Empty,
             AppConstants.AiProviders.Gemini => AppConstants.AiProviders.GeminiBaseUrl,
             AppConstants.AiProviders.Glm => AppConstants.AiProviders.GlmBaseUrl,
             AppConstants.AiProviders.Local => AppConstants.AiProviders.LocalBaseUrl,
@@ -504,27 +524,25 @@ public partial class AiSettingsWindow : Window
         return int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value) ? value : fallback;
     }
 
-    private (bool Ok, int Value) TryParseIntInRange(string? text, int min, int max, string fieldName)
+    private static (bool Ok, int Value) TryParseIntInRange(string? text, int min, int max, string fieldName,
+        ICollection<string> errors)
     {
         if (int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value) &&
             value >= min && value <= max)
             return (true, value);
 
-        Dialogs.ShowMessage(this,
-            $"{fieldName} must be a whole number between {min} and {max}.",
-            "Invalid Value", MessageIcon.Warning);
+        errors.Add($"{fieldName} must be a whole number between {min} and {max}.");
         return (false, 0);
     }
 
-    private (bool Ok, double Value) TryParseDoubleInRange(string? text, double min, double max, string fieldName)
+    private static (bool Ok, double Value) TryParseDoubleInRange(string? text, double min, double max,
+        string fieldName, ICollection<string> errors)
     {
         if (double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) &&
             value >= min && value <= max)
             return (true, value);
 
-        Dialogs.ShowMessage(this,
-            $"{fieldName} must be a number between {min:0} and {max:0}.",
-            "Invalid Value", MessageIcon.Warning);
+        errors.Add($"{fieldName} must be a number between {min:0} and {max:0}.");
         return (false, 0);
     }
 }

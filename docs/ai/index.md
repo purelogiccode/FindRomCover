@@ -58,7 +58,7 @@ With the default OpenRouter model, a typical pick costs a fraction of a cent. Se
 - Only the **AI API key** is stored encrypted in the settings database; the provider, base URL, model, thresholds, and toggles are stored as plain configuration values. The key is never logged.
 - AI request failures are logged as warnings and never trigger the automatic bug-report pipeline.
 - The AI never deletes anything. It can only choose an image; saving and renaming follow your settings and confirmation rules.
-- **Verify before saving** protects against wrong images being kept: the watcher, manual local saves, manual Google API saves, and batch API downloads all ask the model to confirm an image. Manual saves show a confirmation prompt on a mismatch (for example "Save it anyway?"), and Batch Fill rejects the download automatically.
+- **Verify before saving** protects against wrong images being kept: the watcher, manual local saves, manual Google API saves, batch local fills, and batch API downloads all ask the model to confirm an image. Manual saves show a confirmation prompt on a mismatch (for example "Save it anyway?"), and Batch Fill rejects the download automatically.
 
 ## Getting started
 

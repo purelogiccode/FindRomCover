@@ -46,7 +46,7 @@ public static class Dialogs
     public static Task<MessageResult> ShowMessageAsync(Window? owner, string message, string title,
         MessageIcon icon = MessageIcon.Information)
     {
-        return ShowCoreAsync(owner, message, title, icon, [("OK", MessageResult.Ok)]);
+        return ShowCoreAsync(owner, message, title, icon, [("OK", MessageResult.Ok)], MessageResult.Ok);
     }
 
     /// <summary>
@@ -56,12 +56,20 @@ public static class Dialogs
     /// <param name="message">The message body.</param>
     /// <param name="title">The dialog title.</param>
     /// <param name="icon">The icon to display.</param>
+    /// <param name="defaultResult">
+    ///     The button activated by Enter. Defaults to <see cref="MessageResult.Yes"/>; pass
+    ///     <see cref="MessageResult.No"/> for irreversible actions so a stray Enter cannot
+    ///     delete or replace anything.
+    /// </param>
     /// <returns><see cref="MessageResult.Yes" /> or <see cref="MessageResult.No" />.</returns>
     public static Task<MessageResult> ShowQuestionAsync(Window? owner, string message, string title,
-        MessageIcon icon = MessageIcon.Warning)
+        MessageIcon icon = MessageIcon.Warning, MessageResult defaultResult = MessageResult.Yes)
     {
-        return ShowCoreAsync(owner, message, title, icon,
-            [("Yes", MessageResult.Yes), ("No", MessageResult.No)]);
+        (string Text, MessageResult Result)[] buttons = defaultResult == MessageResult.No
+            ? [("No", MessageResult.No), ("Yes", MessageResult.Yes)]
+            : [("Yes", MessageResult.Yes), ("No", MessageResult.No)];
+
+        return ShowCoreAsync(owner, message, title, icon, buttons, defaultResult);
     }
 
     /// <summary>
@@ -132,7 +140,7 @@ public static class Dialogs
     }
 
     private static async Task<MessageResult> ShowCoreAsync(Window? owner, string message, string title,
-        MessageIcon icon, (string Text, MessageResult Result)[] buttons)
+        MessageIcon icon, (string Text, MessageResult Result)[] buttons, MessageResult defaultResult)
     {
         return await OnUiAsync(async () =>
         {
@@ -176,6 +184,7 @@ public static class Dialogs
             };
 
             var isFirst = true;
+            var hasDefault = Array.Exists(buttons, b => b.Result == defaultResult);
             var result = MessageResult.None;
             foreach (var (text, buttonResult) in buttons)
             {
@@ -183,7 +192,7 @@ public static class Dialogs
                 {
                     Content = text,
                     MinWidth = 84,
-                    IsDefault = isFirst,
+                    IsDefault = buttonResult == defaultResult || (isFirst && !hasDefault),
                     IsCancel = buttonResult is MessageResult.No or MessageResult.Cancel
                 };
                 var capturedResult = buttonResult;

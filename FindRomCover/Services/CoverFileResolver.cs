@@ -65,7 +65,13 @@ public static class CoverFileResolver
     private static Dictionary<string, string> GetDirectoryFiles(string imageFolderPath)
     {
         var now = DateTime.UtcNow;
-        if (DirectoryCache.TryGetValue(imageFolderPath, out var cached) && cached.ExpiresUtc > now)
+        var lastWriteUtc = GetDirectoryLastWriteUtc(imageFolderPath);
+
+        // The 5-second window alone could hide a cover saved by the app itself; the
+        // directory timestamp invalidates the listing as soon as a file is added/removed.
+        if (DirectoryCache.TryGetValue(imageFolderPath, out var cached) &&
+            cached.ExpiresUtc > now &&
+            cached.LastWriteUtc == lastWriteUtc)
             return cached.Files;
 
         var files = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -80,9 +86,23 @@ public static class CoverFileResolver
             LogService.WarningTransient(ex, $"Could not enumerate the image folder '{imageFolderPath}'.");
         }
 
-        DirectoryCache[imageFolderPath] = new CachedDirectory(now.Add(CacheLifetime), files);
+        DirectoryCache[imageFolderPath] = new CachedDirectory(now.Add(CacheLifetime), lastWriteUtc, files);
         return files;
     }
 
-    private sealed record CachedDirectory(DateTime ExpiresUtc, Dictionary<string, string> Files);
+    private static DateTime GetDirectoryLastWriteUtc(string imageFolderPath)
+    {
+        try
+        {
+            return Directory.GetLastWriteTimeUtc(imageFolderPath);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException
+                                       or NotSupportedException)
+        {
+            return DateTime.MinValue;
+        }
+    }
+
+    private sealed record CachedDirectory(DateTime ExpiresUtc, DateTime LastWriteUtc,
+        Dictionary<string, string> Files);
 }

@@ -52,7 +52,7 @@ public class VisionClientFactoryTests
     [InlineData(AppConstants.AiProviders.Glm, "https://api.z.ai/api/paas/v4", "glm-4.5v")]
     [InlineData(AppConstants.AiProviders.Local, "http://localhost:11434/v1", "qwen2.5vl:7b")]
     [InlineData(AppConstants.AiProviders.CustomOpenAi, "", "")]
-    [InlineData(AppConstants.AiProviders.CustomAnthropic, "https://api.anthropic.com/v1", "")]
+    [InlineData(AppConstants.AiProviders.CustomAnthropic, "", "")]
     public void EffectiveDefaultsShouldCoverEveryProvider(string provider, string expectedBaseUrl, string expectedModel)
     {
         var settings = new SettingsManager

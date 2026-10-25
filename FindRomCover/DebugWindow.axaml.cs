@@ -20,6 +20,9 @@ public partial class DebugWindow : Window
     private bool _isForceClosing;
     private bool _logTextDirty;
 
+    /// <summary>Raised when the window is hidden instead of closed (X button).</summary>
+    public event Action? Hidden;
+
     /// <summary>
     ///     Initializes a new instance of the <see cref="DebugWindow"/> class and populates it with
     ///     the current log messages.
@@ -77,6 +80,7 @@ public partial class DebugWindow : Window
         // Instead of closing, just hide the window. The main window can re-show it.
         e.Cancel = true;
         Hide();
+        Hidden?.Invoke();
         LogService.Information("Log window hidden.");
     }
 
@@ -124,7 +128,7 @@ public partial class DebugWindow : Window
         LogTextBox.CaretIndex = LogTextBox.Text?.Length ?? 0;
     }
 
-    private void CopyLog_Click(object? sender, RoutedEventArgs e)
+    private async void CopyLog_Click(object? sender, RoutedEventArgs e)
     {
         LogService.Information("Copy All button clicked.");
         try
@@ -132,8 +136,11 @@ public partial class DebugWindow : Window
             if (LogTextBox.Text is { Length: > 0 } text)
             {
                 var clipboard = GetTopLevel(this)?.Clipboard;
-                if (clipboard != null) _ = clipboard.SetTextAsync(text);
-                LogService.Information("Entire log content copied to clipboard.");
+                if (clipboard != null)
+                {
+                    await clipboard.SetTextAsync(text);
+                    LogService.Information("Entire log content copied to clipboard.");
+                }
             }
             else
             {
@@ -142,7 +149,7 @@ public partial class DebugWindow : Window
         }
         catch (Exception ex)
         {
-            LogService.Error(ex, "Failed to copy log to clipboard.");
+            LogService.WarningTransient(ex, "Failed to copy log to clipboard.");
         }
     }
 
@@ -161,7 +168,7 @@ public partial class DebugWindow : Window
         }
     }
 
-    private void CopySelection_Click(object? sender, RoutedEventArgs e)
+    private async void CopySelection_Click(object? sender, RoutedEventArgs e)
     {
         if (string.IsNullOrEmpty(LogTextBox.SelectedText)) return;
 
@@ -169,12 +176,15 @@ public partial class DebugWindow : Window
         try
         {
             var clipboard = GetTopLevel(this)?.Clipboard;
-            if (clipboard != null) _ = clipboard.SetTextAsync(LogTextBox.SelectedText);
-            LogService.Information("Selected log text copied to clipboard.");
+            if (clipboard != null)
+            {
+                await clipboard.SetTextAsync(LogTextBox.SelectedText);
+                LogService.Information("Selected log text copied to clipboard.");
+            }
         }
         catch (Exception ex)
         {
-            LogService.Error(ex, "Failed to copy selection to clipboard.");
+            LogService.WarningTransient(ex, "Failed to copy selection to clipboard.");
         }
     }
 

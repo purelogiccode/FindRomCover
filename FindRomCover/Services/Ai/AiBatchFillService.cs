@@ -128,32 +128,49 @@ public sealed class AiBatchFillService
 
             if (IsUsablePick(pick, images.Count) && images[pick!.BestIndex].ImagePath is { } localPath)
             {
-                if (File.Exists(targetPath))
-                {
-                    _unregisterExpectedFile?.Invoke(targetPath);
+                // The AI call can take a minute; re-check every recognized cover extension,
+                // not just the .png target, so a cover that arrived meanwhile is protected.
+                var appearedCover = CoverFileResolver.FindCover(imageFolderPath, item.RomName);
+                if (appearedCover != null)
                     return new AiBatchItemResult(item.RomName, item.SearchName, AiBatchOutcome.SkippedAlreadyExists,
-                        "Cover already exists.", targetPath);
+                        "Cover already exists.", appearedCover);
+
+                if (!await IsVerifiedAsync(item.RomName, item.SearchName, localPath, cancellationToken)
+                        .ConfigureAwait(false))
+                {
+                    _queryHistory.MarkQueried(targetPath, "local-verification-rejected");
+                    return new AiBatchItemResult(item.RomName, item.SearchName, AiBatchOutcome.SkippedLowConfidence,
+                        "AI verification rejected the local image.", targetPath);
                 }
 
                 _preRegisterExpectedFile?.Invoke(targetPath);
-                var saveResult = await ImageProcessor
-                    .ConvertAndSaveImageAsync(localPath, targetPath, cancellationToken, overwrite: false)
-                    .ConfigureAwait(false);
-
-                if (saveResult.Success)
+                try
                 {
-                    _queryHistory.Remove(targetPath);
-                    return new AiBatchItemResult(item.RomName, item.SearchName, AiBatchOutcome.FilledFromLocal,
-                        $"AI pick '{images[pick.BestIndex].ImageName}' ({pick.Confidence:P0}).", targetPath);
+                    var saveResult = await ImageProcessor
+                        .ConvertAndSaveImageAsync(localPath, targetPath, cancellationToken, overwrite: false)
+                        .ConfigureAwait(false);
+
+                    if (saveResult.Success)
+                    {
+                        _queryHistory.Remove(targetPath);
+                        return new AiBatchItemResult(item.RomName, item.SearchName, AiBatchOutcome.FilledFromLocal,
+                            $"AI pick '{images[pick.BestIndex].ImageName}' ({pick.Confidence:P0}).", targetPath);
+                    }
+
+                    _unregisterExpectedFile?.Invoke(targetPath);
+                    if (CoverFileResolver.FindCover(imageFolderPath, item.RomName) is { } existingCover)
+                        return new AiBatchItemResult(item.RomName, item.SearchName,
+                            AiBatchOutcome.SkippedAlreadyExists, "Cover already exists.", existingCover);
+
+                    return new AiBatchItemResult(item.RomName, item.SearchName, AiBatchOutcome.Failed,
+                        saveResult.ErrorMessage ?? "Failed to save image.");
                 }
-
-                _unregisterExpectedFile?.Invoke(targetPath);
-                if (File.Exists(targetPath))
-                    return new AiBatchItemResult(item.RomName, item.SearchName, AiBatchOutcome.SkippedAlreadyExists,
-                        "Cover already exists.", targetPath);
-
-                return new AiBatchItemResult(item.RomName, item.SearchName, AiBatchOutcome.Failed,
-                    saveResult.ErrorMessage ?? "Failed to save image.");
+                catch (OperationCanceledException)
+                {
+                    // Never leave the watcher's expected-file registration behind.
+                    _unregisterExpectedFile?.Invoke(targetPath);
+                    throw;
+                }
             }
         }
 
@@ -222,12 +239,12 @@ public sealed class AiBatchFillService
                             "AI verification rejected the downloaded image.", targetPath);
                     }
 
-                    if (File.Exists(targetPath))
+                    if (CoverFileResolver.FindCover(imageFolderPath, item.RomName) is { } existingCover)
                     {
                         TryDelete(tempPath);
                         _unregisterExpectedFile?.Invoke(targetPath);
                         return new AiBatchItemResult(item.RomName, item.SearchName, AiBatchOutcome.SkippedAlreadyExists,
-                            "Cover already exists.", targetPath);
+                            "Cover already exists.", existingCover);
                     }
 
                     // Refresh the expected-file registration: the download plus AI

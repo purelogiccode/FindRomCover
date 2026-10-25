@@ -23,8 +23,9 @@ The application creates the folder on first start. Writable data is kept here be
 | `ai-models.json` | JSON | Cached model lists per provider and base URL | 7 days |
 | `app<yyyyMMdd>.log` | Text | Rolling daily application log | 7 files |
 | `ApiLogError.txt` | Text | Reports queued for the bug-report API; an accepted report is removed after a successful send | Until the send succeeds |
+| `PendingBugReports.json` | JSON | Machine-readable retry queue for reports that could not be sent; re-sent at the next start | Until accepted, max 200 entries |
 | `UserLogError.txt` | Text | Simplified error list for user reference | Until deleted |
-| `InternalLog.txt` | Text | Internal error-logger diagnostics | Until deleted |
+| `InternalLog.txt` | Text | Internal error-logger diagnostics | Trimmed at 4 MB |
 | `Settings.dat.corrupt` | Any | Quarantined settings database that could not be read | Until deleted |
 | `settings.dat.legacy` | Encrypted legacy file | Backup of a pre-SQLite settings file | Until deleted |
 | `Screenshot\Screenshot_<timestamp>.png` | PNG | Screenshots saved with **F8** when the application folder is not writable | Until deleted |

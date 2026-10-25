@@ -302,6 +302,10 @@ public static class ImageSaveService
             using var imageStream = new MemoryStream(bytes);
             using (var image = new MagickImage(imageStream))
             {
+                // Apply EXIF orientation before measuring: a portrait photo stored as
+                // 150x600 with orientation 6 displays as 600x150 and is a valid cover.
+                image.AutoOrient();
+
                 if (minWidth > 0 && image.Width < minWidth)
                 {
                     LogService.WarningTransient(
@@ -309,7 +313,6 @@ public static class ImageSaveService
                     return false;
                 }
 
-                image.AutoOrient();
                 image.Format = MagickFormat.Png;
                 await image.WriteAsync(tempOutputPath, MagickFormat.Png, cancellationToken);
             }

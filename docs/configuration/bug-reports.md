@@ -41,6 +41,7 @@ The context message describing what was happening, followed by the exception typ
 Every report is written to `UserLogError.txt` and `ApiLogError.txt` in the per-user data folder before it is sent:
 
 - `ApiLogError.txt` is the pending queue. When the API accepts a report, only that report is removed; reports that failed earlier or were queued concurrently stay in the file for the next attempt.
+- `PendingBugReports.json` is the machine-readable retry queue. Reports that could not be sent are re-sent automatically at the next start (up to 200 entries).
 - `UserLogError.txt` keeps the full history of reports for your reference and is not trimmed automatically.
 
 See [Data Storage](data-storage.md) for the folder location on Windows, Linux, and macOS.

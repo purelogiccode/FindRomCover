@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using FindRomCover.Models;
@@ -61,20 +62,33 @@ public static class LogService
         {
             if (_initialized) return;
 
-            AppDataPaths.EnsureBaseDirectory();
-            var logFilePath = AppDataPaths.LogFilePath("app.log");
+            try
+            {
+                AppDataPaths.EnsureBaseDirectory();
+                var logFilePath = AppDataPaths.LogFilePath("app.log");
 
-            _logger = new LoggerConfiguration()
-                .MinimumLevel.Debug()
-                .WriteTo.File(
-                    logFilePath,
-                    outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {Message:lj}{NewLine}{Exception}",
-                    formatProvider: CultureInfo.InvariantCulture,
-                    rollingInterval: RollingInterval.Day,
-                    retainedFileCountLimit: 7)
-                .WriteTo.Observers(events => events.Subscribe(new LogEventObserver()))
-                .WriteTo.Sink(new BugReportSink(new MessageTextTemplateFormatter()))
-                .CreateLogger();
+                // shared: allow a second instance (or a tool that holds the file) without
+                // aborting startup with an IOException.
+                _logger = new LoggerConfiguration()
+                    .MinimumLevel.Debug()
+                    .WriteTo.File(
+                        logFilePath,
+                        outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {Message:lj}{NewLine}{Exception}",
+                        formatProvider: CultureInfo.InvariantCulture,
+                        rollingInterval: RollingInterval.Day,
+                        retainedFileCountLimit: 7,
+                        shared: true)
+                    .WriteTo.Observers(events => events.Subscribe(new LogEventObserver()))
+                    .WriteTo.Sink(new BugReportSink(new MessageTextTemplateFormatter()))
+                    .CreateLogger();
+            }
+            catch (Exception ex)
+            {
+                // Logging must never be fatal: an unwritable data folder or a locked log
+                // file should not stop the application from starting.
+                _logger = new SilentLogger();
+                System.Diagnostics.Debug.Print($"LogService: could not initialize file logging: {ex}");
+            }
 
             _initialized = true;
         }

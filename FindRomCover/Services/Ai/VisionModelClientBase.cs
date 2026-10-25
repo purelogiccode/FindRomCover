@@ -201,6 +201,7 @@ public abstract class VisionModelClientBase : IVisionModelClient
 
                 if (root.ValueKind == JsonValueKind.Object &&
                     (root.TryGetProperty("bestIndex", out _) ||
+                     root.TryGetProperty("match", out _) ||
                      root.TryGetProperty("isMatch", out _) ||
                      root.TryGetProperty("confidence", out _)))
                     return candidate;
@@ -468,7 +469,10 @@ public abstract class VisionModelClientBase : IVisionModelClient
 
     private static double NormalizeConfidence(double confidence)
     {
-        if (confidence > 1 && confidence <= 100) confidence /= 100;
+        // Models usually answer on a 0-1 scale, but small local models sometimes use
+        // percentages. Treat values just above 1 as an overshoot of the 0-1 scale
+        // (1.02 means "certain"), not as 1.02%, and only rescale plausible percentages.
+        if (confidence > 2 && confidence <= 100) confidence /= 100;
         return Math.Clamp(confidence, 0, 1);
     }
 
@@ -518,7 +522,13 @@ public abstract class VisionModelClientBase : IVisionModelClient
         {
             JsonValueKind.True => true,
             JsonValueKind.False => false,
+            // Small/local models frequently emit numeric booleans. Without these cases
+            // an explicit {"match": 0} fell through to the "assume match" default.
+            JsonValueKind.Number when value.TryGetInt32(out var number) => number != 0,
+            JsonValueKind.Number when value.TryGetDouble(out var real) => real != 0,
             JsonValueKind.String when bool.TryParse(value.GetString(), out var parsed) => parsed,
+            JsonValueKind.String when string.Equals(value.GetString(), "1", StringComparison.Ordinal) => true,
+            JsonValueKind.String when string.Equals(value.GetString(), "0", StringComparison.Ordinal) => false,
             JsonValueKind.String when string.Equals(value.GetString(), "yes", StringComparison.OrdinalIgnoreCase) =>
                 true,
             JsonValueKind.String when string.Equals(value.GetString(), "no", StringComparison.OrdinalIgnoreCase) =>

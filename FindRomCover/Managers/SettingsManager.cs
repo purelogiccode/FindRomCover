@@ -297,7 +297,7 @@ public class SettingsManager : INotifyPropertyChanged
         get => _lastImageFolder;
         set
         {
-            if (string.Equals(_lastImageFolder, value, StringComparison.OrdinalIgnoreCase)) return;
+            if (AppConstants.FilePathComparer.Equals(_lastImageFolder, value)) return;
 
             _lastImageFolder = value;
             OnPropertyChanged(nameof(LastImageFolder));
@@ -446,7 +446,7 @@ public class SettingsManager : INotifyPropertyChanged
         get => _bugReportApiKey;
         set
         {
-            if (string.Equals(_bugReportApiKey, value, StringComparison.OrdinalIgnoreCase)) return;
+            if (string.Equals(_bugReportApiKey, value, StringComparison.Ordinal)) return;
 
             _bugReportApiKey = value;
             OnPropertyChanged(nameof(BugReportApiKey));
@@ -461,7 +461,7 @@ public class SettingsManager : INotifyPropertyChanged
         get => _bugReportApiUrl;
         set
         {
-            if (string.Equals(_bugReportApiUrl, value, StringComparison.OrdinalIgnoreCase)) return;
+            if (string.Equals(_bugReportApiUrl, value, StringComparison.Ordinal)) return;
 
             _bugReportApiUrl = value;
             OnPropertyChanged(nameof(BugReportApiUrl));
@@ -476,7 +476,7 @@ public class SettingsManager : INotifyPropertyChanged
         get => _googleKey;
         set
         {
-            if (string.Equals(_googleKey, value, StringComparison.OrdinalIgnoreCase)) return;
+            if (string.Equals(_googleKey, value, StringComparison.Ordinal)) return;
 
             _googleKey = value;
             OnPropertyChanged(nameof(GoogleKey));
@@ -757,7 +757,7 @@ public class SettingsManager : INotifyPropertyChanged
             AppConstants.AiProviders.Gemini => AppConstants.AiProviders.GeminiBaseUrl,
             AppConstants.AiProviders.Glm => AppConstants.AiProviders.GlmBaseUrl,
             AppConstants.AiProviders.Local => AppConstants.AiProviders.LocalBaseUrl,
-            AppConstants.AiProviders.CustomAnthropic => AppConstants.AiProviders.AnthropicBaseUrl,
+            AppConstants.AiProviders.CustomAnthropic => string.Empty,
             AppConstants.AiProviders.CustomOpenAi => string.Empty,
             _ => AppConstants.AiProviders.OpenRouterBaseUrl
         };
@@ -985,7 +985,18 @@ public class SettingsManager : INotifyPropertyChanged
 
         foreach (var legacyPath in legacyPaths)
         {
-            var data = LoadAndDecryptSettings(legacyPath);
+            if (!TryLoadAndDecryptSettings(legacyPath, out var data))
+            {
+                // A transient I/O failure (lock, sync client, permissions) must not be
+                // mistaken for corruption: keep the file and skip saving defaults so the
+                // migration is retried on the next start.
+                LogService.WarningTransient(
+                    $"Legacy settings file '{legacyPath}' could not be read right now; the migration will be retried on the next start.");
+                // Keep usable in-memory defaults for this session without persisting them.
+                SetDefaultSettings();
+                return true;
+            }
+
             if (data == null)
             {
                 // Keep the unreadable file out of the way so a fresh database can be
@@ -1203,23 +1214,41 @@ public class SettingsManager : INotifyPropertyChanged
         }
     }
 
-    private static SettingsData? LoadAndDecryptSettings(string filePath)
+    /// <summary>
+    ///     Loads and decrypts a legacy settings file.
+    /// </summary>
+    /// <param name="filePath">The legacy file to read.</param>
+    /// <param name="data">Receives the settings, or null when the file is unreadable/corrupt.</param>
+    /// <returns>
+    ///     False when the failure is transient (I/O) and the caller must keep the file and
+    ///     retry later; true when the file was read or is permanently unreadable.
+    /// </returns>
+    private static bool TryLoadAndDecryptSettings(string filePath, out SettingsData? data)
     {
+        data = null;
+
         try
         {
             var encryptedBytes = File.ReadAllBytes(filePath);
             var decryptedBytes = Decrypt(encryptedBytes);
             var json = Encoding.UTF8.GetString(decryptedBytes);
 
-            return JsonSerializer.Deserialize<SettingsData>(json);
+            data = JsonSerializer.Deserialize<SettingsData>(json);
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Temporary lock/sync/permission problem: the file may be perfectly valid.
+            LogService.WarningTransient(ex, $"Could not read legacy settings file: {filePath}");
+            return false;
         }
         catch (Exception ex)
         {
             // A corrupt or unreadable settings file is an environment issue (e.g. truncated
             // download, drive sync conflict or a machine rename invalidating the key),
-            // not an application bug. Warn locally and let LoadSettings reset to defaults.
+            // not an application bug. Warn locally and skip this candidate.
             LogService.WarningTransient(ex, $"Failed to decrypt settings from: {filePath}");
-            return null;
+            return true;
         }
     }
 
@@ -1235,6 +1264,11 @@ public class SettingsManager : INotifyPropertyChanged
             var root = doc.Element("Settings");
             if (root == null) return false;
 
+            // The WPF writer used <ImageSize><Width/><Height/></ImageSize>; the older
+            // <ThumbnailSize> is still accepted as a fallback.
+            var imageSize = root.Element("ImageSize");
+            var thumbnailSize = root.Element("ThumbnailSize")?.Value;
+
             var legacyData = new SettingsData
             {
                 SimilarityThreshold = double.TryParse(
@@ -1244,20 +1278,39 @@ public class SettingsManager : INotifyPropertyChanged
                     out var parsedThreshold)
                     ? parsedThreshold
                     : double.Parse(AppConstants.Messages.DefaultSimilarityThreshold, CultureInfo.InvariantCulture),
-                SimilarityAlgorithm = AppConstants.Algorithms.JaroWinkler,
+                SimilarityAlgorithm = root.Element("SimilarityAlgorithm")?.Value is { Length: > 0 } algorithm
+                    ? algorithm
+                    : AppConstants.Algorithms.JaroWinkler,
                 BaseTheme = root.Element("BaseTheme")?.Value ?? AppConstants.Themes.Dark,
                 AccentColor = root.Element("AccentColor")?.Value ?? "Blue",
-                ImageWidth = int.TryParse(root.Element("ThumbnailSize")?.Value, CultureInfo.InvariantCulture, out var w)
+                ImageWidth = int.TryParse(imageSize?.Element("Width")?.Value, CultureInfo.InvariantCulture, out var w)
                     ? w
-                    : 300,
-                ImageHeight =
-                    int.TryParse(root.Element("ThumbnailSize")?.Value, CultureInfo.InvariantCulture, out var h)
-                        ? h
+                    : int.TryParse(thumbnailSize, CultureInfo.InvariantCulture, out w)
+                        ? w
                         : 300,
-                MaxImagesToLoad = 30,
-                ImageLoaderMaxRetries = 3,
-                ImageLoaderRetryDelayMilliseconds = 200,
-                ApiTimeoutSeconds = 30,
+                ImageHeight =
+                    int.TryParse(imageSize?.Element("Height")?.Value, CultureInfo.InvariantCulture, out var h)
+                        ? h
+                        : int.TryParse(thumbnailSize, CultureInfo.InvariantCulture, out h)
+                            ? h
+                            : 300,
+                MaxImagesToLoad = int.TryParse(root.Element("MaxImagesToLoad")?.Value, CultureInfo.InvariantCulture,
+                    out var maxImages)
+                    ? maxImages
+                    : 30,
+                ImageLoaderMaxRetries = int.TryParse(root.Element("ImageLoaderMaxRetries")?.Value,
+                    CultureInfo.InvariantCulture, out var maxRetries)
+                    ? maxRetries
+                    : 3,
+                ImageLoaderRetryDelayMilliseconds = int.TryParse(
+                    root.Element("ImageLoaderRetryDelayMilliseconds")?.Value, CultureInfo.InvariantCulture,
+                    out var retryDelay)
+                    ? retryDelay
+                    : 200,
+                ApiTimeoutSeconds = int.TryParse(root.Element("ApiTimeoutSeconds")?.Value,
+                    CultureInfo.InvariantCulture, out var apiTimeout)
+                    ? apiTimeout
+                    : 30,
                 SearchEngine = root.Element("SearchEngine")?.Value ?? "BingWeb",
                 BugReportApiKey = root.Element("BugReportApiKey")?.Value is { Length: > 0 } bugReportKey
                     ? bugReportKey
@@ -1266,9 +1319,11 @@ public class SettingsManager : INotifyPropertyChanged
                     ? bugReportUrl
                     : AppConstants.BugReportApiUrl,
                 GoogleKey = root.Element("GoogleKey")?.Value ?? string.Empty,
-                UseMameDescriptions = bool.TryParse(root.Element("UseMameDescriptions")?.Value, out var useMame) &&
-                                      useMame,
-                LastImageFolder = string.Empty,
+                // The writer used the singular element; accept the plural from hand-edited files.
+                UseMameDescriptions = bool.TryParse(
+                    root.Element("UseMameDescription")?.Value ?? root.Element("UseMameDescriptions")?.Value,
+                    out var useMame) && useMame,
+                LastImageFolder = root.Element("LastImageFolder")?.Value ?? string.Empty,
                 SupportedExtensions = root.Element("SupportedExtensions")?
                     .Elements("Extension")
                     .Select(static x => x.Value)
@@ -1303,6 +1358,15 @@ public class SettingsManager : INotifyPropertyChanged
             LogService.Information("Successfully migrated settings from settings.xml to Settings.dat");
             return true;
         }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // A transient lock/permission problem must not be replaced by a defaults
+            // database that shadows the still-valid XML on the next start.
+            LogService.WarningTransient(ex,
+                $"Could not read legacy settings.xml right now; the migration will be retried on the next start.");
+            SetDefaultSettings();
+            return true;
+        }
         catch (Exception ex)
         {
             _ = ErrorLogger.LogAsync(ex, "Failed to migrate settings from settings.xml");
@@ -1312,7 +1376,21 @@ public class SettingsManager : INotifyPropertyChanged
 
     private List<string> GetLegacySettingsFilePaths()
     {
-        var candidates = new[] { SettingsDatabasePath, LegacyAppDirSettingsFilePath }
+        var directory = _settingsDirectory ?? DefaultSettingsDirectoryOverride ?? DefaultSettingsDirectory;
+        var dataDirLegacyPath = Path.Combine(directory, AppConstants.SettingsFileName);
+
+        var candidates = new[]
+            {
+                SettingsDatabasePath,
+                dataDirLegacyPath,
+                LegacyAppDirSettingsFilePath,
+                // A crash between moving the legacy file aside and committing the new
+                // database leaves only the backup; it must still be migratable.
+                SettingsDatabasePath + ".legacy",
+                dataDirLegacyPath + ".legacy",
+                LegacyAppDirSettingsFilePath + ".legacy"
+            }
+            .Distinct(AppConstants.FilePathComparer)
             .Where(IsLegacySettingsFile)
             .ToList();
 
@@ -1368,22 +1446,22 @@ public class SettingsManager : INotifyPropertyChanged
 
     private void QuarantineSettingsFile()
     {
-        foreach (var path in new[] { SettingsDatabasePath, LegacyAppDirSettingsFilePath })
-        {
-            if (!File.Exists(path)) continue;
+        // Only the database that failed to load may be quarantined. The legacy file next
+        // to the executable is a valid migration source and must stay in place.
+        if (!File.Exists(SettingsDatabasePath)) return;
 
-            try
-            {
-                var corruptPath = path + ".corrupt";
-                File.Move(path, corruptPath, true);
-                LogService.WarningTransient($"Quarantined unreadable settings file to: {corruptPath}");
-            }
-            catch (Exception quarantineEx)
-            {
-                // Best effort - if we cannot move the file the defaults save below will
-                // still overwrite it where permissions allow.
-                LogService.WarningTransient(quarantineEx, $"Failed to quarantine unreadable settings file: {path}");
-            }
+        try
+        {
+            var corruptPath = SettingsDatabasePath + ".corrupt";
+            File.Move(SettingsDatabasePath, corruptPath, true);
+            LogService.WarningTransient($"Quarantined unreadable settings database to: {corruptPath}");
+        }
+        catch (Exception quarantineEx)
+        {
+            // Best effort - if we cannot move the file the defaults save below will
+            // still overwrite it where permissions allow.
+            LogService.WarningTransient(quarantineEx,
+                $"Failed to quarantine unreadable settings database: {SettingsDatabasePath}");
         }
     }
 
@@ -1448,9 +1526,19 @@ public class SettingsManager : INotifyPropertyChanged
 
         // Secret values are only written when encryption succeeds, so a transient
         // crypto failure cannot overwrite the stored ciphertext with an empty value.
-        AddProtectedSecret(values, nameof(BugReportApiKey), BugReportApiKey);
-        AddProtectedSecret(values, nameof(GoogleKey), GoogleKey);
-        AddProtectedSecret(values, nameof(AiApiKey), AiApiKey);
+        // Report the failure instead of silently saving everything except the new key.
+        var secretsProtected =
+            AddProtectedSecret(values, nameof(BugReportApiKey), BugReportApiKey) &
+            AddProtectedSecret(values, nameof(GoogleKey), GoogleKey) &
+            AddProtectedSecret(values, nameof(AiApiKey), AiApiKey);
+
+        if (!secretsProtected)
+        {
+            ShowSaveError(
+                "The API keys could not be encrypted, so the settings were not saved.\n\n" +
+                "The existing settings file was left untouched. Restart the application and try again.");
+            return false;
+        }
 
         if (!new SettingsDatabase(SettingsDatabasePath).SaveAll(values))
         {
@@ -1461,10 +1549,13 @@ public class SettingsManager : INotifyPropertyChanged
         return true;
     }
 
-    private static void AddProtectedSecret(Dictionary<string, string> values, string key, string secret)
+    private static bool AddProtectedSecret(Dictionary<string, string> values, string key, string secret)
     {
         var protectedSecret = ProtectSecretOrNull(secret);
-        if (protectedSecret != null) values[key] = protectedSecret;
+        if (protectedSecret == null) return false;
+
+        values[key] = protectedSecret;
+        return true;
     }
 
     private static void ShowSaveError(string message)

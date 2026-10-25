@@ -45,4 +45,33 @@ public class VisionModelClientParsingTests
         result.BestIndex.Should().Be(1);
         result.Confidence.Should().BeApproximately(0.8, 0.0001);
     }
+
+    [Theory]
+    [InlineData("{\"match\": 0, \"confidence\": 0.9}", false)]
+    [InlineData("{\"match\": 1, \"confidence\": 0.9}", true)]
+    [InlineData("{\"match\": \"0\", \"confidence\": 0.9}", false)]
+    [InlineData("{\"match\": \"1\", \"confidence\": 0.9}", true)]
+    public void ParseVerificationResponseShouldUnderstandNumericBooleans(string json, bool expected)
+    {
+        VisionModelClientBase.ParseVerificationResponse(json).IsMatch.Should().Be(expected);
+    }
+
+    [Fact]
+    public void ExtractJsonObjectShouldRecognizeTheMatchVerdictField()
+    {
+        const string content = """
+                               Example: {"note": "here is the format"}
+                               Answer: {"match": false}
+                               """;
+
+        VisionModelClientBase.ExtractJsonObject(content).Should().Be("{\"match\": false}");
+    }
+
+    [Fact]
+    public void ParsePickResponseShouldNotCollapseConfidenceJustAboveOne()
+    {
+        var result = VisionModelClientBase.ParsePickResponse("{\"bestIndex\": 0, \"confidence\": 1.02}");
+
+        result.Confidence.Should().BeApproximately(1.0, 0.0001);
+    }
 }

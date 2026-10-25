@@ -107,12 +107,13 @@ public static class SimilarityCalculator
         }
         catch (OperationCanceledException)
         {
-            foreach (var image in imageList) image.Dispose();
+            // Ownership of every image already passed to onImageLoaded belongs to the
+            // caller/UI. Disposing them here would kill bitmaps still bound to the list.
             throw;
         }
         catch (Exception ex)
         {
-            foreach (var image in imageList) image.Dispose();
+            // Keep the successfully loaded images: they are valid and are returned below.
             processingErrors.Add($"An unexpected error occurred during image loading for display: {ex.Message}");
         }
 
@@ -188,17 +189,21 @@ public static class SimilarityCalculator
 
         if (ignoreBracketedText) selectedFileName = StripAnnotations(selectedFileName);
 
-        string[] imageExtensions =
-        [
-            "*.png", "*.apng", "*.jpg", "*.jpeg", "*.jfif", "*.jpe", "*.avif", "*.bmp", "*.gif", "*.webp", "*.tiff",
-            "*.tif", "*.ico", "*.svg", "*.jxl", "*.jp2", "*.heic", "*.heif"
-        ];
+        // Enumerate once and filter by extension. Per-extension globs both duplicate
+        // results on Windows ("*.tif" also matches ".tiff") and miss uppercase
+        // extensions on case-sensitive file systems.
+        var imageExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ".png", ".apng", ".jpg", ".jpeg", ".jfif", ".jpe", ".avif", ".bmp", ".gif", ".webp", ".tiff",
+            ".tif", ".ico", ".svg", ".jxl", ".jp2", ".heic", ".heif"
+        };
 
         List<string> allImageFiles;
         try
         {
-            allImageFiles = imageExtensions
-                .SelectMany(ext => Directory.EnumerateFiles(imageFolderPath, ext))
+            allImageFiles = Directory.EnumerateFiles(imageFolderPath)
+                .Where(path => imageExtensions.Contains(Path.GetExtension(path)))
+                .Distinct(AppConstants.FilePathComparer)
                 .ToList();
         }
         catch (Exception ex)
