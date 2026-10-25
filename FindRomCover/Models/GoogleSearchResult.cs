@@ -6,5 +6,5 @@ namespace FindRomCover.Models;
 public sealed class GoogleSearchResult
 {
     /// <summary>The returned image items, or <see langword="null" /> when the response contains none.</summary>
-    public List<GoogleSearchItem>? Items { get; set; }
+    public List<GoogleSearchItem>? Items { get; init; }
 }

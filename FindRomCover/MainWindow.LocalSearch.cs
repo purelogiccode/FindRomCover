@@ -133,7 +133,7 @@ public partial class MainWindow
 
             SetApiSearching(true);
             StatusMessage.Text = "Searching Google API...";
-            _webSearchCts?.Cancel();
+            if (_webSearchCts != null) await _webSearchCts.CancelAsync();
             _webSearchCts?.Dispose();
             _webSearchCts = new CancellationTokenSource();
             LblApiSearchQuery.Content = BuildQueryLabel("API search for: ", searchQuery);
@@ -270,7 +270,8 @@ public partial class MainWindow
 
                     LocalImageScrollViewer.ScrollToHome();
 
-                    if (Settings.AiAutoRun && Settings.AiAssistEnabled && SimilarImages.Count > 0)
+                    var aiOptions = Settings.GetAiVisionOptions();
+                    if (aiOptions is { AutoRun: true, Enabled: true } && SimilarImages.Count > 0)
                         QueueAutoAiPick(RunAiPickAsync);
                 }
                 else
@@ -323,7 +324,7 @@ public partial class MainWindow
         if (LstMissingImages.SelectedItem is not MissingImageItem selectedItem) return;
         if (SimilarImages.Count == 0 || IsAiBusy) return;
 
-        _aiAssistCts?.Cancel();
+        if (_aiAssistCts != null) await _aiAssistCts.CancelAsync();
         _aiAssistCts?.Dispose();
         _aiAssistCts = new CancellationTokenSource();
         var cancellationToken = _aiAssistCts.Token;
@@ -382,7 +383,8 @@ public partial class MainWindow
             LocalImageScrollViewer.ScrollToHome();
             StatusMessage.Text = $"AI picked '{picked.ImageName}' ({result.Confidence:P0}). {result.Reason}".Trim();
 
-            if (Settings.AiAutoSave && result.Confidence * 100 >= Settings.AiAutoSaveThreshold &&
+            var aiOptions = Settings.GetAiVisionOptions();
+            if (aiOptions is { AutoSave: true } && result.Confidence * 100 >= aiOptions.AutoSaveThreshold &&
                 picked.ImagePath != null)
                 await UseImageAsync(selectedItem.RomName, picked.ImagePath);
         }

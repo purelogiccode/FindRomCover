@@ -133,7 +133,7 @@ internal sealed class BugReportSink : ILogEventSink
     private static bool IsTransientEnvironmentError(LogEvent logEvent)
     {
         return logEvent.Properties.TryGetValue(LogService.TransientErrorPropertyName, out var property) &&
-               property is ScalarValue { Value: bool isTransient } && isTransient;
+               property is ScalarValue { Value: true };
     }
 
     /// <summary>
@@ -148,7 +148,7 @@ internal sealed class BugReportSink : ILogEventSink
         // locked file, dropped file) are marked by LogService.ErrorWatcher and must
         // never file bug reports — independent of message wording.
         if (logEvent.Properties.TryGetValue(LogService.WatcherErrorPropertyName, out var property) &&
-            property is ScalarValue { Value: bool isWatcherError } && isWatcherError)
+            property is ScalarValue { Value: true })
             return true;
 
         if (string.IsNullOrEmpty(contextMessage))

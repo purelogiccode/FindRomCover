@@ -16,15 +16,15 @@ public class ProgressRing : Control
         AvaloniaProperty.Register<ProgressRing, bool>(nameof(IsActive));
 
     /// <summary>Styled property that backs <see cref="StrokeThickness"/>.</summary>
-    public static readonly StyledProperty<double> StrokeThicknessProperty =
+    private static readonly StyledProperty<double> StrokeThicknessProperty =
         AvaloniaProperty.Register<ProgressRing, double>(nameof(StrokeThickness), 3.0);
 
     /// <summary>Styled property that backs <see cref="Stroke"/>.</summary>
-    public static readonly StyledProperty<IBrush?> StrokeProperty =
+    private static readonly StyledProperty<IBrush?> StrokeProperty =
         AvaloniaProperty.Register<ProgressRing, IBrush?>(nameof(Stroke));
 
     /// <summary>Styled property that backs <see cref="TrackBrush"/>.</summary>
-    public static readonly StyledProperty<IBrush?> TrackBrushProperty =
+    private static readonly StyledProperty<IBrush?> TrackBrushProperty =
         AvaloniaProperty.Register<ProgressRing, IBrush?>(nameof(TrackBrush));
 
     private readonly DispatcherTimer _timer;

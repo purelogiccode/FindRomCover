@@ -359,7 +359,7 @@ public sealed class AiBatchFillService
     /// <returns><see langword="true"/> when the pick is usable; otherwise <see langword="false"/>.</returns>
     internal bool IsUsablePick(AiPickResult? pick, int candidateCount)
     {
-        return pick != null && pick.BestIndex >= 0 && pick.BestIndex < candidateCount && IsConfident(pick);
+        return pick is { HasPick: true } && pick.BestIndex < candidateCount && IsConfident(pick);
     }
 
     private static string BuildApiQuery(string searchName, string? extraQuery)

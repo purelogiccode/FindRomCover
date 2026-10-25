@@ -213,13 +213,11 @@ public class AiAssistServiceTests
     private sealed class StubHttpMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> responder)
         : HttpMessageHandler
     {
-        private readonly Func<HttpRequestMessage, HttpResponseMessage> _responder = responder;
-
         protected override Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request,
             CancellationToken cancellationToken)
         {
-            return Task.FromResult(_responder(request));
+            return Task.FromResult(responder(request));
         }
     }
 }

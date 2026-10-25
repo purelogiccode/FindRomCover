@@ -154,6 +154,9 @@ public partial class AiBatchWindow : Window
     {
         Progress.Value = Math.Min(Progress.Maximum, Progress.Value + 1);
 
+        LogService.Debug(
+            $"AI batch item '{result.RomName}' (search name '{result.SearchName}') -> {result.Outcome}: " +
+            $"{result.Message}" + (string.IsNullOrEmpty(result.SavedPath) ? string.Empty : $" [path: {result.SavedPath}]"));
         LstResults.Items.Add($"{result.RomName}: {result.Outcome} — {result.Message}");
         if (LstResults.Items.Count > 0) LstResults.ScrollIntoView(LstResults.Items[^1]!);
 

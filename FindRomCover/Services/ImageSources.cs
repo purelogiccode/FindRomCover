@@ -9,7 +9,6 @@ namespace FindRomCover.Services;
 public static class ImageSources
 {
     private static readonly Lock BrokenImageLock = new();
-    private static object? _brokenImage;
 
     /// <summary>Creates a displayable image object from PNG bytes (UI-specific type).</summary>
     public static Func<byte[], object?>? CreateFromPngBytes { get; set; }
@@ -35,11 +34,11 @@ public static class ImageSources
     {
         get
         {
-            if (_brokenImage != null) return _brokenImage;
+            if (field != null) return field;
 
             lock (BrokenImageLock)
             {
-                return _brokenImage ??= CreateBrokenImage?.Invoke();
+                return field ??= CreateBrokenImage?.Invoke();
             }
         }
     }

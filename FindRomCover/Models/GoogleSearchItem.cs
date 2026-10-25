@@ -6,14 +6,14 @@ namespace FindRomCover.Models;
 public sealed class GoogleSearchItem
 {
     /// <summary>Direct URL of the full-size image; empty when the API omitted it.</summary>
-    public string Link { get; set; } = string.Empty;
+    public string Link { get; init; } = string.Empty;
 
     /// <summary>Additional metadata such as dimensions and thumbnail URL, when provided.</summary>
-    public GoogleImageInfo? Image { get; set; }
+    public GoogleImageInfo? Image { get; init; }
 
     /// <summary>MIME type of the image; defaults to "Unknown".</summary>
-    public string Mime { get; set; } = "Unknown";
+    public string Mime { get; init; } = "Unknown";
 
     /// <summary>Image title used as the display name; defaults to "Unknown Filename".</summary>
-    public string Title { get; set; } = "Unknown Filename";
+    public string Title { get; init; } = "Unknown Filename";
 }

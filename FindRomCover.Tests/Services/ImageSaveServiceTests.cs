@@ -224,16 +224,16 @@ public class ImageSaveServiceTests : IDisposable
     {
         ImageSaveService.LooksLikeImageData([0x89, 0x50, 0x4E, 0x47, 0x0D]).Should().BeTrue();
         ImageSaveService.LooksLikeImageData([0xFF, 0xD8, 0xFF, 0xE0]).Should().BeTrue();
-        ImageSaveService.LooksLikeImageData([0x47, 0x49, 0x46, 0x38]).Should().BeTrue();
-        ImageSaveService.LooksLikeImageData([0x42, 0x4D, 0x46, 0x00]).Should().BeTrue();
+        ImageSaveService.LooksLikeImageData("GIF8"u8).Should().BeTrue();
+        ImageSaveService.LooksLikeImageData("BMF\0"u8).Should().BeTrue();
         ImageSaveService.LooksLikeImageData(
-            [0x52, 0x49, 0x46, 0x46, 0x00, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50]).Should().BeTrue();
+            "RIFF\0\0\0\0WEBP"u8).Should().BeTrue();
     }
 
     [Fact]
     public void LooksLikeImageDataShouldRejectNonImageBytes()
     {
-        ImageSaveService.LooksLikeImageData([0x3C, 0x68, 0x74, 0x6D, 0x6C, 0x3E]).Should().BeFalse();
+        ImageSaveService.LooksLikeImageData("<html>"u8).Should().BeFalse();
         ImageSaveService.LooksLikeImageData([0x00, 0x01, 0x02]).Should().BeFalse();
         ImageSaveService.LooksLikeImageData([]).Should().BeFalse();
     }
@@ -391,13 +391,11 @@ public class ImageSaveServiceTests : IDisposable
     private sealed class StubHttpMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> responder)
         : HttpMessageHandler
     {
-        private readonly Func<HttpRequestMessage, HttpResponseMessage> _responder = responder;
-
         protected override Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request,
             CancellationToken cancellationToken)
         {
-            return Task.FromResult(_responder(request));
+            return Task.FromResult(responder(request));
         }
     }
 }

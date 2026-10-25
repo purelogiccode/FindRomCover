@@ -207,7 +207,7 @@ public static class Google
     /// </summary>
     /// <param name="errorBody">The raw error response body.</param>
     /// <returns>The error message, or a truncated copy of the body when it cannot be parsed.</returns>
-    internal static string ExtractGoogleErrorMessage(string errorBody)
+    private static string ExtractGoogleErrorMessage(string errorBody)
     {
         if (string.IsNullOrWhiteSpace(errorBody)) return "Invalid request.";
 

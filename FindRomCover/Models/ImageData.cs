@@ -7,12 +7,9 @@ namespace FindRomCover.Models;
 /// <summary>
 ///     A cover image candidate shown in the UI, including its similarity score and display metadata.
 /// </summary>
-public class ImageData : INotifyPropertyChanged, IDisposable
+public sealed class ImageData : INotifyPropertyChanged, IDisposable
 {
-    private string _aiBadge = string.Empty;
     private bool _disposed;
-    private int _imageHeight;
-    private int _imageWidth;
 
     /// <summary>
     ///     Initializes a new instance of the <see cref="ImageData" /> class.
@@ -89,29 +86,29 @@ public class ImageData : INotifyPropertyChanged, IDisposable
     /// <summary>Short badge describing an AI pick; empty when the image was not picked.</summary>
     public string AiBadge
     {
-        get => _aiBadge;
+        get;
         set
         {
-            if (string.Equals(_aiBadge, value, StringComparison.Ordinal)) return;
+            if (string.Equals(field, value, StringComparison.Ordinal)) return;
 
-            _aiBadge = value;
+            field = value;
             OnPropertyChanged();
         }
-    }
+    } = string.Empty;
 
     /// <summary>Image width in pixels; 0 only until a positive value is assigned.</summary>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when the assigned value is not positive.</exception>
     public int ImageWidth
     {
-        get => _imageWidth;
+        get;
         set
         {
             if (value <= 0)
                 throw new ArgumentOutOfRangeException(nameof(value), "Image width must be positive.");
 
-            if (_imageWidth == value) return;
+            if (field == value) return;
 
-            _imageWidth = value;
+            field = value;
             OnPropertyChanged();
         }
     }
@@ -120,15 +117,15 @@ public class ImageData : INotifyPropertyChanged, IDisposable
     /// <exception cref="ArgumentOutOfRangeException">Thrown when the assigned value is not positive.</exception>
     public int ImageHeight
     {
-        get => _imageHeight;
+        get;
         set
         {
             if (value <= 0)
                 throw new ArgumentOutOfRangeException(nameof(value), "Image height must be positive.");
 
-            if (_imageHeight == value) return;
+            if (field == value) return;
 
-            _imageHeight = value;
+            field = value;
             OnPropertyChanged();
         }
     }
@@ -174,14 +171,13 @@ public class ImageData : INotifyPropertyChanged, IDisposable
         var source = _imageSource;
         _imageSource = null;
         (source as IDisposable)?.Dispose();
-        GC.SuppressFinalize(this);
     }
 
     /// <summary>
     ///     Raises the <see cref="PropertyChanged" /> event for the specified property.
     /// </summary>
     /// <param name="propertyName">Name of the changed property; inferred from the caller when omitted.</param>
-    protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+    private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }

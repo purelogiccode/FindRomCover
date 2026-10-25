@@ -185,12 +185,12 @@ public sealed class SettingsDatabase
             connection.Open();
 
             if (!readOnly)
-                using (var command = connection.CreateCommand())
-                {
-                    command.CommandText =
-                        "CREATE TABLE IF NOT EXISTS Settings (Key TEXT PRIMARY KEY, Value TEXT NOT NULL)";
-                    command.ExecuteNonQuery();
-                }
+            {
+                using var command = connection.CreateCommand();
+                command.CommandText =
+                    "CREATE TABLE IF NOT EXISTS Settings (Key TEXT PRIMARY KEY, Value TEXT NOT NULL)";
+                command.ExecuteNonQuery();
+            }
 
             return connection;
         }

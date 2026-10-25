@@ -12,12 +12,12 @@ public static class VisionImagePreparer
     /// <summary>
     ///     The default maximum width or height, in pixels, applied when preparing an image.
     /// </summary>
-    public const int DefaultMaxDimension = 512;
+    private const int DefaultMaxDimension = 512;
 
     /// <summary>
     ///     The JPEG quality used when re-encoding prepared images.
     /// </summary>
-    public const int JpegQuality = 80;
+    private const int JpegQuality = 80;
 
     /// <summary>
     ///     Prepares the image at the given file path for a vision request.
@@ -59,7 +59,7 @@ public static class VisionImagePreparer
     /// <param name="image">The Magick.NET image to prepare.</param>
     /// <param name="maxDimension">The maximum width or height in pixels.</param>
     /// <returns>The prepared JPEG image and its SHA-256 hash.</returns>
-    internal static PreparedVisionImage PrepareCore(MagickImage image, int maxDimension)
+    private static PreparedVisionImage PrepareCore(MagickImage image, int maxDimension)
     {
         maxDimension = maxDimension <= 0 ? DefaultMaxDimension : maxDimension;
 

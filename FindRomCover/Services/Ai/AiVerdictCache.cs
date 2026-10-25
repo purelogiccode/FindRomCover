@@ -66,7 +66,7 @@ public sealed class AiVerdictCache
     /// <summary>
     ///     Gets the default cache file path under the local application data folder.
     /// </summary>
-    public static string DefaultFilePath => Path.Combine(
+    private static string DefaultFilePath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "FindRomCover",
         "ai-cache.json");
@@ -208,7 +208,7 @@ public sealed class AiVerdictCache
 
     private sealed class CacheEntry
     {
-        public DateTimeOffset CreatedUtc { get; set; }
-        public string Payload { get; set; } = string.Empty;
+        public DateTimeOffset CreatedUtc { get; init; }
+        public string Payload { get; init; } = string.Empty;
     }
 }

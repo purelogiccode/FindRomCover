@@ -128,7 +128,12 @@ public partial class DebugWindow : Window
         LogTextBox.CaretIndex = LogTextBox.Text?.Length ?? 0;
     }
 
-    private async void CopyLog_Click(object? sender, RoutedEventArgs e)
+    private void CopyLog_Click(object? sender, RoutedEventArgs e)
+    {
+        _ = CopyLogAsync();
+    }
+
+    private async Task CopyLogAsync()
     {
         LogService.Information("Copy All button clicked.");
         try
@@ -168,7 +173,12 @@ public partial class DebugWindow : Window
         }
     }
 
-    private async void CopySelection_Click(object? sender, RoutedEventArgs e)
+    private void CopySelection_Click(object? sender, RoutedEventArgs e)
+    {
+        _ = CopySelectionAsync();
+    }
+
+    private async Task CopySelectionAsync()
     {
         if (string.IsNullOrEmpty(LogTextBox.SelectedText)) return;
 

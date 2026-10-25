@@ -792,7 +792,7 @@ public class SettingsManager : INotifyPropertyChanged
     /// </summary>
     /// <param name="model">The raw configured model text.</param>
     /// <returns>The first whitespace-separated token, or an empty string when none exists.</returns>
-    internal static string NormalizeModelId(string? model)
+    private static string NormalizeModelId(string? model)
     {
         if (string.IsNullOrWhiteSpace(model)) return string.Empty;
 
@@ -1363,7 +1363,7 @@ public class SettingsManager : INotifyPropertyChanged
             // A transient lock/permission problem must not be replaced by a defaults
             // database that shadows the still-valid XML on the next start.
             LogService.WarningTransient(ex,
-                $"Could not read legacy settings.xml right now; the migration will be retried on the next start.");
+                "Could not read legacy settings.xml right now; the migration will be retried on the next start.");
             SetDefaultSettings();
             return true;
         }

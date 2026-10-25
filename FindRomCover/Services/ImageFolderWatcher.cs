@@ -50,7 +50,6 @@ public sealed class ImageFolderWatcher : IDisposable
         new(BulkImportEventThreshold, BulkImportWindow, BulkImportCooldown);
     private readonly Lock _bulkImportStateLock = new();
     private bool _bulkImportActive;
-    private IReadOnlySet<string>? _knownRomNames;
     private int _pendingImageEvents;
 
     /// <summary>
@@ -85,12 +84,12 @@ public sealed class ImageFolderWatcher : IDisposable
     /// </summary>
     public IReadOnlySet<string>? KnownRomNames
     {
-        get => Volatile.Read(ref _knownRomNames);
-        set => Volatile.Write(ref _knownRomNames, value);
+        get => Volatile.Read(ref field);
+        set => Volatile.Write(ref field, value);
     }
 
     /// <summary>Gets the path of the folder currently being watched, or null when watching is stopped.</summary>
-    public string? WatchedFolderPath
+    private string? WatchedFolderPath
     {
         get
         {
@@ -218,7 +217,7 @@ public sealed class ImageFolderWatcher : IDisposable
             }
 
             RemoveProcessedEntryIfExpired(filePath, stamp);
-        });
+        }, token);
         LogService.Debug($"ImageFolderWatcher: pre-registered '{Path.GetFileName(filePath)}' so watcher will skip it");
     }
 
@@ -563,7 +562,7 @@ public sealed class ImageFolderWatcher : IDisposable
             {
                 LogService.Debug($"ImageFolderWatcher: restart attempt failed: {restartEx.Message}");
             }
-        });
+        }, token);
     }
 
     private async void OnFileCreatedAsync(object sender, FileSystemEventArgs e)
@@ -662,7 +661,7 @@ public sealed class ImageFolderWatcher : IDisposable
             }
 
             RemoveProcessedEntryIfExpired(key, stamp);
-        });
+        }, token);
     }
 
     private void RemoveProcessedEntryIfExpired(string key, long stamp)
@@ -722,7 +721,7 @@ public sealed class ImageFolderWatcher : IDisposable
 
     private bool IsKnownRomName(string fileNameWithoutExtension)
     {
-        var knownRomNames = Volatile.Read(ref _knownRomNames);
+        var knownRomNames = KnownRomNames;
         return knownRomNames != null && knownRomNames.Contains(fileNameWithoutExtension);
     }
 
@@ -821,11 +820,9 @@ public sealed class ImageFolderWatcher : IDisposable
                         Path.GetDirectoryName(filePath) ?? ".",
                         Path.GetFileNameWithoutExtension(filePath) + ".png");
 
-                    if (File.Exists(pngEquivalent))
-                        LogService.Debug(
-                            $"ImageFolderWatcher: source file gone after PNG conversion: '{Path.GetFileName(filePath)}'");
-                    else
-                        LogService.Debug($"ImageFolderWatcher: file disappeared after wait: '{filePath}'");
+                    LogService.Debug(File.Exists(pngEquivalent)
+                        ? $"ImageFolderWatcher: source file gone after PNG conversion: '{Path.GetFileName(filePath)}'"
+                        : $"ImageFolderWatcher: file disappeared after wait: '{filePath}'");
 
                     return;
                 }

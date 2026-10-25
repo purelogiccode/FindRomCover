@@ -27,8 +27,6 @@ public sealed class SettingsDatabaseTests : IDisposable
         {
             // Best effort.
         }
-
-        GC.SuppressFinalize(this);
     }
 
     [Fact]

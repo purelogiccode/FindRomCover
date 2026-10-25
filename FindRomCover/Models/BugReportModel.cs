@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -8,43 +9,45 @@ namespace FindRomCover.Models;
 /// <summary>
 ///     Collects application, environment, and exception details for a generated bug report.
 /// </summary>
+[SuppressMessage("ReSharper", "MemberCanBePrivate.Global",
+    Justification = "Public init accessors are required by JSON serialization.")]
 public class BugReportModel
 {
     /// <summary>Name of the application.</summary>
-    public string ApplicationName { get; set; } = "FindRomCover";
+    public string ApplicationName { get; } = "FindRomCover";
 
     /// <summary>Date and time the report was created.</summary>
-    public DateTime Date { get; set; } = DateTime.Now;
+    public DateTime Date { get; init; } = DateTime.Now;
 
     /// <summary>Version of the running application.</summary>
-    public string ApplicationVersion { get; set; } = "Unknown";
+    public string ApplicationVersion { get; init; } = "Unknown";
 
     /// <summary>Description of the operating system.</summary>
-    public string OsVersion { get; set; } = "Unknown";
+    public string OsVersion { get; init; } = "Unknown";
 
     /// <summary>Architecture of the operating system (for example, X64).</summary>
-    public string Architecture { get; set; } = "Unknown";
+    public string Architecture { get; init; } = "Unknown";
 
     /// <summary>Whether the operating system is 32-bit or 64-bit.</summary>
-    public string Bitness { get; set; } = "Unknown";
+    public string Bitness { get; init; } = "Unknown";
 
     /// <summary>Friendly name of the Windows version.</summary>
-    public string WindowsVersion { get; set; } = "Unknown";
+    public string WindowsVersion { get; init; } = "Unknown";
 
     /// <summary>Number of logical processors available to the process.</summary>
-    public int ProcessorCount { get; set; }
+    public int ProcessorCount { get; init; }
 
     /// <summary>Base directory of the running application.</summary>
-    public string BaseDirectory { get; set; } = "Unknown";
+    public string BaseDirectory { get; init; } = "Unknown";
 
     /// <summary>Path of the system temporary directory.</summary>
-    public string TempPath { get; set; } = "Unknown";
+    public string TempPath { get; init; } = "Unknown";
 
     /// <summary>Context message describing what was being done when the error occurred.</summary>
-    public string ErrorMessage { get; set; } = "";
+    public string ErrorMessage { get; init; } = "";
 
     /// <summary>Details of the captured exception.</summary>
-    public ExceptionDetails Exception { get; set; } = new();
+    public ExceptionDetails Exception { get; init; } = new();
 
     /// <summary>
     ///     Creates a bug report from the given exception, capturing the current environment.

@@ -17,12 +17,12 @@ public abstract class VisionModelClientBase : IVisionModelClient
     /// <summary>
     ///     The maximum number of characters of provider error detail included in messages.
     /// </summary>
-    internal const int MaxErrorDetailLength = 300;
+    private const int MaxErrorDetailLength = 300;
 
     /// <summary>
     ///     The Anthropic API version header value sent with Anthropic requests.
     /// </summary>
-    internal const string AnthropicVersion = "2023-06-01";
+    private const string AnthropicVersion = "2023-06-01";
 
     /// <summary>
     ///     The message used when a model consumed its entire output budget without producing an answer.
@@ -34,12 +34,12 @@ public abstract class VisionModelClientBase : IVisionModelClient
     /// <summary>
     ///     The number of attempts made when a provider reports a temporary failure.
     /// </summary>
-    internal const int MaxRequestAttempts = 3;
+    private const int MaxRequestAttempts = 3;
 
     /// <summary>
     ///     The base delay between retries of a temporary provider failure.
     /// </summary>
-    internal static readonly TimeSpan RetryDelay = TimeSpan.FromMilliseconds(750);
+    private static readonly TimeSpan RetryDelay = TimeSpan.FromMilliseconds(750);
 
     private const string PickSystemPrompt =
         "You are a retro video game cover-art expert. You receive a game title and numbered candidate images. " +
@@ -118,17 +118,10 @@ public abstract class VisionModelClientBase : IVisionModelClient
     }
 
     /// <summary>
-    ///     Releases resources held by the client.
+    ///     Releases resources held by the client. The shared <see cref="HttpClient" /> is owned by
+    ///     the application, not by the client, so there is nothing to release.
     /// </summary>
     public void Dispose()
-    {
-        DisposeCore();
-    }
-
-    /// <summary>
-    ///     Releases resources held by derived clients; the base implementation does nothing.
-    /// </summary>
-    protected virtual void DisposeCore()
     {
     }
 
@@ -322,7 +315,7 @@ public abstract class VisionModelClientBase : IVisionModelClient
     /// </summary>
     /// <param name="responseBody">The raw error response body.</param>
     /// <returns>The provider error message, or the truncated raw body when it is not JSON.</returns>
-    internal static string ExtractProviderError(string responseBody)
+    private static string ExtractProviderError(string responseBody)
     {
         if (string.IsNullOrWhiteSpace(responseBody)) return string.Empty;
 
@@ -355,7 +348,7 @@ public abstract class VisionModelClientBase : IVisionModelClient
     /// </summary>
     /// <param name="text">The text to truncate.</param>
     /// <returns>The truncated text, or an empty string when the input is blank.</returns>
-    internal static string Truncate(string? text)
+    private static string Truncate(string? text)
     {
         if (string.IsNullOrWhiteSpace(text)) return string.Empty;
 
@@ -472,7 +465,7 @@ public abstract class VisionModelClientBase : IVisionModelClient
         // Models usually answer on a 0-1 scale, but small local models sometimes use
         // percentages. Treat values just above 1 as an overshoot of the 0-1 scale
         // (1.02 means "certain"), not as 1.02%, and only rescale plausible percentages.
-        if (confidence > 2 && confidence <= 100) confidence /= 100;
+        if (confidence is > 2 and <= 100) confidence /= 100;
         return Math.Clamp(confidence, 0, 1);
     }
 

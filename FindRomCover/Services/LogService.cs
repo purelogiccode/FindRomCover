@@ -1,5 +1,4 @@
 using System.Collections.ObjectModel;
-using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using FindRomCover.Models;
@@ -217,15 +216,6 @@ public static class LogService
     public static void ErrorWatcher(Exception ex, string message)
     {
         _logger.ForContext(WatcherErrorPropertyName, true).Error(ex, message);
-    }
-
-    /// <summary>
-    ///     Writes a fatal-level message.
-    /// </summary>
-    /// <param name="message">The message to log.</param>
-    public static void Fatal(string message)
-    {
-        _logger.Fatal(message);
     }
 
     /// <summary>

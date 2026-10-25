@@ -49,7 +49,7 @@ public sealed class AiQueryHistory
     /// <summary>
     ///     Gets the default query history database path under the local application data folder.
     /// </summary>
-    public static string DefaultFilePath => Path.Combine(
+    private static string DefaultFilePath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "FindRomCover",
         AppConstants.QueryHistoryFileName);

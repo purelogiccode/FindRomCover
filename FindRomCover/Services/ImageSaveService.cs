@@ -28,19 +28,6 @@ public static class ImageSaveService
     private const string ImageAcceptHeader = "image/avif,image/webp,image/apng,image/*,*/*;q=0.8";
 
     /// <summary>
-    ///     Downloads an image from the given URL and saves it as a PNG file at the specified path.
-    /// </summary>
-    /// <param name="imageUrl">The URL of the image to download.</param>
-    /// <param name="outputPath">The path where the PNG image will be saved.</param>
-    /// <param name="cancellationToken">A token to cancel the operation.</param>
-    /// <returns>True if the download and save was successful, false otherwise.</returns>
-    public static Task<bool> DownloadAndSaveImageAsync(string imageUrl, string outputPath,
-        CancellationToken cancellationToken = default)
-    {
-        return DownloadAndSaveImageAsync(imageUrl, null, outputPath, 0, cancellationToken);
-    }
-
-    /// <summary>
     ///     Downloads an image and saves it as PNG, falling back to a second URL (for example a
     ///     provider-hosted thumbnail) when the primary URL cannot be downloaded.
     /// </summary>
@@ -120,21 +107,6 @@ public static class ImageSaveService
     }
 
     /// <summary>
-    ///     Attempts to download a single image URL and save it as PNG using the supplied HTTP client.
-    /// </summary>
-    /// <param name="imageUrl">The URL of the image to download.</param>
-    /// <param name="outputPath">The path where the PNG image will be saved.</param>
-    /// <param name="httpClient">The HTTP client used for the download.</param>
-    /// <param name="cancellationToken">A token to cancel the operation.</param>
-    /// <returns>True if the download and save was successful, false otherwise.</returns>
-    internal static async Task<bool> TryDownloadAndSaveAsync(string imageUrl, string outputPath, HttpClient httpClient,
-        CancellationToken cancellationToken)
-    {
-        return await TryDownloadAndSaveAsync(imageUrl, outputPath, 0, httpClient, cancellationToken)
-            .ConfigureAwait(false);
-    }
-
-    /// <summary>
     ///     Attempts to download a single image URL and save it as PNG, validating the payload and
     ///     rejecting images narrower than the minimum width.
     /// </summary>
@@ -144,7 +116,7 @@ public static class ImageSaveService
     /// <param name="httpClient">The HTTP client used for the download.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     /// <returns>True if the download and save was successful, false otherwise.</returns>
-    internal static async Task<bool> TryDownloadAndSaveAsync(string imageUrl, string outputPath, int minWidth,
+    private static async Task<bool> TryDownloadAndSaveAsync(string imageUrl, string outputPath, int minWidth,
         HttpClient httpClient, CancellationToken cancellationToken)
     {
         // Network-level failures (dead host, refused connection, reset, timeout,
@@ -413,7 +385,7 @@ public static class ImageSaveService
     /// </summary>
     /// <param name="bytes">The payload to inspect.</param>
     /// <returns>True when the payload starts with a recognized image signature; otherwise false.</returns>
-    internal static bool LooksLikeImageData(byte[] bytes)
+    internal static bool LooksLikeImageData(ReadOnlySpan<byte> bytes)
     {
         if (bytes.Length < 4) return false;
 
@@ -437,11 +409,11 @@ public static class ImageSaveService
         return IsSvg(bytes);
     }
 
-    private static bool IsSvg(byte[] bytes)
+    private static bool IsSvg(ReadOnlySpan<byte> bytes)
     {
-        var offset = bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF ? 3 : 0;
+        var offset = bytes is [0xEF, 0xBB, 0xBF, ..] ? 3 : 0;
         var length = Math.Min(bytes.Length - offset, 4096);
-        var text = Encoding.ASCII.GetString(bytes, offset, length);
+        var text = Encoding.ASCII.GetString(bytes.Slice(offset, length));
         // Valid SVG documents may start with an XML declaration, DOCTYPE, comments or
         // whitespace before the root <svg> element.
         return text.Contains("<svg", StringComparison.OrdinalIgnoreCase);

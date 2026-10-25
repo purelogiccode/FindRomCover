@@ -166,7 +166,7 @@ public class ImageProcessorTests : IDisposable
         using (var image = new MagickImage(MagickColors.Blue, 20, 20))
         {
             image.Format = MagickFormat.Jpeg;
-            image.Write(jpgPath);
+            await image.WriteAsync(jpgPath);
         }
 
         var targetPath = Path.Combine(_testDir, "converted.png");
@@ -187,7 +187,7 @@ public class ImageProcessorTests : IDisposable
         using (var existing = new MagickImage(MagickColors.Green, 50, 50))
         {
             existing.Format = MagickFormat.Png;
-            existing.Write(targetPath);
+            await existing.WriteAsync(targetPath);
         }
 
         var result = await ImageProcessor.ConvertAndSaveImageAsync(sourcePath, targetPath, CancellationToken.None);
@@ -287,7 +287,7 @@ public class ImageProcessorTests : IDisposable
         using (var existing = new MagickImage(MagickColors.Green, 50, 50))
         {
             existing.Format = MagickFormat.Png;
-            existing.Write(targetPath);
+            await existing.WriteAsync(targetPath);
         }
 
         // Hold the target open without a delete share so File.Move cannot replace it,
@@ -360,7 +360,7 @@ public class ImageProcessorTests : IDisposable
         using (var image = new MagickImage(MagickColors.Yellow, 15, 15))
         {
             image.Format = MagickFormat.Bmp;
-            image.Write(bmpPath);
+            await image.WriteAsync(bmpPath);
         }
 
         var targetPath = Path.Combine(_testDir, "from_bmp.png");
@@ -379,7 +379,7 @@ public class ImageProcessorTests : IDisposable
         using (var image = new MagickImage(MagickColors.Cyan, 12, 12))
         {
             image.Format = MagickFormat.Gif;
-            image.Write(gifPath);
+            await image.WriteAsync(gifPath);
         }
 
         var targetPath = Path.Combine(_testDir, "from_gif.png");
@@ -398,7 +398,7 @@ public class ImageProcessorTests : IDisposable
         using (var image = new MagickImage(MagickColors.Magenta, 18, 18))
         {
             image.Format = MagickFormat.WebP;
-            image.Write(webpPath);
+            await image.WriteAsync(webpPath);
         }
 
         var targetPath = Path.Combine(_testDir, "from_webp.png");
@@ -417,7 +417,7 @@ public class ImageProcessorTests : IDisposable
         using (var image = new MagickImage(MagickColors.Orange, 22, 22))
         {
             image.Format = MagickFormat.Tiff;
-            image.Write(tiffPath);
+            await image.WriteAsync(tiffPath);
         }
 
         var targetPath = Path.Combine(_testDir, "from_tiff.png");
@@ -436,7 +436,7 @@ public class ImageProcessorTests : IDisposable
         using (var image = new MagickImage(MagickColors.Red, 30, 30))
         {
             image.Format = MagickFormat.Png;
-            image.Write(sourcePath);
+            await image.WriteAsync(sourcePath);
         }
 
         var targetPath = Path.Combine(_testDir, "content_out.png");
@@ -468,7 +468,7 @@ public class ImageProcessorTests : IDisposable
         using (var image = new MagickImage(MagickColors.Blue, 20, 20))
         {
             image.Format = MagickFormat.Jpeg;
-            image.Write(jpegPath);
+            await image.WriteAsync(jpegPath);
         }
 
         var disguisedPath = Path.Combine(_testDir, "disguised.png");

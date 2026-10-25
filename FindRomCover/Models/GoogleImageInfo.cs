@@ -6,14 +6,14 @@ namespace FindRomCover.Models;
 public sealed class GoogleImageInfo
 {
     /// <summary>Image width in pixels.</summary>
-    public int Width { get; set; }
+    public int Width { get; init; }
 
     /// <summary>Image height in pixels.</summary>
-    public int Height { get; set; }
+    public int Height { get; init; }
 
     /// <summary>Image size in bytes.</summary>
-    public int ByteSize { get; set; }
+    public int ByteSize { get; init; }
 
     /// <summary>URL of the image thumbnail, when provided by the API.</summary>
-    public string? ThumbnailLink { get; set; }
+    public string? ThumbnailLink { get; init; }
 }

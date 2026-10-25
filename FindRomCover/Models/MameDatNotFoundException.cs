@@ -1,22 +1,26 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace FindRomCover.Models;
 
 /// <summary>
 ///     Thrown when the required mame.dat data file cannot be found.
 /// </summary>
+[SuppressMessage("ReSharper", "UnusedMember.Global",
+    Justification = "Standard exception constructors are part of the public exception contract.")]
 public class MameDatNotFoundException : Exception
 {
+    /// <summary>
+    ///     Initializes a new instance of the <see cref="MameDatNotFoundException" /> class.
+    /// </summary>
+    public MameDatNotFoundException()
+    {
+    }
+
     /// <summary>
     ///     Initializes a new instance of the <see cref="MameDatNotFoundException" /> class with an error message.
     /// </summary>
     /// <param name="message">The error message.</param>
     public MameDatNotFoundException(string message) : base(message)
-    {
-    }
-
-    /// <summary>
-    ///     Initializes a new instance of the <see cref="MameDatNotFoundException" /> class.
-    /// </summary>
-    public MameDatNotFoundException()
     {
     }
 

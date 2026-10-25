@@ -38,13 +38,13 @@ public class App : Application
     /// <summary>
     ///     Gets the application service provider, or <see langword="null"/> before startup completes.
     /// </summary>
-    public static IServiceProvider? ServiceProvider { get; private set; }
+    private static IServiceProvider? ServiceProvider { get; set; }
 
     /// <summary>
     ///     Gets the settings manager resolved from <see cref="ServiceProvider"/>.
     /// </summary>
     /// <exception cref="InvalidOperationException">Thrown when the service provider is not initialized.</exception>
-    public static SettingsManager SettingsManager
+    private static SettingsManager SettingsManager
     {
         get
         {
@@ -62,12 +62,12 @@ public class App : Application
     /// <summary>
     ///     Gets the image folder passed on the command line, or <see langword="null"/> when none was given.
     /// </summary>
-    public static string? StartupImageFolderPath { get; private set; }
+    private static string? StartupImageFolderPath { get; set; }
 
     /// <summary>
     ///     Gets the ROM folder passed on the command line, or <see langword="null"/> when none was given.
     /// </summary>
-    public static string? StartupRomFolderPath { get; private set; }
+    private static string? StartupRomFolderPath { get; set; }
 
     /// <summary>
     ///     Gets the audio service, falling back to a silent implementation when audio is unavailable.

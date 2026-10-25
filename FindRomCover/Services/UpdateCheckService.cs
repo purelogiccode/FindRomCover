@@ -25,7 +25,7 @@ public static class UpdateCheckService
     ///     Gets the version of the running application.
     /// </summary>
     /// <returns>The entry assembly version, or <see langword="null" /> when it cannot be determined.</returns>
-    internal static Version? GetCurrentVersion()
+    private static Version? GetCurrentVersion()
     {
         return CurrentVersionOverride ??
                (Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly()).GetName().Version;
@@ -130,10 +130,9 @@ public static class UpdateCheckService
 
         var isUpdateAvailable = latestVersion > currentVersion;
 
-        if (isUpdateAvailable)
-            LogService.Information($"Update available: current={currentVersion}, latest={latestVersion}");
-        else
-            LogService.Information($"Application is up to date (v{currentVersion}).");
+        LogService.Information(isUpdateAvailable
+            ? $"Update available: current={currentVersion}, latest={latestVersion}"
+            : $"Application is up to date (v{currentVersion}).");
 
         return new UpdateInfo
         {

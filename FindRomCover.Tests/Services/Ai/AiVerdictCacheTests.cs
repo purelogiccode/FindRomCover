@@ -7,15 +7,10 @@ namespace FindRomCover.Tests.Services.Ai;
 
 public class AiVerdictCacheTests : IDisposable
 {
-    private readonly string _cachePath;
-
-    public AiVerdictCacheTests()
-    {
-        _cachePath = Path.Combine(
-            AppDomain.CurrentDomain.BaseDirectory,
-            "AiVerdictCacheTests",
-            $"cache_{Guid.NewGuid():N}.json");
-    }
+    private readonly string _cachePath = Path.Combine(
+        AppDomain.CurrentDomain.BaseDirectory,
+        "AiVerdictCacheTests",
+        $"cache_{Guid.NewGuid():N}.json");
 
     public void Dispose()
     {

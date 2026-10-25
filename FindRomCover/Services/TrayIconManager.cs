@@ -25,14 +25,11 @@ public sealed class TrayIconManager : IDisposable
     /// </summary>
     public bool IsAvailable => _trayIcon?.NativeMenuExporter != null;
 
-    /// <summary>Gets or sets a value indicating whether the tray icon is visible.</summary>
-    public bool Visible
+    /// <summary>Sets whether the tray icon is visible.</summary>
+    /// <param name="visible">True to show the icon; false to hide it.</param>
+    public void SetVisible(bool visible)
     {
-        get => _trayIcon?.IsVisible ?? false;
-        set
-        {
-            if (_trayIcon != null) _trayIcon.IsVisible = value;
-        }
+        if (_trayIcon != null) _trayIcon.IsVisible = visible;
     }
 
     /// <summary>Creates the tray icon with its "Show" and "Exit" menu entries and click handling.</summary>
@@ -48,10 +45,12 @@ public sealed class TrayIconManager : IDisposable
         var exitItem = new NativeMenuItem("Exit");
         exitItem.Click += (_, _) => ExitRequested?.Invoke();
 
-        var menu = new NativeMenu();
-        menu.Add(showItem);
-        menu.Add(new NativeMenuItemSeparator());
-        menu.Add(exitItem);
+        var menu = new NativeMenu
+        {
+            showItem,
+            new NativeMenuItemSeparator(),
+            exitItem
+        };
 
         var trayIcon = new TrayIcon
         {
@@ -91,13 +90,13 @@ public sealed class TrayIconManager : IDisposable
     {
         // Cross-platform tray balloons are not supported by Avalonia; the status
         // message in the main window already communicates the state.
+        LogService.Debug($"Tray balloon requested: '{title}' — {message}");
     }
 
     /// <summary>Disposes the tray icon and releases it.</summary>
     public void Dispose()
     {
         DisposeCore();
-        GC.SuppressFinalize(this);
     }
 
     private void DisposeCore()

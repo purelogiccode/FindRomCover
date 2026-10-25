@@ -50,13 +50,12 @@ public static class ButtonFactory
     /// <param name="imagePath">The image file path the menu actions operate on.</param>
     /// <param name="useImageAction">Callback invoked when the user chooses "Use This Image".</param>
     /// <param name="existingMenu">An optional existing menu to reuse instead of creating a new one.</param>
-    /// <returns>The context menu for the image.</returns>
-    public static ContextMenu CreateContextMenu(string imagePath, Action<string?> useImageAction,
+    public static void CreateContextMenu(string imagePath, Action<string?> useImageAction,
         ContextMenu? existingMenu = null)
     {
-        if (string.IsNullOrEmpty(imagePath)) return new ContextMenu();
+        if (string.IsNullOrEmpty(imagePath)) return;
 
-        if (existingMenu is { Items.Count: > 0 } && existingMenu.Tag is ContextMenuState existingState)
+        if (existingMenu is { Items.Count: > 0, Tag: ContextMenuState existingState })
         {
             // The menu is recycled with its list container: retarget the shared state so
             // every action operates on the image that is actually displayed now. The
@@ -64,7 +63,7 @@ public static class ButtonFactory
             // menu was last opened, which may have changed since.
             existingState.ImagePath = imagePath;
             existingState.UseAction = useImageAction;
-            return existingMenu;
+            return;
         }
 
         var contextMenu = existingMenu ?? new ContextMenu();
@@ -105,8 +104,6 @@ public static class ButtonFactory
         };
         openFileMenuItem.Click += (_, _) => OpenFile(state.ImagePath);
         contextMenu.Items.Add(openFileMenuItem);
-
-        return contextMenu;
     }
 
     private sealed class ContextMenuState

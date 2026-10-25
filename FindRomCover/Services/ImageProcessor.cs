@@ -379,7 +379,7 @@ public static class ImageProcessor
         try
         {
             using var image = new MagickImage(filePath, GetMagickReadSettings(filePath));
-            return image.Format == MagickFormat.Png && image.Width > 0 && image.Height > 0;
+            return image is { Format: MagickFormat.Png, Width: > 0, Height: > 0 };
         }
         catch (MagickException)
         {
@@ -398,7 +398,7 @@ public static class ImageProcessor
     ///     (partially written or slightly damaged files) are ignored.
     /// </summary>
     /// <returns>The tolerant read settings.</returns>
-    internal static MagickReadSettings GetTolerantMagickReadSettings()
+    private static MagickReadSettings GetTolerantMagickReadSettings()
     {
         var settings = new MagickReadSettings { FrameIndex = 0, FrameCount = 1 };
         settings.SetDefine(MagickFormat.Png, "ignore-crc", true);

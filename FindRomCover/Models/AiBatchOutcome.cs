@@ -24,8 +24,5 @@ public enum AiBatchOutcome
     NoCandidates,
 
     /// <summary>Processing the item failed.</summary>
-    Failed,
-
-    /// <summary>Processing was canceled before completion.</summary>
-    Canceled
+    Failed
 }

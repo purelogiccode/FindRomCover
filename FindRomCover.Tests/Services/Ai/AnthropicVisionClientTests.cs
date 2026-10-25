@@ -129,20 +129,14 @@ public class AnthropicVisionClientTests
         path.Should().Be("/v1/messages");
     }
 
-    private sealed class StubHttpMessageHandler : HttpMessageHandler
+    private sealed class StubHttpMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> responder)
+        : HttpMessageHandler
     {
-        private readonly Func<HttpRequestMessage, HttpResponseMessage> _responder;
-
-        public StubHttpMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> responder)
-        {
-            _responder = responder;
-        }
-
         protected override Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request,
             CancellationToken cancellationToken)
         {
-            return Task.FromResult(_responder(request));
+            return Task.FromResult(responder(request));
         }
     }
 }

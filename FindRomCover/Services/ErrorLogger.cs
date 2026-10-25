@@ -35,13 +35,13 @@ public static class ErrorLogger
     internal static readonly string ApiLogFilePath = AppDataPaths.LogFilePath("ApiLogError.txt");
 
     /// <summary>Path of the log file holding all user-facing error reports.</summary>
-    internal static readonly string UserLogFilePath = AppDataPaths.LogFilePath("UserLogError.txt");
+    private static readonly string UserLogFilePath = AppDataPaths.LogFilePath("UserLogError.txt");
 
     /// <summary>Path of the log file holding internal diagnostics of the logger itself.</summary>
-    internal static readonly string InternalLogFilePath = AppDataPaths.LogFilePath("InternalLog.txt");
+    private static readonly string InternalLogFilePath = AppDataPaths.LogFilePath("InternalLog.txt");
 
     /// <summary>Path of the JSON queue used to retry reports that could not be sent.</summary>
-    internal static readonly string PendingReportsFilePath = AppDataPaths.LogFilePath("PendingBugReports.json");
+    private static readonly string PendingReportsFilePath = AppDataPaths.LogFilePath("PendingBugReports.json");
 
     private static readonly SemaphoreSlim LogFileLock = new(1, 1);
     private static readonly SemaphoreSlim PendingQueueLock = new(1, 1);
@@ -285,9 +285,9 @@ public static class ErrorLogger
 
     private sealed class PendingReport
     {
-        public string Id { get; set; } = string.Empty;
+        public string Id { get; init; } = string.Empty;
 
-        public BugReportModel Report { get; set; } = new();
+        public BugReportModel Report { get; init; } = new();
     }
 
     /// <summary>

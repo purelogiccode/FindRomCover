@@ -13,35 +13,12 @@ public sealed class OpenAiCompatibleVisionClient : VisionModelClientBase
     private readonly HttpClient _httpClient;
 
     /// <summary>
-    ///     Initializes a new instance using a dedicated default HTTP client owned by this instance.
-    /// </summary>
-    public OpenAiCompatibleVisionClient()
-        : this(CreateDefaultHttpClient(), true)
-    {
-    }
-
-    /// <summary>
     ///     Initializes a new instance of the <see cref="OpenAiCompatibleVisionClient"/> class.
     /// </summary>
     /// <param name="httpClient">The HTTP client used to send requests.</param>
-    /// <param name="ownsClient">Whether this instance disposes <paramref name="httpClient"/>.</param>
-    public OpenAiCompatibleVisionClient(HttpClient httpClient, bool ownsClient = false)
+    public OpenAiCompatibleVisionClient(HttpClient httpClient)
     {
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
-        OwnsClient = ownsClient;
-    }
-
-    /// <summary>
-    ///     Gets a value indicating whether this instance disposes the underlying HTTP client.
-    /// </summary>
-    public bool OwnsClient { get; }
-
-    /// <summary>
-    ///     Disposes the underlying HTTP client when this instance owns it.
-    /// </summary>
-    protected override void DisposeCore()
-    {
-        if (OwnsClient) _httpClient.Dispose();
     }
 
     /// <summary>
@@ -221,17 +198,5 @@ public sealed class OpenAiCompatibleVisionClient : VisionModelClientBase
     internal static string BuildErrorMessage(HttpStatusCode statusCode, string responseBody)
     {
         return BuildHttpErrorMessage(statusCode, responseBody);
-    }
-
-    private static HttpClient CreateDefaultHttpClient()
-    {
-        var handler = new SocketsHttpHandler
-        {
-            PooledConnectionLifetime = TimeSpan.FromMinutes(5),
-            PooledConnectionIdleTimeout = TimeSpan.FromMinutes(1),
-            MaxConnectionsPerServer = 4
-        };
-
-        return new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan };
     }
 }

@@ -1,4 +1,5 @@
-﻿using System.Globalization;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Text;
 
 namespace FindRomCover.Models;
@@ -6,19 +7,21 @@ namespace FindRomCover.Models;
 /// <summary>
 ///     Captured details of an exception, including nested inner exceptions.
 /// </summary>
+[SuppressMessage("ReSharper", "MemberCanBePrivate.Global",
+    Justification = "Public accessors are required by JSON serialization.")]
 public class ExceptionDetails
 {
     /// <summary>Full type name of the exception.</summary>
-    public string Type { get; set; } = "";
+    public string Type { get; init; } = "";
 
     /// <summary>Message of the exception.</summary>
-    public string Message { get; set; } = "";
+    public string Message { get; init; } = "";
 
     /// <summary>Name of the source where the exception was raised.</summary>
-    public string Source { get; set; } = "";
+    public string Source { get; init; } = "";
 
     /// <summary>Stack trace of the exception, or "Unavailable" when none was captured.</summary>
-    public string StackTrace { get; set; } = "";
+    public string StackTrace { get; init; } = "";
 
     /// <summary>Details of the inner exception, or <see langword="null" /> when there is none.</summary>
     public ExceptionDetails? InnerException { get; set; }

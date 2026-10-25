@@ -20,8 +20,6 @@ public partial class AiSettingsWindow : Window
     private List<VisionModelInfo> _allModels = [];
     private readonly bool _initialized;
     private bool _loading;
-    private AiVerdictCache? _modelCache;
-    private AiQueryHistory? _queryHistory;
     private CancellationTokenSource? _testCts;
 
     /// <summary>
@@ -48,14 +46,14 @@ public partial class AiSettingsWindow : Window
 
     private string ModelCacheKey => $"{SelectedProvider}|{(TxtBaseUrl.Text ?? string.Empty).Trim().ToLowerInvariant()}";
 
-    private AiVerdictCache ModelCache => _modelCache ??= AiVerdictCache.GetShared(
+    private AiVerdictCache ModelCache => field ??= AiVerdictCache.GetShared(
         Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "FindRomCover",
             ModelCacheFileName),
         ModelCacheTtl);
 
-    private AiQueryHistory QueryHistory => _queryHistory ??= new AiQueryHistory();
+    private AiQueryHistory QueryHistory => field ??= new AiQueryHistory();
 
     private void LoadSettings()
     {
@@ -67,7 +65,7 @@ public partial class AiSettingsWindow : Window
             CmbProvider.ItemsSource = AppConstants.AiProviders.All;
             CmbProvider.SelectedItem = AppConstants.AiProviders.All.FirstOrDefault(provider =>
                 string.Equals(provider, _settingsManager.AiProvider, StringComparison.OrdinalIgnoreCase));
-            if (CmbProvider.SelectedItem == null) CmbProvider.SelectedItem = AppConstants.AiProviders.OpenRouter;
+            CmbProvider.SelectedItem ??= AppConstants.AiProviders.OpenRouter;
 
             TxtBaseUrl.Text = _settingsManager.AiBaseUrl;
             TxtApiKey.Text = _settingsManager.AiApiKey;
@@ -303,7 +301,7 @@ public partial class AiSettingsWindow : Window
 
             using var httpClient = new HttpClient();
             httpClient.Timeout = Timeout.InfiniteTimeSpan;
-            _testCts?.Cancel();
+            if (_testCts != null) await _testCts.CancelAsync();
             _testCts?.Dispose();
             _testCts = new CancellationTokenSource();
             var models = await VisionModelCatalog.FetchModelsAsync(options, httpClient, _testCts.Token);

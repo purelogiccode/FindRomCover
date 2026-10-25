@@ -183,8 +183,9 @@ public partial class MainWindow
                     : "No images found.";
             });
 
+            var aiOptions = Settings.GetAiVisionOptions();
             if (!token.IsCancellationRequested && ReferenceEquals(_webSearchCts, searchCts) &&
-                Settings.AiAutoRun && Settings.AiAssistEnabled && PanelImages.Count > 0)
+                aiOptions is { AutoRun: true, Enabled: true } && PanelImages.Count > 0)
                 QueueAutoAiPick(RunAiPickApiAsync);
         }
         catch (OperationCanceledException)
@@ -393,7 +394,7 @@ public partial class MainWindow
         if (LstMissingImages.SelectedItem is not MissingImageItem selectedItem) return;
         if (PanelImages.Count == 0 || IsAiBusy) return;
 
-        _aiAssistCts?.Cancel();
+        if (_aiAssistCts != null) await _aiAssistCts.CancelAsync();
         _aiAssistCts?.Dispose();
         _aiAssistCts = new CancellationTokenSource();
         var cancellationToken = _aiAssistCts.Token;
@@ -442,7 +443,8 @@ public partial class MainWindow
             ApiImageScrollViewer.ScrollToHome();
             StatusMessage.Text = $"AI picked '{picked.ImageName}' ({result.Confidence:P0}). {result.Reason}".Trim();
 
-            if (Settings.AiAutoSave && result.Confidence * 100 >= Settings.AiAutoSaveThreshold)
+            var aiOptions = Settings.GetAiVisionOptions();
+            if (aiOptions is { AutoSave: true } && result.Confidence * 100 >= aiOptions.AutoSaveThreshold)
                 await SaveApiImageAsync(selectedItem.RomName, picked);
         }
         catch (OperationCanceledException)

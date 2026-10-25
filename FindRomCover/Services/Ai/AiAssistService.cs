@@ -44,11 +44,6 @@ public sealed class AiAssistService : IDisposable
     }
 
     /// <summary>
-    ///     Gets a value indicating whether AI assistance is enabled and this instance has not been disposed.
-    /// </summary>
-    public bool IsEnabled => !_disposed && _settings.AiAssistEnabled;
-
-    /// <summary>
     ///     Picks the best local candidate image for the given game using the vision model.
     /// </summary>
     /// <param name="romName">The ROM name used as the primary game title.</param>
@@ -62,9 +57,9 @@ public sealed class AiAssistService : IDisposable
         IReadOnlyList<ImageData> candidates,
         CancellationToken cancellationToken)
     {
-        if (!IsEnabled || candidates.Count == 0) return null;
-
         var options = _settings.GetAiVisionOptions();
+        if (_disposed || !options.Enabled || candidates.Count == 0) return null;
+
         var filtered = new List<ImageData>();
         var originalIndices = new List<int>();
         for (var i = 0; i < candidates.Count; i++)
@@ -110,9 +105,9 @@ public sealed class AiAssistService : IDisposable
         IReadOnlyList<ImageData> candidates,
         CancellationToken cancellationToken)
     {
-        if (!IsEnabled || candidates.Count == 0) return null;
-
         var options = _settings.GetAiVisionOptions();
+        if (_disposed || !options.Enabled || candidates.Count == 0) return null;
+
         var inputs = await PrepareRemoteCandidatesAsync(
                 _imageHttpClient,
                 candidates,
@@ -141,9 +136,8 @@ public sealed class AiAssistService : IDisposable
         string imagePath,
         CancellationToken cancellationToken)
     {
-        if (!IsEnabled || !_settings.AiVerifyOnSave) return null;
-
         var options = _settings.GetAiVisionOptions();
+        if (_disposed || !options.Enabled || !options.VerifyOnSave) return null;
 
         PreparedVisionImage prepared;
         try

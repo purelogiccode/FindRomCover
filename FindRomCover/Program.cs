@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Avalonia;
 
 namespace FindRomCover;
@@ -21,6 +22,8 @@ internal static class Program
     ///     Creates the configured Avalonia application builder.
     /// </summary>
     /// <returns>The configured <see cref="AppBuilder"/> instance.</returns>
+    [SuppressMessage("ReSharper", "MemberCanBePrivate.Global",
+        Justification = "The Avalonia designer requires a public BuildAvaloniaApp method.")]
     public static AppBuilder BuildAvaloniaApp()
     {
         return AppBuilder.Configure<App>()

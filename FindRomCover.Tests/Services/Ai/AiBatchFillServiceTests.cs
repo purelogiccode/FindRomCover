@@ -133,7 +133,7 @@ public class AiBatchFillServiceTests : IDisposable
         using (var image = new MagickImage(MagickColors.Red, 64, 64))
         {
             image.Format = MagickFormat.Jpeg;
-            image.Write(Path.Combine(_testDir, "Super Mario Bros.jpg"));
+            await image.WriteAsync(Path.Combine(_testDir, "Super Mario Bros.jpg"));
         }
 
         using var ai = CreateAiService(settings, PickResponse(0, 0.95));
@@ -393,13 +393,11 @@ public class AiBatchFillServiceTests : IDisposable
     private sealed class StubHttpMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> responder)
         : HttpMessageHandler
     {
-        private readonly Func<HttpRequestMessage, HttpResponseMessage> _responder = responder;
-
         protected override Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request,
             CancellationToken cancellationToken)
         {
-            return Task.FromResult(_responder(request));
+            return Task.FromResult(responder(request));
         }
     }
 }

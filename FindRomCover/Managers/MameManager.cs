@@ -31,7 +31,8 @@ public static class MameManager
 
             // MessagePack returns null for a nil/empty payload; keep the non-nullable
             // contract of this method and treat it as an empty catalog.
-            return MessagePackSerializer.Deserialize<List<MameData>>(stream) ?? [];
+            var data = MessagePackSerializer.Deserialize<List<MameData>?>(stream);
+            return data ?? [];
         }
         catch (MessagePackSerializationException ex)
         {

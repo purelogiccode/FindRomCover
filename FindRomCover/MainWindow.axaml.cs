@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
@@ -23,7 +24,11 @@ namespace FindRomCover;
 ///     cover-management handlers; local search lives in <c>MainWindow.LocalSearch.cs</c> and
 ///     web/API search in <c>MainWindow.WebSearch.cs</c>.
 /// </summary>
-public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
+[SuppressMessage("ReSharper", "MemberCanBePrivate.Global",
+    Justification = "Properties and commands are bound from XAML through reflection.")]
+[SuppressMessage("ReSharper", "UnusedMember.Global",
+    Justification = "Properties are bound from XAML through reflection.")]
+public sealed partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 {
     private static readonly HashSet<string> NonRomExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -49,7 +54,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     private bool _watcherMessageScheduled;
     private CancellationTokenSource? _loadMissingCts;
     private Task? _loadMissingTask;
-    private Task? _mameLoadTask;
+    private readonly Task? _mameLoadTask;
     private Dictionary<string, string>? _mameLookup;
     private string _selectedRomFileName = string.Empty;
     private TrayIconManager? _systemTrayIcon;
@@ -140,17 +145,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     /// <summary>
     ///     Gets or sets the images found by the local similarity search for the selected ROM.
     /// </summary>
-    public ObservableCollection<ImageData> SimilarImages { get; set; } = [];
+    public ObservableCollection<ImageData> SimilarImages { get; } = [];
 
     /// <summary>
     ///     Gets or sets the images returned by the API search for the selected ROM.
     /// </summary>
-    public ObservableCollection<ImageData> PanelImages { get; set; } = [];
+    public ObservableCollection<ImageData> PanelImages { get; } = [];
 
     /// <summary>
     ///     Gets or sets the ROM files that currently have no cover image.
     /// </summary>
-    public ObservableCollection<MissingImageItem> MissingImages { get; set; } = [];
+    public ObservableCollection<MissingImageItem> MissingImages { get; } = [];
 
     /// <summary>
     ///     Gets or sets a value indicating whether a missing-covers scan is running.
@@ -402,8 +407,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             disposableCheckCommand.Dispose();
         if (ExitCommand is IDisposable disposableExitCommand)
             disposableExitCommand.Dispose();
-
-        GC.SuppressFinalize(this);
     }
 
     private event PropertyChangedEventHandler? PropertyChangedCore;
@@ -468,7 +471,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             // have no way to bring the application back. Keep it minimized in the taskbar.
             if (_systemTrayIcon is not { IsAvailable: true }) return;
 
-            _systemTrayIcon.Visible = true;
+            _systemTrayIcon.SetVisible(true);
             Hide();
             _systemTrayIcon.ShowBalloonTip("FindRomCover", "Application minimized to tray.");
         }
@@ -485,7 +488,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             Show();
             WindowState = _lastNonMinimizedState;
             Activate();
-            _systemTrayIcon?.Visible = false;
+            _systemTrayIcon?.SetVisible(false);
         }
         catch (Exception ex)
         {
@@ -705,7 +708,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     ///     Raises the <c>PropertyChanged</c> event for the given property.
     /// </summary>
     /// <param name="propertyName">Name of the changed property; supplied automatically by the compiler.</param>
-    protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+    private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
     {
         PropertyChangedCore?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
@@ -1305,7 +1308,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                var allRomNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var romNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 var supportedExtensionsSet = new HashSet<string>(
                     Settings.SupportedExtensions.Select(static ext => "." + ext), StringComparer.OrdinalIgnoreCase);
 
@@ -1318,13 +1321,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                     if (supportedExtensionsSet.Contains(Path.GetExtension(file)))
                     {
                         var fileName = Path.GetFileNameWithoutExtension(file);
-                        if (!string.IsNullOrEmpty(fileName)) allRomNames.Add(fileName);
+                        if (!string.IsNullOrEmpty(fileName)) romNames.Add(fileName);
                     }
                 }
 
                 var missing = new List<(string RomName, string SearchName)>();
                 var processedCount = 0;
-                foreach (var romName in allRomNames)
+                foreach (var romName in romNames)
                 {
                     if (++processedCount % 100 == 0)
                     {
@@ -1344,7 +1347,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
                 cancellationToken.ThrowIfCancellationRequested();
                 return (missing.OrderBy(static x => x.RomName, StringComparer.OrdinalIgnoreCase).ToList(),
-                    allRomNames);
+                    romNames);
             }, cancellationToken);
 
             var (missingFiles, allRomNames) = missingResult;
@@ -1709,13 +1712,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             if (_aiBatchRunning) return;
 
             // Cancel any pending searches
-            _findSimilarCts?.Cancel();
+            if (_findSimilarCts != null) await _findSimilarCts.CancelAsync();
             _findSimilarCts?.Dispose();
             _findSimilarCts = null;
-            _webSearchCts?.Cancel();
+            if (_webSearchCts != null) await _webSearchCts.CancelAsync();
             _webSearchCts?.Dispose();
             _webSearchCts = null;
-            _aiAssistCts?.Cancel();
+            if (_aiAssistCts != null) await _aiAssistCts.CancelAsync();
             _aiAssistCts?.Dispose();
             _aiAssistCts = null;
             SetApiSearching(false);

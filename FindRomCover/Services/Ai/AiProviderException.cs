@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Net;
 
 namespace FindRomCover.Services.Ai;
@@ -7,6 +8,8 @@ namespace FindRomCover.Services.Ai;
 ///     status code so the shared client base can retry failures that are only temporary
 ///     (upstream gateway errors, rate limits and timeouts) before surfacing them to the user.
 /// </summary>
+[SuppressMessage("ReSharper", "UnusedMember.Global",
+    Justification = "Standard exception constructors are part of the public exception contract.")]
 public sealed class AiProviderException : InvalidOperationException
 {
     /// <summary>
@@ -42,18 +45,6 @@ public sealed class AiProviderException : InvalidOperationException
     /// <param name="message">The user-facing error message.</param>
     public AiProviderException(HttpStatusCode statusCode, string message)
         : base(message)
-    {
-        StatusCode = (int)statusCode;
-    }
-
-    /// <summary>
-    ///     Initializes a new instance of the <see cref="AiProviderException"/> class.
-    /// </summary>
-    /// <param name="statusCode">The HTTP status code returned by the provider.</param>
-    /// <param name="message">The user-facing error message.</param>
-    /// <param name="innerException">The exception that caused this error.</param>
-    public AiProviderException(HttpStatusCode statusCode, string message, Exception innerException)
-        : base(message, innerException)
     {
         StatusCode = (int)statusCode;
     }

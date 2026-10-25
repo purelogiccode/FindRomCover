@@ -1,8 +1,12 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace FindRomCover.Models;
 
 /// <summary>
 ///     Information about an available application update.
 /// </summary>
+[SuppressMessage("ReSharper", "PropertyCanBeMadeInitOnly.Global",
+    Justification = "Update information is mutable by design and tests exercise the setters.")]
 public class UpdateInfo
 {
     /// <summary>Whether a newer version is available.</summary>

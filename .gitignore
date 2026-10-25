@@ -21,5 +21,8 @@ venv/
 # ReSharper user-specific settings
 *.sln.DotSettings.user
 
+# ReSharper InspectCode report
+InspectCode.log
+
 # JetBrains Rider/IDE
 .idea/
