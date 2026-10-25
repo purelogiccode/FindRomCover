@@ -74,7 +74,7 @@ public sealed class GeminiVisionClient : VisionModelClientBase
         var responseText = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
 
         if (!response.IsSuccessStatusCode)
-            throw new InvalidOperationException(BuildHttpErrorMessage(response.StatusCode, responseText));
+            throw new AiProviderException(response.StatusCode, BuildHttpErrorMessage(response.StatusCode, responseText));
 
         return ExtractMessageContent(responseText);
     }

@@ -73,7 +73,7 @@ public sealed class OpenAiCompatibleVisionClient : VisionModelClientBase
         var responseText = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
 
         if (!response.IsSuccessStatusCode)
-            throw new InvalidOperationException(BuildErrorMessage(response.StatusCode, responseText));
+            throw new AiProviderException(response.StatusCode, BuildErrorMessage(response.StatusCode, responseText));
 
         return ExtractMessageContent(responseText);
     }

@@ -132,16 +132,40 @@ public class BugReportSinkTests : IDisposable
         reports.Should().NotContain(report => report.ErrorMessage.Contains(marker, StringComparison.Ordinal));
     }
 
+    [Fact]
+    public async Task EmitShouldThrottleRepeatedEventsWithTheSameTemplate()
+    {
+        var marker = CreateMarker();
+        var reports = new ConcurrentBag<BugReportModel>();
+        var exception = new InvalidOperationException("same failure");
+
+        await WithCapturedReports(reports, async () =>
+        {
+            var sink = new BugReportSink(new MessageTextTemplateFormatter());
+
+            sink.Emit(CreateEvent(LogEventLevel.Error, marker, exception, timestamp: DateTimeOffset.Now));
+            await WaitForReportAsync(reports, report => report.ErrorMessage.Contains(marker, StringComparison.Ordinal));
+
+            // The rendered message embeds the timestamp, so the old throttle key changed
+            // on every event and filed a separate report for each repetition.
+            sink.Emit(CreateEvent(LogEventLevel.Error, marker, exception,
+                timestamp: DateTimeOffset.Now.AddSeconds(5)));
+            await WaitForForwardingToSettleAsync();
+        });
+
+        reports.Count(report => report.ErrorMessage.Contains(marker, StringComparison.Ordinal)).Should().Be(1);
+    }
+
     private static string CreateMarker()
     {
         return $"marker-{Guid.NewGuid():N}";
     }
 
     private static LogEvent CreateEvent(LogEventLevel level, string message, Exception? exception = null,
-        LogEventProperty[]? properties = null)
+        LogEventProperty[]? properties = null, DateTimeOffset? timestamp = null)
     {
         var template = new MessageTemplateParser().Parse(message);
-        return new LogEvent(DateTimeOffset.Now, level, exception, template, properties ?? []);
+        return new LogEvent(timestamp ?? DateTimeOffset.Now, level, exception, template, properties ?? []);
     }
 
     private static Task WithCapturedReports(ConcurrentBag<BugReportModel> reports, Func<Task> action)

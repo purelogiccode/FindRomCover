@@ -338,6 +338,76 @@ public class OpenAiCompatibleVisionClientTests
     }
 
     [Fact]
+    public void BuildErrorMessageShouldExplainTemporaryProviderOutages()
+    {
+        var message = VisionModelClientBase.BuildHttpErrorMessage(
+            HttpStatusCode.BadGateway, "{\"error\":{\"message\":\"Provider returned error\"}}");
+
+        message.Should().Contain("502");
+        message.Should().Contain("temporarily unavailable");
+        message.Should().Contain("Provider returned error");
+    }
+
+    [Fact]
+    [SuppressMessage("ReSharper", "AccessToDisposedClosure")]
+    public async Task PickBestAsyncShouldRetryTransientProviderErrors()
+    {
+        var attempts = 0;
+        using var handler = new StubHttpMessageHandler(_ =>
+        {
+            attempts++;
+            if (attempts < 3)
+                return new HttpResponseMessage(HttpStatusCode.BadGateway)
+                {
+                    Content = new StringContent(
+                        "{\"error\":{\"message\":\"Provider returned error\"}}",
+                        Encoding.UTF8,
+                        "application/json")
+                };
+
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    "{\"choices\":[{\"message\":{\"content\":\"{\\\"bestIndex\\\":0,\\\"confidence\\\":0.9,\\\"reason\\\":\\\"cover\\\"}\"}}]}",
+                    Encoding.UTF8,
+                    "application/json")
+            };
+        });
+        using var httpClient = new HttpClient(handler);
+        using var client = new OpenAiCompatibleVisionClient(httpClient);
+
+        var result = await client.PickBestAsync(
+            CreateOptions(), "Super Mario Bros", "Super Mario Bros", CreateImages(), CancellationToken.None);
+
+        attempts.Should().Be(3);
+        result.BestIndex.Should().Be(0);
+    }
+
+    [Fact]
+    [SuppressMessage("ReSharper", "AccessToDisposedClosure")]
+    public async Task PickBestAsyncShouldNotRetryAuthenticationFailures()
+    {
+        var attempts = 0;
+        using var handler = new StubHttpMessageHandler(_ =>
+        {
+            attempts++;
+            return new HttpResponseMessage(HttpStatusCode.Unauthorized)
+            {
+                Content = new StringContent("{\"error\":{\"message\":\"invalid key\"}}", Encoding.UTF8,
+                    "application/json")
+            };
+        });
+        using var httpClient = new HttpClient(handler);
+        using var client = new OpenAiCompatibleVisionClient(httpClient);
+
+        var act = async () => await client.PickBestAsync(
+            CreateOptions(), "game", "game", CreateImages(), CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*401*");
+        attempts.Should().Be(1);
+    }
+
+    [Fact]
     [SuppressMessage("ReSharper", "AccessToDisposedClosure")]
     public async Task PickBestAsyncShouldRejectEmptyImageList()
     {

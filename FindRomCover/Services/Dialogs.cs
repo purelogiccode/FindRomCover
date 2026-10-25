@@ -221,7 +221,21 @@ public static class Dialogs
     {
         var actualOwner = owner ?? GetMainWindow();
         if (actualOwner != null && actualOwner != dialog && actualOwner.IsVisible)
-            return await dialog.ShowDialog<T>(actualOwner);
+            try
+            {
+                return await dialog.ShowDialog<T>(actualOwner);
+            }
+            catch (InvalidOperationException ex)
+            {
+                // Avalonia refuses to show a modal dialog over a hidden or closed
+                // owner. The owner can also become unavailable between the
+                // visibility check and the call, for example when the user closes
+                // a window while a background task is finishing (issues
+                // #68901-#68907). Show the dialog without an owner instead of
+                // failing the operation that needed it.
+                LogService.WarningTransient(ex,
+                    $"Could not show a dialog owned by '{actualOwner.Title}'; showing it without an owner.");
+            }
 
         var tcs = new TaskCompletionSource<T>();
         dialog.Closed += (_, _) => tcs.TrySetResult(resultProvider != null ? resultProvider() : fallback);

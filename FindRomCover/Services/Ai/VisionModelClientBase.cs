@@ -31,6 +31,16 @@ public abstract class VisionModelClientBase : IVisionModelClient
         "AI model ran out of output tokens before producing an answer. Reasoning models can spend the whole " +
         "output budget on internal thinking; try a non-reasoning model (for example google/gemma-3-12b-it).";
 
+    /// <summary>
+    ///     The number of attempts made when a provider reports a temporary failure.
+    /// </summary>
+    internal const int MaxRequestAttempts = 3;
+
+    /// <summary>
+    ///     The base delay between retries of a temporary provider failure.
+    /// </summary>
+    internal static readonly TimeSpan RetryDelay = TimeSpan.FromMilliseconds(750);
+
     private const string PickSystemPrompt =
         "You are a retro video game cover-art expert. You receive a game title and numbered candidate images. " +
         "Choose the candidate that is the official cover or box art for that exact game. " +
@@ -282,14 +292,27 @@ public abstract class VisionModelClientBase : IVisionModelClient
     {
         var detail = ExtractProviderError(responseBody);
 
+        var providerDetail = string.IsNullOrEmpty(detail) ? string.Empty : $" {detail}";
+
         return statusCode switch
         {
-            HttpStatusCode.Unauthorized => $"AI provider rejected the API key (401). {detail}",
-            HttpStatusCode.Forbidden => $"AI provider denied access (403). {detail}",
-            HttpStatusCode.TooManyRequests => $"AI provider rate limit exceeded (429). {detail}",
+            HttpStatusCode.Unauthorized => $"AI provider rejected the API key (401).{providerDetail}",
+            HttpStatusCode.Forbidden => $"AI provider denied access (403).{providerDetail}",
+            HttpStatusCode.TooManyRequests =>
+                $"AI provider rate limit exceeded (429). Wait a moment before trying again.{providerDetail}",
+            HttpStatusCode.RequestTimeout =>
+                $"AI provider did not answer in time (408). Try again in a moment.{providerDetail}",
+            HttpStatusCode.InternalServerError =>
+                $"AI provider reported an internal error (500). Try again in a moment or choose a different model.{providerDetail}",
+            HttpStatusCode.BadGateway =>
+                $"AI provider is temporarily unavailable (502). Try again in a moment or choose a different model.{providerDetail}",
+            HttpStatusCode.ServiceUnavailable =>
+                $"AI provider is temporarily unavailable (503). Try again in a moment or choose a different model.{providerDetail}",
+            HttpStatusCode.GatewayTimeout =>
+                $"AI provider timed out upstream (504). Try again in a moment or choose a different model.{providerDetail}",
             HttpStatusCode.NotFound =>
-                $"AI model or endpoint was not found (404). Check the model name and Base URL. {detail}",
-            _ => $"AI provider error ({(int)statusCode}). {detail}"
+                $"AI model or endpoint was not found (404). Check the model name and Base URL.{providerDetail}",
+            _ => $"AI provider error ({(int)statusCode}).{providerDetail}"
         };
     }
 
@@ -386,7 +409,7 @@ public abstract class VisionModelClientBase : IVisionModelClient
 
         try
         {
-            var content = await SendRequestAsync(options, systemPrompt, userPrompt, images, timeoutCts.Token)
+            var content = await SendWithRetriesAsync(options, systemPrompt, userPrompt, images, timeoutCts.Token)
                 .ConfigureAwait(false);
 
             if (string.IsNullOrWhiteSpace(content))
@@ -404,6 +427,42 @@ public abstract class VisionModelClientBase : IVisionModelClient
         {
             throw new InvalidOperationException(
                 $"Could not reach the AI provider at '{options.BaseUrl}'. {ex.Message}", ex);
+        }
+    }
+
+    /// <summary>
+    ///     Sends the request, retrying temporary provider failures (gateway errors,
+    ///     rate limits, dropped connections) before giving up. Issue #68878 reported
+    ///     an OpenRouter 502 that failed the whole AI pick; upstream gateway errors
+    ///     like that are usually transient, so retrying avoids making the user re-run
+    ///     the pick by hand.
+    /// </summary>
+    private async Task<string> SendWithRetriesAsync(
+        AiVisionOptions options,
+        string systemPrompt,
+        string userPrompt,
+        IReadOnlyList<VisionImageInput> images,
+        CancellationToken cancellationToken)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                return await SendRequestAsync(options, systemPrompt, userPrompt, images, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (AiProviderException ex) when (ex.IsTransient && attempt < MaxRequestAttempts)
+            {
+                LogService.WarningTransient(ex,
+                    $"AI provider returned a temporary error (attempt {attempt}/{MaxRequestAttempts}); retrying.");
+            }
+            catch (HttpRequestException ex) when (attempt < MaxRequestAttempts)
+            {
+                LogService.WarningTransient(ex,
+                    $"Could not reach the AI provider (attempt {attempt}/{MaxRequestAttempts}); retrying.");
+            }
+
+            await Task.Delay(RetryDelay * attempt, cancellationToken).ConfigureAwait(false);
         }
     }
 

@@ -59,7 +59,7 @@ internal sealed class BugReportSink : ILogEventSink
             if (IsTransientEnvironmentError(logEvent))
                 return;
 
-            var throttleKey = $"{logEvent.Level}|{contextMessage}";
+            var throttleKey = BuildThrottleKey(logEvent, contextMessage);
             var nowTicks = DateTime.UtcNow.Ticks;
             if (_recentReports.TryGetValue(throttleKey, out var lastTicks) &&
                 nowTicks - lastTicks < ThrottleWindowTicks)
@@ -82,6 +82,25 @@ internal sealed class BugReportSink : ILogEventSink
         {
             Debug.Print($"BugReportSink: failed to emit log event: {sinkEx.Message}");
         }
+    }
+
+    /// <summary>
+    ///     Builds the key used to suppress duplicate reports for the same problem.
+    ///     The rendered message starts with the event timestamp, so it can never be
+    ///     used directly: every repetition looked like a new problem and filed a new
+    ///     report (issues #68901-#68907 filed the same unobserved exception eight
+    ///     times in eight seconds). The stable message template plus the exception
+    ///     type identifies the problem without the timestamp.
+    /// </summary>
+    /// <param name="logEvent">The event being reported.</param>
+    /// <param name="contextMessage">The rendered event text, used when the template is empty.</param>
+    /// <returns>The throttle key.</returns>
+    private static string BuildThrottleKey(LogEvent logEvent, string contextMessage)
+    {
+        var template = logEvent.MessageTemplate.Text;
+        if (string.IsNullOrWhiteSpace(template)) template = contextMessage;
+
+        return $"{logEvent.Level}|{template}|{logEvent.Exception?.GetType().FullName}";
     }
 
     private void PruneThrottleEntries(long nowTicks)

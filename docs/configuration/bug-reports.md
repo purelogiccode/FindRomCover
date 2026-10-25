@@ -13,6 +13,8 @@ FindRomCover can send automatic bug reports to the developer when something goes
 
 Transient warnings cover expected environmental problems: network failures, the GitHub update check, the screenshot folder fallback, settings and AI cache I/O, and secret encryption. Watcher errors cover per-file problems in the image-folder watcher, such as corrupt, locked, or dropped images. These entries remain in the local log but never create automatic reports, so an offline machine or a problematic image cannot flood the bug tracker.
 
+A repeating problem is reported at most once per minute: the throttle compares the message template and exception type, so the timestamp in the log line does not turn every repetition into a new report.
+
 ## What a report contains
 
 ### Environment details

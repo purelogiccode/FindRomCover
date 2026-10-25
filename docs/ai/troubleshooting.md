@@ -45,6 +45,16 @@ The model list is cached per provider and lowercased base URL in `%LocalAppData%
 
 Wait for the quota to reset, enable billing, or switch providers.
 
+## "temporarily unavailable" (502/503/504)
+
+**Cause:** The provider answered, but its upstream model host failed. OpenRouter reports `502 Provider returned error` when the selected model's backend is briefly down or overloaded.
+
+**What to do:** FindRomCover retries temporary gateway errors automatically (up to three attempts). If the message still appears:
+
+- Wait a minute and run the AI pick again — upstream hosts usually recover quickly.
+- Switch to another model or provider in [AI Settings](settings.md).
+- Check the provider status page, for example [OpenRouter status](https://status.openrouter.ai/).
+
 ## "is not a valid model ID" (400)
 
 **Cause:** The Model box contained more than one model ID — for example the whole [recommended-models](recommended-models.md) list pasted at once. The provider receives the combined text and rejects it.
