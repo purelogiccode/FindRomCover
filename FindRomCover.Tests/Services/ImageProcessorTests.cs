@@ -63,12 +63,12 @@ public class ImageProcessorTests : IDisposable
     }
 
     [Fact]
-    public void CleanupOrphanedTempFilesShouldDeleteTmpFiles()
+    public void CleanupOrphanedTempFilesShouldDeleteAppTempFiles()
     {
         var dir = Path.Combine(_testDir, "tempfiles");
         Directory.CreateDirectory(dir);
-        var tmp1 = Path.Combine(dir, "file1.tmp");
-        var tmp2 = Path.Combine(dir, "file2.tmp");
+        var tmp1 = Path.Combine(dir, $"{Guid.NewGuid():N}.tmp");
+        var tmp2 = Path.Combine(dir, "file2.png.tmp1a2b3c4d");
         File.WriteAllText(tmp1, "temp1");
         File.WriteAllText(tmp2, "temp2");
 
@@ -79,7 +79,7 @@ public class ImageProcessorTests : IDisposable
     }
 
     [Fact]
-    public void CleanupOrphanedTempFilesShouldNotDeleteNonTmpFiles()
+    public void CleanupOrphanedTempFilesShouldKeepGenericTmpFiles()
     {
         var dir = Path.Combine(_testDir, "mixed");
         Directory.CreateDirectory(dir);
@@ -91,12 +91,14 @@ public class ImageProcessorTests : IDisposable
         ImageProcessor.CleanupOrphanedTempFiles(dir);
 
         File.Exists(pngFile).Should().BeTrue();
-        File.Exists(tmpFile).Should().BeFalse();
+        File.Exists(tmpFile).Should().BeTrue();
     }
 
     [Theory]
-    [InlineData("file.tmp", true)]
-    [InlineData("file.TMP", true)]
+    [InlineData("file.tmp", false)]
+    [InlineData("file.TMP", false)]
+    [InlineData("0123456789abcdef0123456789abcdef.tmp", true)]
+    [InlineData("image.0123456789abcdef0123456789abcdef.tmp", true)]
     [InlineData("target.png.tmp1a2b3c4d", true)]
     [InlineData("Backup.tmp.png", false)]
     [InlineData("Mega Man.tmpdata.png", false)]

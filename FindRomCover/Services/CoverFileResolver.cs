@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+
 namespace FindRomCover.Services;
 
 /// <summary>
@@ -6,6 +8,11 @@ namespace FindRomCover.Services;
 /// </summary>
 public static class CoverFileResolver
 {
+    private static readonly ConcurrentDictionary<string, CachedDirectory> DirectoryCache =
+        new(AppConstants.FilePathComparer);
+
+    private static readonly TimeSpan CacheLifetime = TimeSpan.FromSeconds(5);
+
     private static readonly string[] RecognizedImageExtensions =
     [
         ".png", ".apng", ".jpg", ".jpeg", ".jfif", ".jpe", ".bmp", ".gif", ".tiff", ".tif", ".webp", ".avif",
@@ -31,15 +38,51 @@ public static class CoverFileResolver
             ? [romNameWithoutExtension]
             : new[] { sanitized, romNameWithoutExtension };
 
-        foreach (var baseName in baseNames)
+        if (OperatingSystem.IsWindows())
         {
-            foreach (var extension in RecognizedImageExtensions)
-            {
-                var imagePath = Path.Combine(imageFolderPath, baseName + extension);
-                if (File.Exists(imagePath)) return imagePath;
-            }
+            foreach (var baseName in baseNames)
+                foreach (var extension in RecognizedImageExtensions)
+                {
+                    var imagePath = Path.Combine(imageFolderPath, baseName + extension);
+                    if (File.Exists(imagePath)) return imagePath;
+                }
+
+            return null;
         }
+
+        // Linux and macOS file systems are case-sensitive. Probe a cached directory
+        // listing case-insensitively so a cover saved as "Sonic 1.PNG" is still found
+        // for the ROM "Sonic 1".
+        var files = GetDirectoryFiles(imageFolderPath);
+        foreach (var baseName in baseNames)
+            foreach (var extension in RecognizedImageExtensions)
+                if (files.TryGetValue(baseName + extension, out var imagePath))
+                    return imagePath;
 
         return null;
     }
+
+    private static Dictionary<string, string> GetDirectoryFiles(string imageFolderPath)
+    {
+        var now = DateTime.UtcNow;
+        if (DirectoryCache.TryGetValue(imageFolderPath, out var cached) && cached.ExpiresUtc > now)
+            return cached.Files;
+
+        var files = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            foreach (var path in Directory.EnumerateFiles(imageFolderPath))
+                files[Path.GetFileName(path)] = path;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException
+                                       or NotSupportedException)
+        {
+            LogService.WarningTransient(ex, $"Could not enumerate the image folder '{imageFolderPath}'.");
+        }
+
+        DirectoryCache[imageFolderPath] = new CachedDirectory(now.Add(CacheLifetime), files);
+        return files;
+    }
+
+    private sealed record CachedDirectory(DateTime ExpiresUtc, Dictionary<string, string> Files);
 }

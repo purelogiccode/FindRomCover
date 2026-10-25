@@ -81,6 +81,11 @@ public static class UpdateCheckService
             LogService.WarningTransient(ex, "Update check failed (network error).");
             return new UpdateInfo { IsUpdateAvailable = false };
         }
+        catch (ObjectDisposedException ex)
+        {
+            LogService.Debug($"Update check skipped during shutdown: {ex.Message}");
+            return new UpdateInfo { IsUpdateAvailable = false };
+        }
         catch (Exception ex)
         {
             LogService.Error(ex, "Error checking for updates.");

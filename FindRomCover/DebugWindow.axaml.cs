@@ -4,6 +4,7 @@ using System.Text;
 using Avalonia.Controls;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
 using FindRomCover.Models;
 using FindRomCover.Services;
 
@@ -15,7 +16,9 @@ namespace FindRomCover;
 public partial class DebugWindow : Window
 {
     private readonly ObservableCollection<LogEntry> _logMessages;
+    private readonly DispatcherTimer _refreshTimer;
     private bool _isForceClosing;
+    private bool _logTextDirty;
 
     /// <summary>
     ///     Initializes a new instance of the <see cref="DebugWindow"/> class and populates it with
@@ -42,6 +45,15 @@ public partial class DebugWindow : Window
 
         // Subscribe to collection changes to append new logs
         if (_logMessages is INotifyCollectionChanged incc) incc.CollectionChanged += LogMessages_CollectionChanged;
+
+        // Rebuilding the whole text box for every log line froze the UI once the 5000-entry
+        // cap was reached. Coalesce updates and skip them entirely while the window is hidden.
+        _refreshTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
+        _refreshTimer.Tick += (_, _) =>
+        {
+            if (_logTextDirty && IsVisible) RebuildLogText();
+        };
+        _refreshTimer.Start();
 
         Closing += OnLogWindowClosing;
         Closed += OnLogWindowClosed;
@@ -73,39 +85,33 @@ public partial class DebugWindow : Window
         // Unsubscribe from CollectionChanged to prevent memory leak
         if (_logMessages is INotifyCollectionChanged incc) incc.CollectionChanged -= LogMessages_CollectionChanged;
 
+        _refreshTimer.Stop();
         LogService.Information("Log window closed and event handlers unsubscribed.");
+    }
+
+    /// <summary>Marks the log text as stale and refreshes it immediately when visible.</summary>
+    public void RefreshLog()
+    {
+        _logTextDirty = true;
+        if (IsVisible) RebuildLogText();
     }
 
     private void LogMessages_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        switch (e.Action)
-        {
-            // When a new log is added to the source collection...
-            case NotifyCollectionChangedAction.Add when e.NewItems is not null:
-                {
-                    var newText = new StringBuilder();
-                    foreach (LogEntry item in e.NewItems) newText.AppendLine(item.Message);
-
-                    // ...append it to our TextBox.
-                    LogTextBox.Text += newText.ToString();
-                    ScrollLogToEnd();
-                    break;
-                }
-            // When the source collection is cleared...
-            case NotifyCollectionChangedAction.Reset:
-                // ...clear our TextBox.
-                LogTextBox.Clear();
-                break;
-            // When the source collection trims old entries (LogService keeps the last
-            // 5000), the TextBox must drop them too or it would grow without bound.
-            case NotifyCollectionChangedAction.Remove:
-                RebuildLogText();
-                break;
-        }
+        // Coalesce all collection changes into the timer tick. This keeps a hidden log
+        // window free of work and avoids rebuilding the full text for every new line.
+        _logTextDirty = true;
     }
 
     private void RebuildLogText()
     {
+        if (!IsVisible) return;
+
+        // Never yank the text out from under an active selection; the next tick after
+        // the user clears it will apply the pending updates.
+        if (!string.IsNullOrEmpty(LogTextBox.SelectedText)) return;
+
+        _logTextDirty = false;
         var text = new StringBuilder();
         foreach (var logEntry in _logMessages) text.AppendLine(logEntry.Message);
 

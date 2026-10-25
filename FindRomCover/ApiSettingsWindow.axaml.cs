@@ -42,7 +42,8 @@ public partial class ApiSettingsWindow : Window
         {
             _settingsManager.GoogleKey = TxtGoogleKey.Text?.Trim() ?? string.Empty;
 
-            _settingsManager.SaveSettings();
+            if (!_settingsManager.SaveSettings()) return;
+
             LogService.Information("API settings saved successfully.");
             Close(true);
         }

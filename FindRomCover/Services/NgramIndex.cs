@@ -36,7 +36,7 @@ public class NgramIndex
                 var trigram = padded.Substring(i, N);
                 if (!_trigramToFiles.TryGetValue(trigram, out var files))
                 {
-                    files = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    files = new HashSet<string>(AppConstants.FilePathComparer);
                     _trigramToFiles[trigram] = files;
                 }
 
@@ -62,7 +62,7 @@ public class NgramIndex
         if (queryTrigrams.Count == 0)
             return new List<string>();
 
-        var fileMatchCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var fileMatchCounts = new Dictionary<string, int>(AppConstants.FilePathComparer);
         foreach (var trigram in queryTrigrams)
             if (_trigramToFiles.TryGetValue(trigram, out var files))
                 foreach (var file in files)

@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
 using Serilog.Core;
@@ -14,7 +15,9 @@ namespace FindRomCover.Services;
 /// </summary>
 internal sealed class BugReportSink : ILogEventSink
 {
+    private static readonly long ThrottleWindowTicks = TimeSpan.FromMinutes(1).Ticks;
     private readonly ITextFormatter? _formatter;
+    private readonly ConcurrentDictionary<string, long> _recentReports = new(StringComparer.Ordinal);
 
     /// <summary>
     ///     Creates the sink.
@@ -56,6 +59,15 @@ internal sealed class BugReportSink : ILogEventSink
             if (IsTransientEnvironmentError(logEvent))
                 return;
 
+            var throttleKey = $"{logEvent.Level}|{contextMessage}";
+            var nowTicks = DateTime.UtcNow.Ticks;
+            if (_recentReports.TryGetValue(throttleKey, out var lastTicks) &&
+                nowTicks - lastTicks < ThrottleWindowTicks)
+                return;
+
+            _recentReports[throttleKey] = nowTicks;
+            PruneThrottleEntries(nowTicks);
+
             if (ex == null && logEvent.Level >= LogEventLevel.Error) ex = new InvalidOperationException(contextMessage);
 
             _ = ErrorLogger.LogAsync(ex, contextMessage).ContinueWith(
@@ -70,6 +82,15 @@ internal sealed class BugReportSink : ILogEventSink
         {
             Debug.Print($"BugReportSink: failed to emit log event: {sinkEx.Message}");
         }
+    }
+
+    private void PruneThrottleEntries(long nowTicks)
+    {
+        if (_recentReports.Count < 500) return;
+
+        foreach (var pair in _recentReports)
+            if (nowTicks - pair.Value >= ThrottleWindowTicks)
+                _recentReports.TryRemove(pair.Key, out _);
     }
 
     private string FormatMessage(LogEvent logEvent)

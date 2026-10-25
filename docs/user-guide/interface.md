@@ -88,7 +88,7 @@ The status bar reports the active tab, scan results, active operations, and AI p
 
 ## System tray
 
-Minimizing the window hides it to the system tray instead of the taskbar. Clicking the tray icon restores the window; the tray menu contains **Show** and **Exit**. Balloon notifications are not supported on all platforms and are no-ops — status messages appear in the main window instead.
+Minimizing the window hides it to the system tray instead of the taskbar. Clicking the tray icon restores the window; the tray menu contains **Show** and **Exit**. On Windows 11 a new tray icon may start in the hidden-icons overflow — open the chevron and drag the FindRomCover icon onto the taskbar to keep it visible. If the tray icon cannot be created, minimizing keeps the window in the taskbar instead of hiding it. Balloon notifications are not supported on all platforms and are no-ops — status messages appear in the main window instead.
 
 ## Screenshots
 

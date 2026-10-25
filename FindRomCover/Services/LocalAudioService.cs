@@ -13,9 +13,11 @@ public sealed class LocalAudioService : IAudioService
 {
     private const string MciAlias = "FindRomCoverClick";
 
+    private readonly Lock _playbackLock = new();
     private readonly string _soundPath =
         Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "audio", "click.mp3");
 
+    private bool _disposed;
     private bool _isSoundAvailable;
 
     /// <summary>
@@ -30,11 +32,11 @@ public sealed class LocalAudioService : IAudioService
     /// <summary>Plays the click sound, silently disabling playback if it fails.</summary>
     public void PlayClickSound()
     {
-        if (!_isSoundAvailable) return;
+        if (!_isSoundAvailable || _disposed) return;
 
         try
         {
-            Play(_soundPath);
+            Play(_soundPath, _playbackLock, () => _disposed);
         }
         catch
         {
@@ -45,12 +47,17 @@ public sealed class LocalAudioService : IAudioService
     /// <summary>Releases resources used by the audio service.</summary>
     public void Dispose()
     {
+        lock (_playbackLock)
+        {
+            _disposed = true;
+            if (OperatingSystem.IsWindows()) CloseWindowsAlias();
+        }
     }
 
-    private static void Play(string path)
+    private static void Play(string path, Lock playbackLock, Func<bool> isDisposed)
     {
         if (OperatingSystem.IsWindows())
-            PlayWindows(path);
+            PlayWindows(path, playbackLock, isDisposed);
         else if (OperatingSystem.IsMacOS())
             TryStart("afplay", [path]);
         else
@@ -81,13 +88,30 @@ public sealed class LocalAudioService : IAudioService
         }
     }
 
-    private static void PlayWindows(string path)
+    private static void PlayWindows(string path, Lock playbackLock, Func<bool> isDisposed)
+    {
+        _ = Task.Run(() =>
+        {
+            lock (playbackLock)
+            {
+                if (isDisposed()) return;
+
+                CloseWindowsAlias();
+                var openResult = mciSendStringW($"open \"{path}\" type mpegvideo alias {MciAlias}", null, 0,
+                    IntPtr.Zero);
+                if (openResult != 0) return;
+
+                // Wait for playback to finish before closing the alias: leaving it open
+                // kept click.mp3 locked for the whole session and blocked updates.
+                _ = mciSendStringW($"play {MciAlias} wait", null, 0, IntPtr.Zero);
+                CloseWindowsAlias();
+            }
+        });
+    }
+
+    private static void CloseWindowsAlias()
     {
         _ = mciSendStringW($"close {MciAlias}", null, 0, IntPtr.Zero);
-
-        var openResult = mciSendStringW($"open \"{path}\" type mpegvideo alias {MciAlias}", null, 0, IntPtr.Zero);
-        if (openResult == 0)
-            _ = mciSendStringW($"play {MciAlias}", null, 0, IntPtr.Zero);
     }
 
     [DllImport("winmm.dll", CharSet = CharSet.Unicode)]

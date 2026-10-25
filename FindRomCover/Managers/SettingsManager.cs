@@ -59,6 +59,7 @@ public class SettingsManager : INotifyPropertyChanged
     };
 
     private readonly Lock _ioLock = new();
+    private bool _databaseUnavailable;
 
     private bool _aiAssistEnabled;
 
@@ -409,9 +410,15 @@ public class SettingsManager : INotifyPropertyChanged
         get => _supportedExtensions;
         set
         {
-            if (_supportedExtensions.SequenceEqual(value, StringComparer.OrdinalIgnoreCase)) return;
+            var normalized = value
+                .Select(static extension => extension.Trim().TrimStart('.'))
+                .Where(static extension => !string.IsNullOrWhiteSpace(extension))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
 
-            _supportedExtensions = value;
+            if (_supportedExtensions.SequenceEqual(normalized, StringComparer.OrdinalIgnoreCase)) return;
+
+            _supportedExtensions = normalized;
             OnPropertyChanged(nameof(SupportedExtensions));
         }
     }
@@ -923,14 +930,16 @@ public class SettingsManager : INotifyPropertyChanged
             }
             catch (Exception ex)
             {
-                // Corrupt or unreadable settings are an environment issue, not a code bug:
-                // quarantine the file for diagnostics, warn (instead of reporting a bug) and
-                // recover by resetting to default settings.
-                LogService.WarningTransient(ex, "Error loading settings; resetting to defaults.");
-                QuarantineSettingsFile();
-
+                // Corrupt or unreadable settings are an environment issue, not a code bug.
+                // Never overwrite an existing database on an unknown failure: keep it for
+                // the next start and use defaults for this session only.
+                LogService.WarningTransient(ex, "Error loading settings; using defaults for this session.");
                 SetDefaultSettings();
-                SaveSettingsInternal();
+
+                if (File.Exists(SettingsDatabasePath))
+                    _databaseUnavailable = true;
+                else
+                    SaveSettingsInternal();
             }
         }
     }
@@ -942,12 +951,24 @@ public class SettingsManager : INotifyPropertyChanged
         if (!File.Exists(SettingsDatabasePath)) return false;
 
         var database = new SettingsDatabase(SettingsDatabasePath);
-        if (!database.TryLoadAll(out var values))
+        if (!database.TryLoadAll(out var values, out var isCorrupt))
         {
-            // The database exists but could not be read. Keep it for diagnosis instead
-            // of letting LoadSettings overwrite it with defaults.
-            QuarantineSettingsFile();
-            return false;
+            if (isCorrupt)
+            {
+                // The database exists but is genuinely corrupt. Keep it for diagnosis
+                // instead of letting LoadSettings overwrite it with defaults.
+                QuarantineSettingsFile();
+                return false;
+            }
+
+            // A transient failure (file lock, antivirus, sharing violation) must not
+            // destroy the user's settings. Use defaults for this session and refuse to
+            // persist them over the still-valid database.
+            LogService.WarningTransient(
+                "Settings database is temporarily unavailable; using defaults for this session without overwriting it.");
+            _databaseUnavailable = true;
+            SetDefaultSettings();
+            return true;
         }
 
         if (values.Count == 0) return false;
@@ -1021,8 +1042,12 @@ public class SettingsManager : INotifyPropertyChanged
         ImageLoaderRetryDelayMilliseconds = data.ImageLoaderRetryDelayMilliseconds;
         ApiTimeoutSeconds = data.ApiTimeoutSeconds;
         SearchEngine = data.SearchEngine;
-        BugReportApiKey = data.BugReportApiKey;
-        BugReportApiUrl = data.BugReportApiUrl;
+        BugReportApiKey = string.IsNullOrWhiteSpace(data.BugReportApiKey)
+            ? AppConstants.BugReportApiKey
+            : data.BugReportApiKey;
+        BugReportApiUrl = string.IsNullOrWhiteSpace(data.BugReportApiUrl)
+            ? AppConstants.BugReportApiUrl
+            : data.BugReportApiUrl;
         GoogleKey = data.GoogleKey;
         UseMameDescriptions = data.UseMameDescriptions;
         LastImageFolder = data.LastImageFolder;
@@ -1064,7 +1089,10 @@ public class SettingsManager : INotifyPropertyChanged
         ApiTimeoutSeconds = GetInt(values, nameof(ApiTimeoutSeconds), ApiTimeoutSeconds);
         SearchEngine = GetString(values, nameof(SearchEngine), SearchEngine);
         BugReportApiKey = GetSecret(values, nameof(BugReportApiKey), BugReportApiKey);
-        BugReportApiUrl = GetString(values, nameof(BugReportApiUrl), BugReportApiUrl);
+        var storedBugReportUrl = GetString(values, nameof(BugReportApiUrl), BugReportApiUrl);
+        BugReportApiUrl = string.IsNullOrWhiteSpace(storedBugReportUrl)
+            ? AppConstants.BugReportApiUrl
+            : storedBugReportUrl;
         GoogleKey = GetSecret(values, nameof(GoogleKey), GoogleKey);
         UseMameDescriptions = GetBool(values, nameof(UseMameDescriptions), UseMameDescriptions);
         LastImageFolder = GetString(values, nameof(LastImageFolder), LastImageFolder);
@@ -1231,8 +1259,12 @@ public class SettingsManager : INotifyPropertyChanged
                 ImageLoaderRetryDelayMilliseconds = 200,
                 ApiTimeoutSeconds = 30,
                 SearchEngine = root.Element("SearchEngine")?.Value ?? "BingWeb",
-                BugReportApiKey = root.Element("BugReportApiKey")?.Value ?? AppConstants.BugReportApiKey,
-                BugReportApiUrl = root.Element("BugReportApiUrl")?.Value ?? AppConstants.BugReportApiUrl,
+                BugReportApiKey = root.Element("BugReportApiKey")?.Value is { Length: > 0 } bugReportKey
+                    ? bugReportKey
+                    : AppConstants.BugReportApiKey,
+                BugReportApiUrl = root.Element("BugReportApiUrl")?.Value is { Length: > 0 } bugReportUrl
+                    ? bugReportUrl
+                    : AppConstants.BugReportApiUrl,
                 GoogleKey = root.Element("GoogleKey")?.Value ?? string.Empty,
                 UseMameDescriptions = bool.TryParse(root.Element("UseMameDescriptions")?.Value, out var useMame) &&
                                       useMame,
@@ -1250,12 +1282,11 @@ public class SettingsManager : INotifyPropertyChanged
 
             if (!SaveSettingsInternal())
             {
-                // Keep the legacy file so the migration is retried on the next start
-                // instead of losing all settings when the save failed (disk full,
-                // permissions, ...).
+                // Keep the migrated values in memory for this session and leave the legacy
+                // file in place so the migration is retried on the next start.
                 LogService.WarningTransient(
                     "Could not persist migrated settings; keeping the legacy settings.xml file for a retry.");
-                return false;
+                return true;
             }
 
             // Rename old file so we don't migrate again
@@ -1359,16 +1390,26 @@ public class SettingsManager : INotifyPropertyChanged
     /// <summary>
     ///     Persists the current settings to the SQLite settings database.
     /// </summary>
-    public void SaveSettings()
+    /// <returns><see langword="true" /> when the settings were persisted; otherwise <see langword="false" />.</returns>
+    public bool SaveSettings()
     {
         lock (_ioLock)
         {
-            SaveSettingsInternal();
+            return SaveSettingsInternal();
         }
     }
 
     private bool SaveSettingsInternal()
     {
+        if (_databaseUnavailable)
+        {
+            LogService.WarningTransient(
+                "Settings were not saved because the database was unavailable at startup; the existing file was left untouched.");
+            ShowSaveError(
+                "Settings could not be saved because the settings database was unavailable when the application started.\n\nThe existing settings file was left untouched; restart the application and try again.");
+            return false;
+        }
+
         var values = new Dictionary<string, string>(StringComparer.Ordinal)
         {
             [nameof(SimilarityThreshold)] = SimilarityThreshold.ToString(CultureInfo.InvariantCulture),

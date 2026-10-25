@@ -132,11 +132,25 @@ public class App : Application
             }
             catch (Exception ex)
             {
-                LogService.Fatal(ex, "Error in OnFrameworkInitializationCompleted");
-                Dialogs.ShowMessage(null,
-                    $"A fatal error occurred during application startup:\n\n{ex.Message}\n\nThe application will now close.",
-                    "Fatal Startup Error", MessageIcon.Error);
-                Environment.Exit(1);
+                WriteCrashLog("Fatal startup error", ex);
+
+                try
+                {
+                    var dialogTask = Dialogs.ShowMessageAsync(null,
+                        $"A fatal error occurred during application startup:\n\n{ex.Message}\n\nThe application will now close.",
+                        "Fatal Startup Error", MessageIcon.Error);
+
+                    // Do not call Environment.Exit before the dialog has a chance to paint.
+                    // The dialog closes the process when the user dismisses it; the timeout
+                    // guarantees exit if the UI never comes up.
+                    _ = Task.WhenAny(dialogTask, Task.Delay(TimeSpan.FromSeconds(60)))
+                        .ContinueWith(static _ => Environment.Exit(1), TaskScheduler.Default);
+                }
+                catch (Exception dialogEx)
+                {
+                    WriteCrashLog("Could not show the fatal startup dialog", dialogEx);
+                    Environment.Exit(1);
+                }
             }
 
         base.OnFrameworkInitializationCompleted();
@@ -203,7 +217,7 @@ public class App : Application
         {
             var ex = args.ExceptionObject as Exception ??
                      new InvalidOperationException(args.ExceptionObject.ToString() ?? "Unknown AppDomain exception");
-            LogService.Fatal(ex, "Unhandled AppDomain exception - Application will terminate");
+            WriteCrashLog("Unhandled AppDomain exception - Application will terminate", ex);
             Dispatcher.UIThread.Post(() => Dialogs.ShowMessage(null,
                 "An unexpected error occurred and the application needs to close.\n\n" +
                 "Please report this issue to the development team.",
@@ -339,6 +353,30 @@ public class App : Application
         }
     }
 
+    private static void WriteCrashLog(string context, Exception exception)
+    {
+        try
+        {
+            LogService.Fatal(exception, context);
+        }
+        catch (Exception logEx)
+        {
+            Debug.Print($"LogService.Fatal failed: {logEx.Message}");
+        }
+
+        try
+        {
+            AppDataPaths.EnsureBaseDirectory();
+            var path = AppDataPaths.LogFilePath("startup-crash.log");
+            File.AppendAllText(path,
+                $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] {context}{Environment.NewLine}{exception}{Environment.NewLine}{Environment.NewLine}");
+        }
+        catch (Exception fileEx)
+        {
+            Debug.Print($"Could not write the startup crash log: {fileEx.Message}");
+        }
+    }
+
     private static void FireAndForget(Func<Task> asyncAction)
     {
         _ = Task.Run(async () =>
@@ -346,6 +384,11 @@ public class App : Application
             try
             {
                 await asyncAction().ConfigureAwait(false);
+            }
+            catch (ObjectDisposedException ex)
+            {
+                // The shared HttpClient or another service was disposed during shutdown.
+                LogService.Debug($"FireAndForget aborted during shutdown: {ex.Message}");
             }
             catch (Exception ex)
             {

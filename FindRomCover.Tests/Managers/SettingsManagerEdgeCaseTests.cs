@@ -220,8 +220,9 @@ public class SettingsManagerEdgeCaseTests : IDisposable
 
         var database = new SettingsDatabase(directoryAsDatabase);
 
-        database.TryLoadAll(out var values).Should().BeFalse();
+        database.TryLoadAll(out var values, out var isCorrupt).Should().BeFalse();
         values.Should().BeEmpty();
+        isCorrupt.Should().BeFalse();
     }
 
     [Fact]

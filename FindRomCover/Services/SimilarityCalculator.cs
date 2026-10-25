@@ -47,7 +47,7 @@ public static class SimilarityCalculator
 
         if (maxImagesToLoad <= 0) maxImagesToLoad = GetConfiguredMaxImagesToLoad();
 
-        var (topCandidates, processingErrors) = await FindCandidatesCoreAsync(
+        var (topCandidates, scanErrors) = await FindCandidatesCoreAsync(
             selectedFileName,
             imageFolderPath,
             similarityThreshold,
@@ -57,6 +57,7 @@ public static class SimilarityCalculator
             cancellationToken);
 
         var imageList = new ConcurrentBag<ImageData>();
+        var processingErrors = new ConcurrentBag<string>(scanErrors);
 
         try
         {
@@ -106,10 +107,12 @@ public static class SimilarityCalculator
         }
         catch (OperationCanceledException)
         {
+            foreach (var image in imageList) image.Dispose();
             throw;
         }
         catch (Exception ex)
         {
+            foreach (var image in imageList) image.Dispose();
             processingErrors.Add($"An unexpected error occurred during image loading for display: {ex.Message}");
         }
 
@@ -117,7 +120,7 @@ public static class SimilarityCalculator
 
         result.SimilarImages = imageList
             .OrderByDescending(static x => x.SimilarityScore)
-            .ThenBy(static x => x.ImagePath, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(static x => x.ImagePath, AppConstants.FilePathComparer)
             .ToList();
         result.ProcessingErrors = processingErrors.ToList();
 
@@ -294,7 +297,7 @@ public static class SimilarityCalculator
         // ordering key is required for stable results across runs.
         var topCandidates = candidateFiles
             .OrderByDescending(static x => x.SimilarityScore)
-            .ThenBy(static x => x.FilePath, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(static x => x.FilePath, AppConstants.FilePathComparer)
             .Take(effectiveMaxCandidates)
             .ToList();
 

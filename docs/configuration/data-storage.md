@@ -76,6 +76,8 @@ When FindRomCover starts and the settings database is not a SQLite database, it 
 
 The same migration runs for a legacy `settings.xml`, which is moved to `settings.xml.migrated` after a successful conversion. Legacy files may be found in the data folder or next to the executable. If a legacy file cannot be decrypted, it is preserved as a `.legacy` backup and defaults are used instead. If a SQLite database is corrupt, it is renamed to `Settings.dat.corrupt` and defaults are restored.
 
+If the database is temporarily locked (antivirus scan, backup, sync client, or another instance), FindRomCover leaves it untouched, uses defaults for that session, and refuses to overwrite it. Restart the application after the lock is released to load the stored settings again.
+
 ## Query history database
 
 `QueryHistory.dat` uses non-pooled SQLite connections, so the file is never held open:

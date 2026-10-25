@@ -31,11 +31,11 @@ public class HttpClientHelperTests : IDisposable
     }
 
     [Fact]
-    public void ClientShouldHaveDefaultTimeout()
+    public void ClientShouldHaveMaximumConfiguredTimeout()
     {
         var client = HttpClientHelper.Client;
 
-        client.Timeout.Should().Be(TimeSpan.FromSeconds(30));
+        client.Timeout.Should().Be(TimeSpan.FromSeconds(300));
     }
 
     [Fact]

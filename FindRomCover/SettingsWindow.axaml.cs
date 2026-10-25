@@ -149,7 +149,7 @@ public partial class SettingsWindow : Window
                 .ToList();
 
             _settingsManager.SupportedExtensions = normalizedExtensions;
-            _settingsManager.SaveSettings();
+            if (!_settingsManager.SaveSettings()) return;
 
             Close(true);
         }

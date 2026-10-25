@@ -25,8 +25,9 @@ public static class ScreenshotService
     {
         try
         {
-            var width = (int)Math.Ceiling(window.Bounds.Width);
-            var height = (int)Math.Ceiling(window.Bounds.Height);
+            var scaling = window.RenderScaling;
+            var width = (int)Math.Ceiling(window.Bounds.Width * scaling);
+            var height = (int)Math.Ceiling(window.Bounds.Height * scaling);
 
             if (width <= 0 || height <= 0)
             {
@@ -34,7 +35,8 @@ public static class ScreenshotService
                 return null;
             }
 
-            using var bitmap = new RenderTargetBitmap(new PixelSize(width, height), new Vector(96, 96));
+            using var bitmap = new RenderTargetBitmap(new PixelSize(width, height),
+                new Vector(96 * scaling, 96 * scaling));
             bitmap.Render(window);
 
             // Encode the bitmap while it is still alive and let the write delegate capture

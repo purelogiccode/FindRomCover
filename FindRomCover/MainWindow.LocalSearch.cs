@@ -30,29 +30,24 @@ public partial class MainWindow
         switch (activeTab)
         {
             case 1: // Google Web
-                IsSearching = true;
+                SetGoogleWebSearching(true);
                 StatusMessage.Text = "Searching Google...";
                 _ = HandleGoogleWebSearchAsync(searchQuery);
                 break;
             case 2: // Bing Web
-                IsSearching = true;
+                SetBingWebSearching(true);
                 StatusMessage.Text = "Searching Bing...";
                 _ = HandleBingWebSearchAsync(searchQuery);
                 break;
             case 3: // Google API
                 if (string.IsNullOrWhiteSpace(Settings.GoogleKey))
                 {
-                    Dialogs.ShowMessage(this,
-                        "A Google API key is required to use the Google API search.\n\nPlease enter your API key in the settings window that will open.",
-                        "API Key Required");
-
-                    var apiSettingsWindow = new ApiSettingsWindow(Settings);
-                    _ = ShowApiSettingsAndResumeAsync(apiSettingsWindow, searchQuery);
-                    IsSearching = false;
+                    _ = ShowApiSettingsAndResumeAsync(searchQuery);
+                    SetApiSearching(false);
                     break;
                 }
 
-                IsSearching = true;
+                SetApiSearching(true);
                 StatusMessage.Text = "Searching Google API...";
                 _webSearchCts?.Cancel();
                 _webSearchCts?.Dispose();
@@ -63,8 +58,15 @@ public partial class MainWindow
         }
     }
 
-    private async Task ShowApiSettingsAndResumeAsync(ApiSettingsWindow apiSettingsWindow, string searchQuery)
+    private async Task ShowApiSettingsAndResumeAsync(string searchQuery)
     {
+        await Dialogs.ShowMessageAsync(this,
+            "A Google API key is required to use the Google API search.\n\nPlease enter your API key in the settings window that will open.",
+            "API Key Required");
+
+        if (_disposed) return;
+
+        var apiSettingsWindow = new ApiSettingsWindow(Settings);
         await apiSettingsWindow.ShowDialog(this);
 
         if (string.IsNullOrWhiteSpace(Settings.GoogleKey))
@@ -73,7 +75,7 @@ public partial class MainWindow
             return;
         }
 
-        IsSearching = true;
+        SetApiSearching(true);
         StatusMessage.Text = "Searching Google API...";
         _webSearchCts?.Cancel();
         _webSearchCts?.Dispose();
@@ -142,7 +144,7 @@ public partial class MainWindow
                 textBlock.Inlines.Add(new Run(" (ignoring bracketed text)"));
             LblLocalSearchQuery.Content = textBlock;
 
-            SimilarImages.Clear();
+            DisposeAndClearImages(SimilarImages);
         });
 
         try
@@ -209,6 +211,8 @@ public partial class MainWindow
         }
         catch (OperationCanceledException)
         {
+            if (ReferenceEquals(_findSimilarCts, cts))
+                await Dispatcher.UIThread.InvokeAsync(() => DisposeAndClearImages(SimilarImages));
         }
         catch (Exception ex)
         {
@@ -365,7 +369,8 @@ public partial class MainWindow
             {
                 App.AudioService.PlayClickSound();
                 RemoveMissingItemByName(romName);
-                SimilarImages.Clear();
+                if (string.Equals(_selectedRomFileName, romName, StringComparison.OrdinalIgnoreCase))
+                    DisposeAndClearImages(SimilarImages);
                 UpdateMissingCount();
             }
             else

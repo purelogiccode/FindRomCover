@@ -1,4 +1,3 @@
-using System.Globalization;
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
 using Avalonia.Media.Imaging;
@@ -24,7 +23,7 @@ public partial class MainWindow
             {
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
-                    IsSearching = false;
+                    SetBingWebSearching(false);
                     StatusMessage.Text = "Web view component is not ready.";
                 });
                 return;
@@ -44,7 +43,7 @@ public partial class MainWindow
             LogService.Error(ex, "Error in HandleBingWebSearchAsync");
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
-                IsSearching = false;
+                SetBingWebSearching(false);
                 StatusMessage.Text = "Error loading Bing search.";
             });
         }
@@ -58,7 +57,7 @@ public partial class MainWindow
             {
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
-                    IsSearching = false;
+                    SetGoogleWebSearching(false);
                     StatusMessage.Text = "Web view component is not ready.";
                 });
                 return;
@@ -78,7 +77,7 @@ public partial class MainWindow
             LogService.Error(ex, "Error in HandleGoogleWebSearchAsync");
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
-                IsSearching = false;
+                SetGoogleWebSearching(false);
                 StatusMessage.Text = "Error loading Google search.";
             });
         }
@@ -111,15 +110,20 @@ public partial class MainWindow
             catch (InvalidOperationException ex) when (ex.Message.Contains("API Key is not set",
                                                            StringComparison.OrdinalIgnoreCase))
             {
-                await Dispatcher.UIThread.InvokeAsync(static () =>
+                if (!ReferenceEquals(_webSearchCts, searchCts)) return;
+
+                await Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     Dialogs.ShowMessage(null, "Please configure your API keys in Settings > API Settings.",
                         "Missing API Key", MessageIcon.Warning);
+                    StatusMessage.Text = "API key is not set.";
                 });
-                coverImageUrls = [];
+                return;
             }
             catch (InvalidOperationException ex)
             {
+                if (!ReferenceEquals(_webSearchCts, searchCts)) return;
+
                 // Google API errors (invalid API key, rate limits, network failures) are
                 // configuration/environment issues, not application bugs. Inform the user
                 // directly instead of reporting an error to the bug API.
@@ -127,10 +131,13 @@ public partial class MainWindow
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     Dialogs.ShowMessage(this, ex.Message, "Google API Error", MessageIcon.Warning);
-                    IsSearching = false;
+                    SetApiSearching(false);
+                    DisposeAndClearImages(PanelImages);
+                    HasSearchedApi = true;
+                    UpdateStatusImageCount();
                     StatusMessage.Text = "API search failed.";
                 });
-                coverImageUrls = [];
+                return;
             }
             catch (OperationCanceledException)
             {
@@ -140,7 +147,7 @@ public partial class MainWindow
                     // only the current search may clear the progress state.
                     if (!ReferenceEquals(_webSearchCts, searchCts)) return;
 
-                    IsSearching = false;
+                    SetApiSearching(false);
                     StatusMessage.Text = "Search canceled.";
                 });
                 return;
@@ -152,7 +159,7 @@ public partial class MainWindow
 
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
-                PanelImages.Clear();
+                DisposeAndClearImages(PanelImages);
 
                 if (coverImageUrls.Count > 0)
                     foreach (var result in coverImageUrls)
@@ -163,12 +170,11 @@ public partial class MainWindow
                         LoadApiThumbnailAsync(result);
                     }
 
-                IsSearching = false;
+                SetApiSearching(false);
                 HasSearchedApi = true;
                 StatusMessage.Text = coverImageUrls.Count > 0
                     ? $"Found {coverImageUrls.Count} images."
                     : "No images found.";
-                StatusImageCount.Text = PanelImages.Count.ToString(CultureInfo.InvariantCulture);
             });
 
             if (Settings.AiAutoRun && Settings.AiAssistEnabled && PanelImages.Count > 0)
@@ -182,7 +188,9 @@ public partial class MainWindow
             LogService.Error(ex, "Error in HandleApiSearchAsync");
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
-                IsSearching = false;
+                if (!ReferenceEquals(_webSearchCts, searchCts)) return;
+
+                SetApiSearching(false);
                 StatusMessage.Text = "Error during API search.";
             });
         }
@@ -271,7 +279,8 @@ public partial class MainWindow
 
         App.AudioService.PlayClickSound();
         RemoveMissingItemByName(romName);
-        PanelImages.Clear();
+        if (string.Equals(_selectedRomFileName, romName, StringComparison.OrdinalIgnoreCase))
+            DisposeAndClearImages(PanelImages);
         UpdateMissingCount();
     }
 

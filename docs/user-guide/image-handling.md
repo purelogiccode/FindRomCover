@@ -50,6 +50,9 @@ The watcher never overwrites an existing cover:
 
 There is no overwrite confirmation dialog in the watcher workflow.
 
+!!! note "Bulk imports are left untouched"
+    When several images arrive in a short burst (for example when you extract or copy a cover pack), the watcher treats it as a bulk import and leaves the imported files under their original names. Files whose names already match a ROM are left untouched as well. This prevents covers from being renamed one file at a time to the currently selected game. Press **F5** after the import to rebuild the missing list from the real file names.
+
 !!! tip
     The watcher is what makes the Google Web and Bing Web workflow hands-free. Save the image in the top level of the image folder with any filename — it will be renamed for you.
 

@@ -46,10 +46,15 @@ public sealed class SettingsDatabase
     ///     Reads all key-value pairs from the settings database.
     /// </summary>
     /// <param name="values">Receives the stored key-value pairs; empty when the load fails.</param>
+    /// <param name="isCorrupt">
+    ///     Receives <see langword="true" /> when SQLite reported corruption or a non-database
+    ///     file, as opposed to a transient lock/permission failure.
+    /// </param>
     /// <returns><c>true</c> if the database was read successfully; otherwise <c>false</c>.</returns>
-    public bool TryLoadAll(out Dictionary<string, string> values)
+    public bool TryLoadAll(out Dictionary<string, string> values, out bool isCorrupt)
     {
         values = new Dictionary<string, string>(StringComparer.Ordinal);
+        isCorrupt = false;
 
         lock (_lock)
         {
@@ -67,11 +72,21 @@ public sealed class SettingsDatabase
             }
             catch (Exception ex)
             {
+                isCorrupt = IsCorruptionException(ex);
                 LogService.WarningTransient(ex, "Settings database could not be read.");
                 values = new Dictionary<string, string>(StringComparer.Ordinal);
                 return false;
             }
         }
+    }
+
+    private static bool IsCorruptionException(Exception exception)
+    {
+        for (var current = exception; current != null; current = current.InnerException)
+            if (current is SqliteException { SqliteErrorCode: 11 or 26 })
+                return true;
+
+        return false;
     }
 
     /// <summary>

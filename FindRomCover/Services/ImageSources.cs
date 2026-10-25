@@ -8,6 +8,9 @@ namespace FindRomCover.Services;
 /// </summary>
 public static class ImageSources
 {
+    private static readonly Lock BrokenImageLock = new();
+    private static object? _brokenImage;
+
     /// <summary>Creates a displayable image object from PNG bytes (UI-specific type).</summary>
     public static Func<byte[], object?>? CreateFromPngBytes { get; set; }
 
@@ -24,6 +27,20 @@ public static class ImageSources
         return CreateFromPngBytes?.Invoke(pngBytes);
     }
 
-    /// <summary>Gets the broken-image placeholder produced by the installed factory, if any.</summary>
-    public static object? BrokenImage => CreateBrokenImage?.Invoke();
+    /// <summary>
+    ///     Gets the broken-image placeholder produced by the installed factory, if any.
+    ///     The bitmap is created once and shared by every item that has no image yet.
+    /// </summary>
+    public static object? BrokenImage
+    {
+        get
+        {
+            if (_brokenImage != null) return _brokenImage;
+
+            lock (BrokenImageLock)
+            {
+                return _brokenImage ??= CreateBrokenImage?.Invoke();
+            }
+        }
+    }
 }

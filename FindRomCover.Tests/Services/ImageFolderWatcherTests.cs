@@ -122,6 +122,71 @@ public class ImageFolderWatcherTests : IDisposable
         ImageProcessor.IsValidPng(sourcePath).Should().BeTrue();
     }
 
+    [Fact]
+    public async Task BulkImageImportShouldLeaveFilesUntouched()
+    {
+        var folder = Path.Combine(_testDir, "bulk");
+        Directory.CreateDirectory(folder);
+        using var watcher = new ImageFolderWatcher();
+        var imageFound = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        watcher.ImageFound += name => imageFound.TrySetResult(name);
+        watcher.PendingRenameTarget = "Selected Game";
+        watcher.Start(folder).Should().BeTrue();
+
+        var originalNames = new[] { "first.png", "second.png", "third.png" };
+        foreach (var name in originalNames)
+            WriteImage(Path.Combine(folder, name), MagickFormat.Png);
+
+        // Give the watcher time to receive the burst and work through its queue.
+        var completed = await Task.WhenAny(imageFound.Task, Task.Delay(TimeSpan.FromSeconds(8)));
+        completed.Should().NotBe(imageFound.Task, "a bulk import must not rename files or fire ImageFound");
+
+        foreach (var name in originalNames) File.Exists(Path.Combine(folder, name)).Should().BeTrue();
+
+        File.Exists(Path.Combine(folder, "Selected Game.png")).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task SingleImageShouldBeRenamedToPendingTarget()
+    {
+        var folder = Path.Combine(_testDir, "single");
+        Directory.CreateDirectory(folder);
+        using var watcher = new ImageFolderWatcher();
+        var imageFound = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        watcher.ImageFound += name => imageFound.TrySetResult(name);
+        watcher.PendingRenameTarget = "Selected Game";
+        watcher.Start(folder).Should().BeTrue();
+
+        WriteImage(Path.Combine(folder, "downloaded.png"), MagickFormat.Png);
+
+        var completed = await Task.WhenAny(imageFound.Task, Task.Delay(TimeSpan.FromSeconds(20)));
+        completed.Should().Be(imageFound.Task, "a single saved image should still be renamed");
+        (await imageFound.Task).Should().Be("Selected Game");
+        File.Exists(Path.Combine(folder, "Selected Game.png")).Should().BeTrue();
+        File.Exists(Path.Combine(folder, "downloaded.png")).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ImageNamedAfterAnotherRomShouldNotBeRenamed()
+    {
+        var folder = Path.Combine(_testDir, "known-rom");
+        Directory.CreateDirectory(folder);
+        using var watcher = new ImageFolderWatcher();
+        var imageFound = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        watcher.ImageFound += name => imageFound.TrySetResult(name);
+        watcher.KnownRomNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "Another Game" };
+        watcher.PendingRenameTarget = "Selected Game";
+        watcher.Start(folder).Should().BeTrue();
+
+        WriteImage(Path.Combine(folder, "Another Game.png"), MagickFormat.Png);
+
+        var completed = await Task.WhenAny(imageFound.Task, Task.Delay(TimeSpan.FromSeconds(6)));
+        completed.Should().NotBe(imageFound.Task, "a cover already named after another ROM must not be renamed");
+
+        File.Exists(Path.Combine(folder, "Another Game.png")).Should().BeTrue();
+        File.Exists(Path.Combine(folder, "Selected Game.png")).Should().BeFalse();
+    }
+
     private static void WriteImage(string path, MagickFormat format)
     {
         using var image = new MagickImage(MagickColors.Red, 16, 16);

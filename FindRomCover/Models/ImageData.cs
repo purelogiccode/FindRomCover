@@ -7,12 +7,11 @@ namespace FindRomCover.Models;
 /// <summary>
 ///     A cover image candidate shown in the UI, including its similarity score and display metadata.
 /// </summary>
-public class ImageData : INotifyPropertyChanged
+public class ImageData : INotifyPropertyChanged, IDisposable
 {
     private string _aiBadge = string.Empty;
-
+    private bool _disposed;
     private int _imageHeight;
-
     private int _imageWidth;
 
     /// <summary>
@@ -65,9 +64,17 @@ public class ImageData : INotifyPropertyChanged
         get => _imageSource;
         set
         {
+            if (_disposed)
+            {
+                (value as IDisposable)?.Dispose();
+                return;
+            }
+
             if (ReferenceEquals(_imageSource, value)) return;
 
+            var previous = _imageSource;
             _imageSource = value;
+            (previous as IDisposable)?.Dispose();
             OnPropertyChanged();
             OnPropertyChanged(nameof(DisplayImage));
         }
@@ -154,6 +161,21 @@ public class ImageData : INotifyPropertyChanged
 
     /// <summary>Occurs when a property value changes.</summary>
     public event PropertyChangedEventHandler? PropertyChanged;
+
+    /// <summary>
+    ///     Releases the UI bitmap held by <see cref="ImageSource" />. The item must not be
+    ///     displayed afterwards.
+    /// </summary>
+    public void Dispose()
+    {
+        if (_disposed) return;
+
+        _disposed = true;
+        var source = _imageSource;
+        _imageSource = null;
+        (source as IDisposable)?.Dispose();
+        GC.SuppressFinalize(this);
+    }
 
     /// <summary>
     ///     Raises the <see cref="PropertyChanged" /> event for the specified property.

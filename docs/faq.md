@@ -76,7 +76,7 @@ Press **F8**. The screenshot captures the **main window** (not a dialog or the e
 
 ### What happens when I minimize the window?
 
-Minimizing hides the window to the system tray. Click the tray icon or choose **Show FindRomCover** to bring it back, and use **Exit** to quit. Some Linux desktop environments do not display tray icons; in that case use the taskbar or close the window to exit.
+Minimizing hides the window to the system tray. Click the tray icon or choose **Show FindRomCover** to bring it back, and use **Exit** to quit. On Windows 11 a new tray icon may start in the hidden-icons overflow — open the chevron and drag the FindRomCover icon onto the taskbar to keep it visible. Some Linux desktop environments do not display tray icons; in that case use the taskbar or close the window to exit.
 
 ## AI Assist
 

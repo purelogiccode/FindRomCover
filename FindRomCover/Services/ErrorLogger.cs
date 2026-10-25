@@ -42,6 +42,7 @@ public static class ErrorLogger
 
     private static readonly SemaphoreSlim LogFileLock = new(1, 1);
     private static readonly SemaphoreSlim InternalLogSemaphore = new(1, 1);
+    private const long MaxLogFileBytes = 4L * 1024 * 1024;
 
     private static readonly JsonSerializerOptions CachedJsonSerializerOptions = new()
     {
@@ -108,6 +109,8 @@ public static class ErrorLogger
 
                     await File.AppendAllTextAsync(UserLogFilePath, currentErrorMessage);
                     await File.AppendAllTextAsync(ApiLogFilePath, currentErrorMessage);
+                    await TrimLogFileAsync(UserLogFilePath);
+                    await TrimLogFileAsync(ApiLogFilePath);
                 }
                 finally
                 {
@@ -146,6 +149,31 @@ public static class ErrorLogger
     }
 
     /// <summary>
+    ///     Keeps the diagnostic log files bounded. The oldest half is removed at a report
+    ///     boundary when the file grows past <see cref="MaxLogFileBytes" />.
+    /// </summary>
+    private static async Task TrimLogFileAsync(string path)
+    {
+        try
+        {
+            var info = new FileInfo(path);
+            if (!info.Exists || info.Length <= MaxLogFileBytes) return;
+
+            var content = await File.ReadAllTextAsync(path);
+            var keepCharacters = content.Length / 2;
+            var searchStart = Math.Max(0, content.Length - keepCharacters);
+            var cut = content.IndexOf("BUG REPORT - FindRomCover", searchStart, StringComparison.Ordinal);
+            if (cut < 0) cut = searchStart;
+
+            await File.WriteAllTextAsync(path, content[cut..]);
+        }
+        catch (Exception ex)
+        {
+            _ = WriteInternalLogAsync("Failed to trim a diagnostic log file.", ex);
+        }
+    }
+
+    /// <summary>
     ///     Removes only the report that was successfully sent from the pending API log
     ///     file, preserving reports appended by concurrent or earlier failed sends.
     /// </summary>
@@ -163,7 +191,29 @@ public static class ErrorLogger
             var index = content.IndexOf(sentReport, StringComparison.Ordinal);
             if (index < 0) return;
 
-            await File.WriteAllTextAsync(ApiLogFilePath, content.Remove(index, sentReport.Length));
+            var remaining = content.Remove(index, sentReport.Length);
+            var tempPath = ApiLogFilePath + ".tmp" + Guid.NewGuid().ToString("N")[..8];
+            try
+            {
+                // Write the new content to a temp file and replace atomically. A crash
+                // or disk-full during WriteAllTextAsync would otherwise truncate the
+                // file before the remaining pending reports are written.
+                await File.WriteAllTextAsync(tempPath, remaining);
+                File.Move(tempPath, ApiLogFilePath, true);
+            }
+            catch
+            {
+                try
+                {
+                    if (File.Exists(tempPath)) File.Delete(tempPath);
+                }
+                catch (Exception cleanupEx)
+                {
+                    _ = WriteInternalLogAsync("Failed to remove a temporary report file.", cleanupEx);
+                }
+
+                throw;
+            }
         }
         finally
         {

@@ -60,6 +60,10 @@ public static class ApplicationStatsService
         {
             LogService.WarningTransient(ex, "Failed to record application stats (network error).");
         }
+        catch (ObjectDisposedException ex)
+        {
+            LogService.Debug($"Application stats skipped during shutdown: {ex.Message}");
+        }
         catch (Exception ex)
         {
             LogService.Error(ex, "Failed to record application stats.");

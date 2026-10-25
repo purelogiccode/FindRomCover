@@ -29,7 +29,10 @@ public static class Dialogs
     public static void ShowMessage(Window? owner, string message, string title,
         MessageIcon icon = MessageIcon.Information)
     {
-        _ = ShowMessageAsync(owner, message, title, icon);
+        _ = ShowMessageAsync(owner, message, title, icon).ContinueWith(
+            static task => LogService.WarningTransient(task.Exception!,
+                "Could not show a message dialog."),
+            TaskContinuationOptions.OnlyOnFaulted);
     }
 
     /// <summary>
@@ -217,7 +220,7 @@ public static class Dialogs
         Func<T>? resultProvider = null)
     {
         var actualOwner = owner ?? GetMainWindow();
-        if (actualOwner != null && actualOwner != dialog)
+        if (actualOwner != null && actualOwner != dialog && actualOwner.IsVisible)
             return await dialog.ShowDialog<T>(actualOwner);
 
         var tcs = new TaskCompletionSource<T>();

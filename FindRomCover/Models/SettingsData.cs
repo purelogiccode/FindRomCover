@@ -42,10 +42,10 @@ public class SettingsData
     public string SearchEngine { get; set; } = "BingWeb";
 
     /// <summary>API key for the bug report service.</summary>
-    public string BugReportApiKey { get; set; } = string.Empty;
+    public string BugReportApiKey { get; set; } = AppConstants.BugReportApiKey;
 
     /// <summary>API URL for the bug report service.</summary>
-    public string BugReportApiUrl { get; set; } = string.Empty;
+    public string BugReportApiUrl { get; set; } = AppConstants.BugReportApiUrl;
 
     /// <summary>Google Custom Search API key.</summary>
     public string GoogleKey { get; set; } = string.Empty;

@@ -523,7 +523,7 @@
                                 </ItemsControl>
                             </ScrollViewer>
 
-                            <controls:ProgressRing IsActive="{Binding IsSearching}" HorizontalAlignment="Center"
+                            <controls:ProgressRing IsActive="{Binding IsApiSearching}" HorizontalAlignment="Center"
                                                    VerticalAlignment="Center"
                                                    ToolTip.Tip="Searching the Google API for images..." />
 

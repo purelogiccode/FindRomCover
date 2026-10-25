@@ -96,12 +96,23 @@ public partial class AiSettingsWindow : Window
             var provider = SelectedProvider;
 
             var currentBaseUrl = (TxtBaseUrl.Text ?? string.Empty).Trim();
-            if (string.IsNullOrEmpty(currentBaseUrl) || IsKnownDefaultBaseUrl(currentBaseUrl))
-                TxtBaseUrl.Text = DefaultBaseUrl(provider);
-
             var currentModel = (CmbModel.Text ?? string.Empty).Trim();
-            if (string.IsNullOrEmpty(currentModel) || IsKnownDefaultModel(currentModel))
+
+            if (provider is AppConstants.AiProviders.CustomOpenAi or AppConstants.AiProviders.CustomAnthropic)
+            {
+                // Keep a user-entered gateway, but clear values that still point at a
+                // previous provider's default so they cannot be saved by accident.
+                if (IsKnownDefaultBaseUrl(currentBaseUrl)) TxtBaseUrl.Text = string.Empty;
+                if (IsKnownDefaultModel(currentModel)) CmbModel.Text = string.Empty;
+            }
+            else
+            {
+                // Always switch the endpoint and model with the provider. Keeping a
+                // custom gateway URL from the previous provider sends requests to the
+                // wrong host with the new provider's key.
+                TxtBaseUrl.Text = DefaultBaseUrl(provider);
                 CmbModel.Text = DefaultModel(provider);
+            }
 
             if (_initialized) LoadCachedModels();
         }
@@ -211,7 +222,8 @@ public partial class AiSettingsWindow : Window
             _settingsManager.AiVerifyOnSave = ChkVerifyOnSave.IsChecked == true;
             _settingsManager.AiSkipPreviouslyQueried = ChkSkipQueried.IsChecked == true;
 
-            _settingsManager.SaveSettings();
+            if (!_settingsManager.SaveSettings()) return;
+
             LogService.Information("AI settings saved successfully.");
             Close(true);
         }
@@ -273,13 +285,14 @@ public partial class AiSettingsWindow : Window
 
             BtnTest.IsEnabled = false;
             TxtTestStatus.Text = "Contacting provider...";
+            var cacheKey = ModelCacheKey;
 
             using var httpClient = new HttpClient();
             httpClient.Timeout = Timeout.InfiniteTimeSpan;
             var models = await VisionModelCatalog.FetchModelsAsync(options, httpClient, CancellationToken.None);
 
             _allModels = models;
-            ModelCache.Set(ModelCacheKey, models);
+            ModelCache.Set(cacheKey, models);
             ApplyModelFilter();
 
             var modelAvailable = models.Any(modelInfo =>

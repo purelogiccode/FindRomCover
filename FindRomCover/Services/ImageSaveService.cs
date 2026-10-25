@@ -309,6 +309,7 @@ public static class ImageSaveService
                     return false;
                 }
 
+                image.AutoOrient();
                 image.Format = MagickFormat.Png;
                 await image.WriteAsync(tempOutputPath, MagickFormat.Png, cancellationToken);
             }
@@ -436,9 +437,11 @@ public static class ImageSaveService
     private static bool IsSvg(byte[] bytes)
     {
         var offset = bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF ? 3 : 0;
-        var length = Math.Min(bytes.Length - offset, 1024);
-        var text = Encoding.ASCII.GetString(bytes, offset, length).TrimStart();
-        return text.StartsWith("<svg", StringComparison.OrdinalIgnoreCase);
+        var length = Math.Min(bytes.Length - offset, 4096);
+        var text = Encoding.ASCII.GetString(bytes, offset, length);
+        // Valid SVG documents may start with an XML declaration, DOCTYPE, comments or
+        // whitespace before the root <svg> element.
+        return text.Contains("<svg", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string PreviewPayload(byte[] bytes)

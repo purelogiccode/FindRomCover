@@ -98,6 +98,7 @@ public partial class AiBatchWindow : Window
             BtnClose.IsEnabled = false;
             BtnCancel.IsEnabled = true;
             LstResults.Items.Clear();
+            Progress.Maximum = Math.Max(1, items.Count);
             Progress.Value = 0;
 
             _cts = new CancellationTokenSource();

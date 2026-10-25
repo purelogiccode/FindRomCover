@@ -49,8 +49,18 @@ public static class ImageProcessor
     {
         if (string.IsNullOrEmpty(fileName)) return false;
 
-        if (fileName.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase)) return true;
+        // Permission probe: "<32 hex chars>.tmp" and invalid-PNG normalization:
+        // "<name>.<32 hex chars>.tmp". Only those app-owned names are removed; a
+        // generic user file such as "backup.tmp" must never be deleted.
+        if (fileName.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase))
+        {
+            var stem = fileName[..^4];
+            var lastDot = stem.LastIndexOf('.');
+            var candidate = lastDot >= 0 ? stem[(lastDot + 1)..] : stem;
+            return candidate.Length == 32 && candidate.All(char.IsAsciiHexDigit);
+        }
 
+        // Current temp scheme: "<output>.tmp<8 hex chars>".
         var index = fileName.LastIndexOf(".tmp", StringComparison.OrdinalIgnoreCase);
         if (index < 0) return false;
 
@@ -64,23 +74,29 @@ public static class ImageProcessor
     /// <param name="sourcePath">The path of the image to convert.</param>
     /// <param name="targetPath">The destination path, or null to return a failure result.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <param name="overwrite">
+    ///     When <see langword="false" /> an existing target file is never replaced; the save
+    ///     fails instead. Batch jobs use this to protect covers that appeared while the AI
+    ///     request was running.
+    /// </param>
     /// <returns>The result of the conversion and save operation.</returns>
     public static Task<ImageSaveResult> ConvertAndSaveImageAsync(string sourcePath, string? targetPath,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, bool overwrite = true)
     {
-        if (targetPath != null) return ConvertAndSaveImageCoreAsync(sourcePath, targetPath, cancellationToken);
+        if (targetPath != null)
+            return ConvertAndSaveImageCoreAsync(sourcePath, targetPath, cancellationToken, overwrite);
 
         return Task.FromResult(new ImageSaveResult(false, "Target path is null.", "Error", MessageIcon.Error));
     }
 
     private static async Task<ImageSaveResult> ConvertAndSaveImageCoreAsync(string sourcePath, string targetPath,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, bool overwrite)
     {
         var directory = Path.GetDirectoryName(targetPath);
         if (directory == null)
             return new ImageSaveResult(false, "Invalid target path.", "Error", MessageIcon.Error);
 
-        if (string.Equals(sourcePath, targetPath, StringComparison.OrdinalIgnoreCase))
+        if (AppConstants.FilePathComparer.Equals(sourcePath, targetPath))
             return new ImageSaveResult(false,
                 "Source and target paths are the same.\n\nPlease choose another target path.", "Error",
                 MessageIcon.Error);
@@ -89,9 +105,12 @@ public static class ImageProcessor
         for (var attempt = 0; ; attempt++)
             try
             {
-                var testFile = Path.Combine(directory, $"{Guid.NewGuid()}.tmp");
-                await File.WriteAllTextAsync(testFile, string.Empty, cancellationToken);
-                File.Delete(testFile);
+                var testFile = Path.Combine(directory, $"{Guid.NewGuid():N}.tmp");
+                // DeleteOnClose removes the probe even when a later explicit delete
+                // would fail because of an antivirus/sync lock.
+                await using var stream = new FileStream(testFile, FileMode.CreateNew, FileAccess.Write,
+                    FileShare.None, 1, FileOptions.DeleteOnClose);
+                await stream.WriteAsync(ReadOnlyMemory<byte>.Empty, cancellationToken);
                 break;
             }
             catch (OperationCanceledException)
@@ -115,11 +134,11 @@ public static class ImageProcessor
         // Do NOT delete an existing target here: the conversion writes to a temp file
         // and only then replaces the target (see WriteImageWithRetryAsync), so a failed
         // conversion (corrupt source, OOM, locked file) never destroys the previous cover.
-        return await ProcessImageAsync(sourcePath, targetPath, cancellationToken);
+        return await ProcessImageAsync(sourcePath, targetPath, cancellationToken, overwrite);
     }
 
     private static async Task<ImageSaveResult> ProcessImageAsync(string sourcePath, string targetPath,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, bool overwrite)
     {
         if (string.IsNullOrEmpty(sourcePath) || !File.Exists(sourcePath))
             return new ImageSaveResult(false, "Source image could not be found.", "Image Not Found",
@@ -182,7 +201,8 @@ public static class ImageProcessor
                 magickImage.Quality = 90;
                 magickImage.Format = MagickFormat.Png;
 
-                return await WriteImageWithRetryAsync(magickImage, targetPath, sourcePath, cancellationToken);
+                return await WriteImageWithRetryAsync(magickImage, targetPath, sourcePath, cancellationToken,
+                    overwrite);
             }
         }
         catch (MagickException ex)
@@ -208,7 +228,7 @@ public static class ImageProcessor
     }
 
     private static async Task<ImageSaveResult> WriteImageWithRetryAsync(MagickImage magickImage, string targetPath,
-        string sourcePath, CancellationToken cancellationToken)
+        string sourcePath, CancellationToken cancellationToken, bool overwrite)
     {
         const int maxRetries = 5;
         const int baseDelayMs = 100;
@@ -233,7 +253,18 @@ public static class ImageProcessor
 
                     if (!File.Exists(tempPath)) throw new IOException("Failed to write temporary file");
 
-                    File.Move(tempPath, targetPath, true);
+                    if (!overwrite && File.Exists(targetPath))
+                    {
+                        TryDeleteTempFile(tempPath);
+                        return new ImageSaveResult(false,
+                            "A cover with this name already exists and was not replaced.",
+                            "Cover Exists",
+                            MessageIcon.Warning,
+                            null,
+                            $"Refused to overwrite existing target: {targetPath}");
+                    }
+
+                    File.Move(tempPath, targetPath, overwrite);
 
                     return File.Exists(targetPath)
                         ? new ImageSaveResult(true)

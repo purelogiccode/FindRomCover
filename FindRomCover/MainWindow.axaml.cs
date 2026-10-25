@@ -43,6 +43,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     private bool _isExiting;
     private CancellationTokenSource? _loadMissingCts;
     private Task? _loadMissingTask;
+    private Task? _mameLoadTask;
     private Dictionary<string, string>? _mameLookup;
     private string _selectedRomFileName = string.Empty;
     private TrayIconManager? _systemTrayIcon;
@@ -88,11 +89,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         SimilarImages.CollectionChanged += (_, _) =>
         {
             UpdateAiPickAvailability();
+            UpdateStatusImageCount();
             NotifyOverlayProperties();
         };
         PanelImages.CollectionChanged += (_, _) =>
         {
             UpdateAiPickAvailability();
+            UpdateStatusImageCount();
             NotifyOverlayProperties();
         };
         MissingImages.CollectionChanged += (_, _) => NotifyOverlayProperties();
@@ -102,13 +105,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         PropertyChanged += OnWindowPropertyChanged;
         GoogleWebView.NavigationCompleted += (_, _) =>
         {
-            IsSearching = false;
-            StatusMessage.Text = "Google web search loaded.";
+            SetGoogleWebSearching(false);
+            if (SearchTabControl.SelectedIndex == 1)
+                StatusMessage.Text = "Google web search loaded.";
         };
         BingWebView.NavigationCompleted += (_, _) =>
         {
-            IsSearching = false;
-            StatusMessage.Text = "Bing web search loaded.";
+            SetBingWebSearching(false);
+            if (SearchTabControl.SelectedIndex == 2)
+                StatusMessage.Text = "Bing web search loaded.";
         };
 
         ConfigureWebViewEnvironment(GoogleWebView, "Google");
@@ -116,7 +121,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
         InitializeNotifyIcon();
 
-        _ = LoadMameDataAsync();
+        _mameLoadTask = LoadMameDataAsync();
         UpdateUiStateForFolderPaths();
         UpdateAiPickAvailability();
     }
@@ -183,20 +188,55 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
     }
 
-    /// <summary>
-    ///     Gets or sets a value indicating whether a web or API search is running.
-    /// </summary>
-    public bool IsSearching
-    {
-        get;
-        set
-        {
-            if (field == value) return;
+    private bool _isApiSearching;
+    private bool _isBingWebSearching;
+    private bool _isGoogleWebSearching;
 
-            field = value;
-            OnPropertyChanged();
-            NotifyOverlayProperties();
-        }
+    /// <summary>
+    ///     Gets a value indicating whether a web or API search is running.
+    /// </summary>
+    public bool IsSearching => _isApiSearching || IsWebSearching;
+
+    /// <summary>Gets a value indicating whether the Google API search is running.</summary>
+    public bool IsApiSearching => _isApiSearching;
+
+    /// <summary>Gets a value indicating whether an embedded web search is loading.</summary>
+    public bool IsWebSearching => _isGoogleWebSearching || _isBingWebSearching;
+
+    private void SetApiSearching(bool value)
+    {
+        if (_isApiSearching == value) return;
+
+        _isApiSearching = value;
+        OnPropertyChanged(nameof(IsApiSearching));
+        OnPropertyChanged(nameof(IsSearching));
+        NotifyOverlayProperties();
+    }
+
+    private void SetGoogleWebSearching(bool value)
+    {
+        if (_isGoogleWebSearching == value) return;
+
+        _isGoogleWebSearching = value;
+        OnPropertyChanged(nameof(IsWebSearching));
+        OnPropertyChanged(nameof(IsSearching));
+        NotifyOverlayProperties();
+    }
+
+    private void SetBingWebSearching(bool value)
+    {
+        if (_isBingWebSearching == value) return;
+
+        _isBingWebSearching = value;
+        OnPropertyChanged(nameof(IsWebSearching));
+        OnPropertyChanged(nameof(IsSearching));
+        NotifyOverlayProperties();
+    }
+
+    private void SetWebSearching(bool value)
+    {
+        SetGoogleWebSearching(value);
+        SetBingWebSearching(value);
     }
 
     /// <summary>
@@ -281,7 +321,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     /// <summary>
     ///     Gets a value indicating whether the API empty-state message is visible.
     /// </summary>
-    public bool ApiEmptyMessageVisible => !IsSearching && PanelImages.Count == 0;
+    public bool ApiEmptyMessageVisible => !IsApiSearching && PanelImages.Count == 0;
 
     /// <summary>
     ///     Gets the message shown in the API results panel while it has no content.
@@ -374,9 +414,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             _systemTrayIcon.Initialize();
             _systemTrayIcon.RestoreRequested += RestoreFromTray;
             _systemTrayIcon.ExitRequested += ExitApplication;
+
+            if (!_systemTrayIcon.IsAvailable)
+                LogService.WarningTransient("The system tray icon could not be created; minimizing keeps the window in the taskbar.");
         }
         catch (Exception ex)
         {
+            _systemTrayIcon?.Dispose();
+            _systemTrayIcon = null;
             LogService.Error(ex, "Error in InitializeNotifyIcon");
         }
     }
@@ -397,7 +442,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         try
         {
-            if (_systemTrayIcon == null) return;
+            // Never hide the window when there is no working tray icon: the user would
+            // have no way to bring the application back. Keep it minimized in the taskbar.
+            if (_systemTrayIcon is not { IsAvailable: true }) return;
 
             _systemTrayIcon.Visible = true;
             Hide();
@@ -446,6 +493,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             LstMissingImages.KeyDown += LstMissingImages_KeyDown;
 
             await InitializeWebViewsAsync();
+
+            if (_mameLoadTask != null) await _mameLoadTask;
 
             if (!string.IsNullOrEmpty(TxtRomFolder.Text) && !string.IsNullOrEmpty(TxtImageFolder.Text))
                 await RefreshMissingImagesListAsync();
@@ -615,7 +664,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                     break;
                 case nameof(SettingsManager.UseMameDescriptions):
                     UpdateMameDescriptionCheck();
-                    if (_mameLookup is { Count: > 0 })
+                    if (_mameLoadTask != null) await _mameLoadTask;
+                    if (_mameLookup is { Count: > 0 } && FolderPathsAreValid())
                         await RefreshMissingImagesListAsync();
                     break;
                 case nameof(SettingsManager.AiAssistEnabled):
@@ -648,6 +698,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 ? "Light"
                 : "Dark";
             App.ChangeTheme(theme, Settings.AccentColor);
+            UpdateBaseThemeMenuChecks();
         }
         catch (Exception ex)
         {
@@ -663,6 +714,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
             var accent = menuItem.Name?.Replace("Accent", "") ?? "Blue";
             App.ChangeTheme(Settings.BaseTheme, accent);
+            UpdateAccentColorChecks();
         }
         catch (Exception ex)
         {
@@ -853,8 +905,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         {
             if (App.LogWindow == null) return;
 
-            if (ToggleDebugWindow.IsChecked) App.LogWindow.Show();
-            else App.LogWindow.Hide();
+            var shouldShow = !App.LogWindow.IsVisible;
+            ToggleDebugWindow.IsChecked = shouldShow;
+            if (shouldShow)
+            {
+                App.LogWindow.Show();
+                App.LogWindow.RefreshLog();
+            }
+            else
+            {
+                App.LogWindow.Hide();
+            }
         }
         catch (Exception ex)
         {
@@ -868,6 +929,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         {
             Settings.UseMameDescriptions = ToggleMameDescriptions.IsChecked;
             Settings.SaveSettings();
+            UpdateMameDescriptionCheck();
         }
         catch (Exception ex)
         {
@@ -881,6 +943,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         {
             Settings.IgnoreBracketedText = ToggleIgnoreBracketedText.IsChecked;
             Settings.SaveSettings();
+            UpdateIgnoreBracketedTextCheck();
         }
         catch (Exception ex)
         {
@@ -1235,14 +1298,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
                 cancellationToken.ThrowIfCancellationRequested();
                 return (missing.OrderBy(static x => x.RomName, StringComparer.OrdinalIgnoreCase).ToList(),
-                    allRomNames.Count);
+                    allRomNames);
             }, cancellationToken);
 
-            var (missingFiles, romCount) = missingResult;
+            var (missingFiles, allRomNames) = missingResult;
+            var romCount = allRomNames.Count;
 
             cancellationToken.ThrowIfCancellationRequested();
+            _imageFolderWatcher?.KnownRomNames = allRomNames;
             MissingImages.Clear();
-            SimilarImages.Clear();
+            DisposeAndClearImages(SimilarImages);
 
             foreach (var item in missingFiles.Select(static mf => new MissingImageItem(mf.RomName, mf.SearchName)))
                 MissingImages.Add(item);
@@ -1278,14 +1343,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
         try
         {
+            var wasSelected = removeIndex == LstMissingImages.SelectedIndex;
             MissingImages.RemoveAt(removeIndex);
-            if (MissingImages.Count > 0)
+            if (MissingImages.Count > 0 && (wasSelected || LstMissingImages.SelectedItem == null))
             {
                 var newIndex = Math.Min(removeIndex, MissingImages.Count - 1);
                 LstMissingImages.SelectedIndex = newIndex;
                 LstMissingImages.ScrollIntoView(MissingImages[newIndex]);
             }
-            else
+            else if (MissingImages.Count == 0)
             {
                 LblLocalSearchQuery.Content = null;
             }
@@ -1296,6 +1362,25 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
 
         UpdateMissingCount();
+    }
+
+    private static void DisposeAndClearImages(ObservableCollection<ImageData> images)
+    {
+        foreach (var image in images) image.Dispose();
+        images.Clear();
+    }
+
+    private void UpdateStatusImageCount()
+    {
+        var count = SearchTabControl?.SelectedIndex switch
+        {
+            0 => SimilarImages.Count,
+            3 => PanelImages.Count,
+            _ => 0
+        };
+
+        if (StatusImageCount != null)
+            StatusImageCount.Text = count.ToString(CultureInfo.InvariantCulture);
     }
 
     private void UpdateMissingCount()
@@ -1315,7 +1400,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         try
         {
             RemoveSelectedItem();
-            SimilarImages.Clear();
+            DisposeAndClearImages(SimilarImages);
             App.AudioService.PlayClickSound();
         }
         catch (Exception ex)
@@ -1382,7 +1467,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             {
                 File.Delete(romFilePath);
                 LogService.Information($"Deleted ROM file: {romFilePath}");
-                RemoveSelectedItem();
+                RemoveMissingItemByName(selectedItem.RomName);
             }
             catch (Exception ex)
             {
@@ -1447,6 +1532,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
             Settings.SelectedSimilarityAlgorithm = menuItem.Header?.ToString() ?? "Jaro-Winkler Distance";
             Settings.SaveSettings();
+            UpdateSimilarityAlgorithmChecks();
         }
         catch (Exception ex)
         {
@@ -1480,6 +1566,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             {
                 Settings.SimilarityThreshold = rate;
                 Settings.SaveSettings();
+                UpdateSimilarityThresholdChecks();
             }
         }
         catch (Exception ex)
@@ -1521,6 +1608,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             Settings.ImageWidth = size;
             Settings.ImageHeight = size;
             Settings.SaveSettings();
+            UpdateThumbnailSizeMenuChecks();
         }
         catch (Exception ex)
         {
@@ -1586,7 +1674,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             _aiAssistCts?.Cancel();
             _aiAssistCts?.Dispose();
             _aiAssistCts = null;
-            IsSearching = false;
+            SetApiSearching(false);
+            SetWebSearching(false);
 
             if (LstMissingImages.SelectedItem is not MissingImageItem selectedItem)
             {
@@ -1594,14 +1683,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 // file onto the previously selected (possibly already filled) ROM.
                 _imageFolderWatcher?.PendingRenameTarget = null;
 
-                SimilarImages.Clear();
-                PanelImages.Clear();
+                DisposeAndClearImages(SimilarImages);
+                DisposeAndClearImages(PanelImages);
                 LblLocalSearchQuery.Content = null;
                 LblApiSearchQuery.Content = null;
                 IsFindingSimilar = false;
-                IsSearching = false;
                 HasSearchedSimilar = false;
                 HasSearchedApi = false;
+                UpdateStatusImageCount();
                 return;
             }
 
@@ -1609,6 +1698,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             var selectedItemSearchName = selectedItem.SearchName;
             _selectedRomFileName = selectedItemRomName;
             _imageFolderWatcher?.PendingRenameTarget = selectedItemRomName;
+
+            // The API results belong to the previous ROM. Drop them before the new
+            // search starts so a stale thumbnail can never be saved under this ROM.
+            DisposeAndClearImages(PanelImages);
+            LblApiSearchQuery.Content = null;
+            HasSearchedApi = false;
+            UpdateStatusImageCount();
 
             try
             {
@@ -1846,8 +1942,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 _webSearchCts?.Cancel();
                 _aiAssistCts?.Cancel();
 
+                _imageFolderWatcher?.KnownRomNames = null;
                 MissingImages.Clear();
-                SimilarImages.Clear();
+                DisposeAndClearImages(SimilarImages);
                 UpdateMissingCount();
             }
 
@@ -1864,7 +1961,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private void StartImageFolderWatcher(string? folderPath)
     {
-        var samePath = string.Equals(_watchedFolderPath, folderPath, StringComparison.OrdinalIgnoreCase);
+        var samePath = AppConstants.FilePathComparer.Equals(_watchedFolderPath, folderPath);
         var watcherAlive = _imageFolderWatcher is { IsWatching: true };
 
         if (samePath && watcherAlive)
@@ -2013,6 +2110,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 3 => "Google API",
                 _ => "Unknown"
             };
+            UpdateStatusImageCount();
 
             if (tab == 3 && string.IsNullOrWhiteSpace(Settings.GoogleKey))
             {

@@ -18,7 +18,10 @@ public static class HttpClientHelper
 
         var client = new HttpClient(handler)
         {
-            Timeout = TimeSpan.FromSeconds(30)
+            // Settings allow API timeouts up to 300 s. A shorter client-wide timeout
+            // silently capped every configured value, so use the maximum and let each
+            // caller's CancellationTokenSource enforce the real timeout.
+            Timeout = TimeSpan.FromSeconds(300)
         };
 
         // Set default headers if needed

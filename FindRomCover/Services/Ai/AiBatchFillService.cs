@@ -128,8 +128,16 @@ public sealed class AiBatchFillService
 
             if (IsUsablePick(pick, images.Count) && images[pick!.BestIndex].ImagePath is { } localPath)
             {
+                if (File.Exists(targetPath))
+                {
+                    _unregisterExpectedFile?.Invoke(targetPath);
+                    return new AiBatchItemResult(item.RomName, item.SearchName, AiBatchOutcome.SkippedAlreadyExists,
+                        "Cover already exists.", targetPath);
+                }
+
                 _preRegisterExpectedFile?.Invoke(targetPath);
-                var saveResult = await ImageProcessor.ConvertAndSaveImageAsync(localPath, targetPath, cancellationToken)
+                var saveResult = await ImageProcessor
+                    .ConvertAndSaveImageAsync(localPath, targetPath, cancellationToken, overwrite: false)
                     .ConfigureAwait(false);
 
                 if (saveResult.Success)
@@ -140,6 +148,10 @@ public sealed class AiBatchFillService
                 }
 
                 _unregisterExpectedFile?.Invoke(targetPath);
+                if (File.Exists(targetPath))
+                    return new AiBatchItemResult(item.RomName, item.SearchName, AiBatchOutcome.SkippedAlreadyExists,
+                        "Cover already exists.", targetPath);
+
                 return new AiBatchItemResult(item.RomName, item.SearchName, AiBatchOutcome.Failed,
                     saveResult.ErrorMessage ?? "Failed to save image.");
             }
@@ -247,8 +259,11 @@ public sealed class AiBatchFillService
                 "The image could not be downloaded.");
         }
 
-        if (apiPick != null)
-            _queryHistory.MarkQueried(targetPath, "api-no-match");
+        if (apiPick == null)
+            return new AiBatchItemResult(item.RomName, item.SearchName, AiBatchOutcome.Failed,
+                "None of the Google API images could be downloaded for AI analysis.", targetPath);
+
+        _queryHistory.MarkQueried(targetPath, "api-no-match");
 
         return new AiBatchItemResult(item.RomName, item.SearchName, AiBatchOutcome.SkippedLowConfidence,
             "AI found no confident match.", targetPath);

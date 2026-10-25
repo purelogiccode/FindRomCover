@@ -39,6 +39,20 @@ public sealed class ImageFolderWatcher : IDisposable
     private static readonly TimeSpan RestartDelay = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan ProcessedEntryLifetime = TimeSpan.FromSeconds(60);
 
+    // A burst of image arrivals (copying or extracting a cover pack) must never be
+    // renamed to the selected ROM one file at a time.
+    private static readonly TimeSpan BulkImportWindow = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan BulkImportCooldown = TimeSpan.FromSeconds(15);
+    private const int BulkImportEventThreshold = 3;
+    private const int MaxFileReadyRetries = 3;
+    private static readonly TimeSpan FileReadyRetryDelay = TimeSpan.FromSeconds(10);
+    private readonly BulkImportDetector _bulkImportDetector =
+        new(BulkImportEventThreshold, BulkImportWindow, BulkImportCooldown);
+    private readonly Lock _bulkImportStateLock = new();
+    private bool _bulkImportActive;
+    private IReadOnlySet<string>? _knownRomNames;
+    private int _pendingImageEvents;
+
     /// <summary>
     ///     Gets or sets the file name (without extension) that the next dropped image should be
     ///     renamed to.
@@ -62,6 +76,17 @@ public sealed class ImageFolderWatcher : IDisposable
                     LogService.Debug($"ImageFolderWatcher: PendingRenameTarget changed from '{old}' to '{value}'");
             }
         }
+    }
+
+    /// <summary>
+    ///     Gets or sets the ROM names (without extension) found by the last scan. A new image
+    ///     whose base name already matches one of these names is already a correctly named
+    ///     cover and must not be renamed to the currently selected ROM.
+    /// </summary>
+    public IReadOnlySet<string>? KnownRomNames
+    {
+        get => Volatile.Read(ref _knownRomNames);
+        set => Volatile.Write(ref _knownRomNames, value);
     }
 
     /// <summary>Gets the path of the folder currently being watched, or null when watching is stopped.</summary>
@@ -214,8 +239,12 @@ public sealed class ImageFolderWatcher : IDisposable
     ///     Starts watching the specified folder for new and renamed image files.
     /// </summary>
     /// <param name="folderPath">The folder to watch.</param>
+    /// <param name="resetErrorCount">
+    ///     True for an explicit user start (reset the restart backoff); false for an
+    ///     automatic restart so a flapping watcher eventually gives up.
+    /// </param>
     /// <returns>True when watching started; false when the folder is missing or cannot be watched.</returns>
-    public bool Start(string folderPath)
+    public bool Start(string folderPath, bool resetErrorCount = true)
     {
         if (_disposed) return false;
 
@@ -262,7 +291,7 @@ public sealed class ImageFolderWatcher : IDisposable
 
                 _watcher = watcher;
                 _watchedFolderPath = folderPath;
-                _consecutiveErrorCount = 0;
+                if (resetErrorCount) _consecutiveErrorCount = 0;
                 _gaveUp = false;
             }
 
@@ -474,7 +503,7 @@ public sealed class ImageFolderWatcher : IDisposable
             lock (_restartLock)
             {
                 if (_disposed) return;
-                if (!string.Equals(_watchedFolderPath, folderPath, StringComparison.OrdinalIgnoreCase)) return;
+                if (!AppConstants.FilePathComparer.Equals(_watchedFolderPath, folderPath)) return;
             }
 
             if (!Directory.Exists(folderPath))
@@ -490,7 +519,7 @@ public sealed class ImageFolderWatcher : IDisposable
                 StopCore(clearWatchedPath: false);
                 if (_disposed) return;
 
-                if (Start(folderPath))
+                if (Start(folderPath, resetErrorCount: false))
                     LogService.Information($"ImageFolderWatcher: recovered watching '{folderPath}'");
             }
             catch (Exception restartEx)
@@ -508,6 +537,7 @@ public sealed class ImageFolderWatcher : IDisposable
 
             LogService.Debug($"ImageFolderWatcher: OnFileCreated fired for '{e.FullPath}'");
 
+            var counted = RecordExternalImageEvent(e.FullPath);
             try
             {
                 await ProcessFileAsync(e.FullPath);
@@ -518,6 +548,10 @@ public sealed class ImageFolderWatcher : IDisposable
             catch (Exception ex)
             {
                 LogService.Error(ex, $"ImageFolderWatcher: unhandled error in OnFileCreated for '{e.FullPath}'");
+            }
+            finally
+            {
+                if (counted) CompleteImageEvent();
             }
         }
         catch (ObjectDisposedException)
@@ -537,6 +571,7 @@ public sealed class ImageFolderWatcher : IDisposable
 
             LogService.Debug($"ImageFolderWatcher: OnFileRenamed fired for '{e.FullPath}'");
 
+            var counted = RecordExternalImageEvent(e.FullPath);
             try
             {
                 await ProcessFileAsync(e.FullPath);
@@ -547,6 +582,10 @@ public sealed class ImageFolderWatcher : IDisposable
             catch (Exception ex)
             {
                 LogService.Error(ex, $"ImageFolderWatcher: unhandled error in OnFileRenamed for '{e.FullPath}'");
+            }
+            finally
+            {
+                if (counted) CompleteImageEvent();
             }
         }
         catch (ObjectDisposedException)
@@ -597,7 +636,78 @@ public sealed class ImageFolderWatcher : IDisposable
             _recentlyProcessed.TryRemove(KeyValuePair.Create(key, current));
     }
 
-    private async Task ProcessFileAsync(string filePath)
+    private static bool IsSupportedImageFile(string filePath)
+    {
+        return SupportedExtensions.Contains(Path.GetExtension(filePath));
+    }
+
+    /// <summary>
+    ///     Records an external image event for bulk-import detection. Files the application
+    ///     is writing itself are pre-registered and must not count towards a burst.
+    /// </summary>
+    /// <returns><see langword="true" /> when the caller must call <see cref="CompleteImageEvent" />.</returns>
+    private bool RecordExternalImageEvent(string filePath)
+    {
+        if (_recentlyProcessed.ContainsKey(filePath)) return false;
+        if (!IsSupportedImageFile(filePath)) return false;
+
+        var isBulk = _bulkImportDetector.Record(DateTime.UtcNow);
+        lock (_bulkImportStateLock)
+        {
+            _pendingImageEvents++;
+            if (isBulk) _bulkImportActive = true;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    ///     Marks one recorded image event as processed. The bulk-import state stays active
+    ///     until every event that arrived in the burst has been handled, so a long queue of
+    ///     files cannot start being renamed after a fixed cooldown.
+    /// </summary>
+    private void CompleteImageEvent()
+    {
+        lock (_bulkImportStateLock)
+        {
+            if (_pendingImageEvents > 0) _pendingImageEvents--;
+            if (_pendingImageEvents == 0) _bulkImportActive = false;
+        }
+    }
+
+    private bool IsBulkImportActive()
+    {
+        lock (_bulkImportStateLock)
+        {
+            return _bulkImportActive;
+        }
+    }
+
+    private bool IsKnownRomName(string fileNameWithoutExtension)
+    {
+        var knownRomNames = Volatile.Read(ref _knownRomNames);
+        return knownRomNames != null && knownRomNames.Contains(fileNameWithoutExtension);
+    }
+
+    private async Task RetryProcessFileAsync(string filePath, int attempt)
+    {
+        try
+        {
+            await Task.Delay(FileReadyRetryDelay);
+            if (_disposed || !File.Exists(filePath)) return;
+
+            await ProcessFileAsync(filePath, attempt);
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+        catch (Exception ex)
+        {
+            LogService.Debug($"ImageFolderWatcher: retry for '{filePath}' failed: {ex.Message}");
+        }
+    }
+
+    private async Task ProcessFileAsync(string filePath, int attempt = 0)
     {
         try
         {
@@ -642,6 +752,25 @@ public sealed class ImageFolderWatcher : IDisposable
 
                 if (!await WaitForFileReadyAsync(filePath))
                 {
+                    _recentlyProcessed.TryRemove(filePath, out _);
+
+                    // Bulk imports and already-correctly-named covers are left alone; a
+                    // retry would only risk renaming a file that is still being copied.
+                    if (IsBulkImportActive() || IsKnownRomName(fileNameWithoutExt))
+                    {
+                        LogService.Debug(
+                            $"ImageFolderWatcher: '{Path.GetFileName(filePath)}' was not stable — leaving it untouched");
+                        return;
+                    }
+
+                    if (attempt < MaxFileReadyRetries)
+                    {
+                        LogService.WarningTransient(
+                            $"ImageFolderWatcher: '{Path.GetFileName(filePath)}' is not stable yet — retrying ({attempt + 1}/{MaxFileReadyRetries})");
+                        _ = RetryProcessFileAsync(filePath, attempt + 1);
+                        return;
+                    }
+
                     LogService.WarningTransient(
                         $"ImageFolderWatcher: '{Path.GetFileName(filePath)}' is not accessible — skipping processing");
                     return;
@@ -665,6 +794,24 @@ public sealed class ImageFolderWatcher : IDisposable
                 }
 
                 var renameTarget = PendingRenameTarget;
+                if (IsBulkImportActive())
+                {
+                    _recentlyProcessed.TryRemove(filePath, out _);
+                    LogService.Debug(
+                        $"ImageFolderWatcher: bulk import in progress — leaving '{Path.GetFileName(filePath)}' untouched");
+                    return;
+                }
+
+                if (!string.IsNullOrEmpty(renameTarget) &&
+                    IsKnownRomName(fileNameWithoutExt) &&
+                    !string.Equals(fileNameWithoutExt, renameTarget, StringComparison.OrdinalIgnoreCase))
+                {
+                    _recentlyProcessed.TryRemove(filePath, out _);
+                    LogService.Debug(
+                        $"ImageFolderWatcher: '{Path.GetFileName(filePath)}' already matches a ROM name — leaving it untouched");
+                    return;
+                }
+
                 LogService.Debug(
                     $"ImageFolderWatcher: processing '{Path.GetFileName(filePath)}' — PendingRenameTarget = '{renameTarget}'");
 
@@ -698,7 +845,7 @@ public sealed class ImageFolderWatcher : IDisposable
                     var directory = Path.GetDirectoryName(filePath);
                     var renamedPath = Path.Combine(directory ?? ".", renameTarget + extension);
 
-                    if (string.Equals(filePath, renamedPath, StringComparison.OrdinalIgnoreCase))
+                    if (AppConstants.FilePathComparer.Equals(filePath, renamedPath))
                     {
                         LogService.Debug(
                             $"ImageFolderWatcher: source and target are the same ('{Path.GetFileName(filePath)}'), skipping rename");
@@ -716,13 +863,18 @@ public sealed class ImageFolderWatcher : IDisposable
                             renamedPath = GetFreeRenameTargetPath(renamedPath);
                         }
 
+                        // Register the target before the move so the watcher's own rename
+                        // event is not mistaken for an external file or a bulk import.
+                        PreRegisterExpectedFile(renamedPath);
                         var renamed = await MoveFileWithRetryAsync(filePath, renamedPath);
                         if (renamed)
                         {
                             wasRenamed = true;
                             TryClearPendingRenameTarget(renameTarget);
                             _recentlyProcessed.TryRemove(filePath, out _);
-                            _recentlyProcessed.TryAdd(renamedPath, DateTime.UtcNow.Add(ProcessedEntryLifetime).Ticks);
+                            _recentlyProcessed.AddOrUpdate(renamedPath,
+                                DateTime.UtcNow.Add(ProcessedEntryLifetime).Ticks,
+                                (_, _) => DateTime.UtcNow.Add(ProcessedEntryLifetime).Ticks);
                             ScheduleDedupeCleanup(renamedPath);
                             LogService.Debug(
                                 $"ImageFolderWatcher: renamed '{Path.GetFileName(filePath)}' to '{Path.GetFileName(renamedPath)}'");
@@ -730,6 +882,7 @@ public sealed class ImageFolderWatcher : IDisposable
                         }
                         else
                         {
+                            UnregisterExpectedFile(renamedPath);
                             LogService.WarningTransient(
                                 $"ImageFolderWatcher: failed to rename '{filePath}' to '{renamedPath}' after retries — PendingRenameTarget kept for next file");
                         }
@@ -754,33 +907,41 @@ public sealed class ImageFolderWatcher : IDisposable
 
                 if (needsConversion)
                 {
+                    string? expectedPngPath = null;
                     if (!isPng)
                     {
                         // Never overwrite an existing cover with the converted PNG: the
                         // dropped file is kept under its current name instead.
-                        var pngTarget = Path.Combine(Path.GetDirectoryName(filePath) ?? ".",
+                        expectedPngPath = Path.Combine(Path.GetDirectoryName(filePath) ?? ".",
                             Path.GetFileNameWithoutExtension(filePath) + ".png");
-                        if (File.Exists(pngTarget))
+                        if (File.Exists(expectedPngPath))
                         {
                             _recentlyProcessed.TryRemove(filePath, out _);
                             LogService.WarningTransient(
-                                $"ImageFolderWatcher: '{Path.GetFileName(pngTarget)}' already exists — '{Path.GetFileName(filePath)}' was kept as-is to protect the existing cover");
+                                $"ImageFolderWatcher: '{Path.GetFileName(expectedPngPath)}' already exists — '{Path.GetFileName(filePath)}' was kept as-is to protect the existing cover");
                             ConversionFailed?.Invoke(filePath,
-                                $"A cover named '{Path.GetFileName(pngTarget)}' already exists.\n\nThe dropped file was kept unchanged.");
+                                $"A cover named '{Path.GetFileName(expectedPngPath)}' already exists.\n\nThe dropped file was kept unchanged.");
                             return;
                         }
+
+                        // Register the conversion target before it is written so the
+                        // watcher's own output does not look like an external arrival.
+                        PreRegisterExpectedFile(expectedPngPath);
                     }
 
                     var (convertedPath, convertError) = await ConvertToPngWithRetryAsync(filePath);
                     if (convertedPath == null)
                     {
+                        if (expectedPngPath != null) UnregisterExpectedFile(expectedPngPath);
                         LogService.Debug(
                             $"ImageFolderWatcher: conversion to PNG failed for '{filePath}' — ImageFound NOT fired");
                         ConversionFailed?.Invoke(filePath, convertError ?? "Unknown error");
                         return;
                     }
 
-                    _recentlyProcessed.TryAdd(convertedPath, DateTime.UtcNow.Add(ProcessedEntryLifetime).Ticks);
+                    _recentlyProcessed.AddOrUpdate(convertedPath,
+                        DateTime.UtcNow.Add(ProcessedEntryLifetime).Ticks,
+                        (_, _) => DateTime.UtcNow.Add(ProcessedEntryLifetime).Ticks);
                     ScheduleDedupeCleanup(convertedPath);
 
                     filePath = convertedPath;
@@ -871,12 +1032,12 @@ public sealed class ImageFolderWatcher : IDisposable
             elapsed += pollIntervalMs;
         }
 
-        // Timed out: only treat the file as ready when at least some content was
-        // readable. Returning true for an empty/never-readable file sends a file that
-        // is still being copied into conversion and produces spurious error popups.
+        // Timed out: the file was never stable long enough to be processed safely.
+        // Returning true here would rename/convert a partially written file and, for
+        // non-PNG sources, delete the file the writer is still filling.
         LogService.Debug(
             $"ImageFolderWatcher: file '{Path.GetFileName(filePath)}' was not stable after {maxWaitMs} ms (last size: {lastSize}).");
-        return lastSize > 0;
+        return false;
     }
 
     private static string GetFreeRenameTargetPath(string preferredPath)

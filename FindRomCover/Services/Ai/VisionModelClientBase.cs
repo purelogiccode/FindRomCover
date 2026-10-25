@@ -263,7 +263,10 @@ public abstract class VisionModelClientBase : IVisionModelClient
 
         return new AiVerificationResult
         {
-            IsMatch = GetBool(root, "match") ?? false,
+            // Accept the documented "match" key and the common "isMatch" variant. If the
+            // model omitted the verdict entirely, do not silently reject the image: the
+            // safe default for an unparseable answer is to proceed without verification.
+            IsMatch = GetBool(root, "match") ?? GetBool(root, "isMatch") ?? true,
             Confidence = NormalizeConfidence(GetDouble(root, "confidence") ?? 0),
             Reason = GetString(root, "reason") ?? string.Empty
         };

@@ -39,6 +39,9 @@ There is no overwrite prompt; the existing cover always wins.
 
 Because of this watcher, drag-and-drop or copy-paste into the top level of the image folder works the same way as saving from the browser.
 
+!!! note "Bulk imports are left untouched"
+    Extracting or copying many covers at once is treated as a bulk import: the watcher leaves those files under their original names instead of renaming them to the selected game. Press **F5** after the import to refresh the missing list.
+
 ## Verify with AI before renaming
 
 When **Verify images with AI before renaming or saving** is enabled in [AI Settings](../ai/settings.md), the watcher sends the new image to your configured vision model and asks whether it matches the selected game.

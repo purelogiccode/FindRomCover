@@ -24,11 +24,11 @@ public class HttpClientHelperAdditionalTests
     }
 
     [Fact]
-    public void ClientDefaultTimeoutShouldBe30Seconds()
+    public void ClientDefaultTimeoutShouldBeMaximumConfiguredTimeout()
     {
         var client = HttpClientHelper.Client;
 
-        client.Timeout.Should().Be(TimeSpan.FromSeconds(30));
+        client.Timeout.Should().Be(TimeSpan.FromSeconds(300));
     }
 
     [Fact]
