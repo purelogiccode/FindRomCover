@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using FindRomCover.Models;
+using FindRomCover.Views;
 using Serilog;
 using Serilog.Events;
 

@@ -4,7 +4,7 @@ using FindRomCover.Managers;
 using FindRomCover.Models;
 using FindRomCover.Services;
 
-namespace FindRomCover;
+namespace FindRomCover.Views;
 
 /// <summary>
 ///     Window for configuring the Google API key used by the API cover search.

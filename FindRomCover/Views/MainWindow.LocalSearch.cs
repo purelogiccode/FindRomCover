@@ -5,7 +5,7 @@ using FindRomCover.Models;
 using FindRomCover.Services;
 using FindRomCover.Services.Ai;
 
-namespace FindRomCover;
+namespace FindRomCover.Views;
 
 /// <summary>
 ///     Main application window. This part contains the local similarity search, the

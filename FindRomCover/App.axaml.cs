@@ -9,6 +9,7 @@ using FindRomCover.Interfaces;
 using FindRomCover.Managers;
 using FindRomCover.Models;
 using FindRomCover.Services;
+using FindRomCover.Views;
 using ImageMagick;
 using Microsoft.Extensions.DependencyInjection;
 

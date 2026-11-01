@@ -5,7 +5,7 @@ using FindRomCover.Managers;
 using FindRomCover.Models;
 using FindRomCover.Services;
 
-namespace FindRomCover;
+namespace FindRomCover.Views;
 
 /// <summary>
 ///     Window for editing the list of file extensions that are treated as ROM files.

@@ -37,15 +37,15 @@ Static services such as `LogService`, `ImageProcessor`, and the AI services are 
 
 ## Presentation
 
-`MainWindow` is split across partial files:
+`MainWindow` is split across partial files in `FindRomCover/Views`:
 
 | File | Responsibility |
 |------|----------------|
-| `MainWindow.axaml` / `MainWindow.axaml.cs` | Layout, menus, folder handling, missing covers list, themes, tray, updates, screenshots |
-| `MainWindow.LocalSearch.cs` | Local Files tab, similarity search, manual and AI pick |
-| `MainWindow.WebSearch.cs` | Google Web, Bing Web, and Google API tabs |
+| `Views/MainWindow.axaml` / `Views/MainWindow.axaml.cs` | Layout, menus, folder handling, missing covers list, themes, tray, updates, screenshots |
+| `Views/MainWindow.LocalSearch.cs` | Local Files tab, similarity search, manual and AI pick |
+| `Views/MainWindow.WebSearch.cs` | Google Web, Bing Web, and Google API tabs |
 
-Additional windows: `SettingsWindow` (extensions), `ApiSettingsWindow` (Google key), `AiSettingsWindow` (AI configuration), `AiBatchWindow` (batch fill), `DebugWindow` (live log), `AboutWindow`.
+Additional windows live in `Views/`: `SettingsWindow` (extensions), `ApiSettingsWindow` (Google key), `AiSettingsWindow` (AI configuration), `AiBatchWindow` (batch fill), `DebugWindow` (live log), `AboutWindow`.
 
 ## Persistence
 

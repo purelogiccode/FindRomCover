@@ -6,7 +6,7 @@ using FindRomCover.Models;
 using FindRomCover.Services;
 using FindRomCover.Services.Ai;
 
-namespace FindRomCover;
+namespace FindRomCover.Views;
 
 /// <summary>
 ///     Window that runs an AI-assisted batch fill for the missing covers of an image folder.

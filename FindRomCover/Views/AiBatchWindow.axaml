@@ -1,4 +1,4 @@
-<Window x:Class="FindRomCover.AiBatchWindow"
+<Window x:Class="FindRomCover.Views.AiBatchWindow"
         xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="AI Batch Fill"

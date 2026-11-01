@@ -1,4 +1,4 @@
-<Window x:Class="FindRomCover.ApiSettingsWindow"
+<Window x:Class="FindRomCover.Views.ApiSettingsWindow"
         xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="API Settings"

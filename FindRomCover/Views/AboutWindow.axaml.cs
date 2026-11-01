@@ -4,7 +4,7 @@ using Avalonia.Interactivity;
 using FindRomCover.Models;
 using FindRomCover.Services;
 
-namespace FindRomCover;
+namespace FindRomCover.Views;
 
 /// <summary>
 ///     About dialog that shows the application version and links to the project pages.

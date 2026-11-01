@@ -8,7 +8,7 @@ using Avalonia.Threading;
 using FindRomCover.Models;
 using FindRomCover.Services;
 
-namespace FindRomCover;
+namespace FindRomCover.Views;
 
 /// <summary>
 ///     Log viewer window that shows the live application log and lets the user copy or clear it.

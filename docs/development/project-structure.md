@@ -63,21 +63,22 @@ CSharp_FindRomCover/
 │   │   └── ...                       # dialogs, command and button helpers, HTTP helper
 │   ├── Styles/
 │   │   └── AppStyles.axaml           # Shared control styles
+│   ├── Views/                        # Avalonia windows and dialogs
+│   │   ├── MainWindow.axaml / .axaml.cs  # Main window and orchestration
+│   │   ├── MainWindow.LocalSearch.cs     # Local Files tab logic
+│   │   ├── MainWindow.WebSearch.cs       # Web and Google API tab logic
+│   │   ├── AiSettingsWindow.axaml(.cs)   # AI configuration dialog
+│   │   ├── AiBatchWindow.axaml(.cs)      # Batch fill dialog
+│   │   ├── ApiSettingsWindow.axaml(.cs)  # Google API key dialog
+│   │   ├── SettingsWindow.axaml(.cs)     # Supported extensions dialog
+│   │   ├── DebugWindow.axaml(.cs)        # Live log viewer
+│   │   └── AboutWindow.axaml(.cs)
 │   ├── Program.cs                    # Avalonia bootstrap
 │   ├── App.axaml / App.axaml.cs      # Startup, DI, themes, global handlers
 │   ├── app.manifest                  # Windows application manifest
 │   ├── AppConstants.cs               # Constants and provider presets
 │   ├── ThemePalette.cs               # Theme and accent palette application
 │   ├── AssemblyInfo.cs               # InternalsVisibleTo FindRomCover.Tests
-│   ├── MainWindow.axaml / .axaml.cs  # Main window and orchestration
-│   ├── MainWindow.LocalSearch.cs     # Local Files tab logic
-│   ├── MainWindow.WebSearch.cs       # Web and Google API tab logic
-│   ├── AiSettingsWindow.axaml(.cs)   # AI configuration dialog
-│   ├── AiBatchWindow.axaml(.cs)      # Batch fill dialog
-│   ├── ApiSettingsWindow.axaml(.cs)  # Google API key dialog
-│   ├── SettingsWindow.axaml(.cs)     # Supported extensions dialog
-│   ├── DebugWindow.axaml(.cs)        # Live log viewer
-│   ├── AboutWindow.axaml(.cs)
 │   └── mame.dat                      # MAME machine data (copied to the output)
 ├── FindRomCover.Tests/               # xUnit test project (net10.0-windows)
 │   ├── ApiProvider/
@@ -128,9 +129,9 @@ CSharp_FindRomCover/
 |------|------|
 | `FindRomCover/Program.cs` | Avalonia bootstrap and desktop lifetime |
 | `FindRomCover/App.axaml.cs` | Application startup, DI, theme, exception handling, update check |
-| `FindRomCover/MainWindow.axaml.cs` | Main window orchestration, scanning, tray, themes, screenshots |
-| `FindRomCover/MainWindow.LocalSearch.cs` | Local similarity search and AI pick |
-| `FindRomCover/MainWindow.WebSearch.cs` | Google/Bing web views and the Google API tab |
+| `FindRomCover/Views/MainWindow.axaml.cs` | Main window orchestration, scanning, tray, themes, screenshots |
+| `FindRomCover/Views/MainWindow.LocalSearch.cs` | Local similarity search and AI pick |
+| `FindRomCover/Views/MainWindow.WebSearch.cs` | Google/Bing web views and the Google API tab |
 | `FindRomCover/Managers/SettingsManager.cs` | Settings, encryption, migration |
 | `FindRomCover/Services/Ai/AiAssistService.cs` | Vision-model picking |
 | `FindRomCover/Services/Ai/AiBatchFillService.cs` | Batch fill orchestration |

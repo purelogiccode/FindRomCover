@@ -6,7 +6,7 @@ using FindRomCover.Models;
 using FindRomCover.Services;
 using FindRomCover.Services.Ai;
 
-namespace FindRomCover;
+namespace FindRomCover.Views;
 
 /// <summary>
 ///     Window for configuring the AI provider, model, thresholds and query history.
