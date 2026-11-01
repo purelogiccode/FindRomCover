@@ -169,6 +169,10 @@ public sealed class AiAssistService : IDisposable
         await _requestLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            // Another request may have filled the cache while this one waited.
+            if (_cache.TryGet<AiVerificationResult>(cacheKey, out var raced) && raced != null)
+                return raced;
+
             var client = ResolveClient(options);
             try
             {
@@ -336,7 +340,9 @@ public sealed class AiAssistService : IDisposable
         request.Headers.UserAgent.ParseAdd(ImageSaveService.BrowserUserAgent);
         request.Headers.Accept.ParseAdd("image/avif,image/webp,image/apng,image/*,*/*;q=0.8");
 
-        using var response = await httpClient.SendAsync(request, timeoutCts.Token).ConfigureAwait(false);
+        using var response = await httpClient
+            .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeoutCts.Token)
+            .ConfigureAwait(false);
         if (!response.IsSuccessStatusCode)
         {
             LogService.Debug($"AI assist: image download failed ({(int)response.StatusCode}) for '{url}'.");
@@ -382,6 +388,10 @@ public sealed class AiAssistService : IDisposable
         await _requestLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            // Another request may have filled the cache while this one waited.
+            if (_cache.TryGet<AiPickResult>(cacheKey, out var raced) && raced != null)
+                return raced;
+
             var client = ResolveClient(options);
             try
             {
@@ -445,11 +455,15 @@ public sealed class AiAssistService : IDisposable
         // gateway/host change cannot keep serving verdicts produced by another backend.
         AppendKeyPart(builder, options.BaseUrl.Trim().ToLowerInvariant());
         AppendKeyPart(builder, options.Model);
+        // Custom request parameters change the model's output, so a verdict produced
+        // with different parameters must not be reused for 30 days.
+        AppendKeyPart(builder, options.RequestParametersJson);
         AppendKeyPart(builder, romName);
         AppendKeyPart(builder, searchName);
 
         foreach (var input in inputs)
         {
+            AppendKeyPart(builder, input.Name);
             AppendKeyPart(builder, input.Image.Hash);
             AppendKeyPart(builder, input.SourceIndex.ToString(CultureInfo.InvariantCulture));
         }

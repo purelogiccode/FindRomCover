@@ -9,6 +9,10 @@ namespace FindRomCover.Services;
 /// </summary>
 public static class ImageProcessor
 {
+    // A second instance may be writing a temp file right now; only remove files that
+    // are old enough to be leftovers from a crash.
+    private static readonly TimeSpan OrphanedTempMinAge = TimeSpan.FromMinutes(10);
+
     /// <summary>
     ///     Deletes leftover temporary files created by this application in the given directory.
     /// </summary>
@@ -20,6 +24,8 @@ public static class ImageProcessor
 
         try
         {
+            var cutoffUtc = DateTime.UtcNow - OrphanedTempMinAge;
+
             // Only delete the app's own temp naming schemes: "*.tmp" and the current
             // "<output>.tmp<8 hex chars>" names. A broad "*.tmp*" pattern would also
             // delete user files whose names merely contain ".tmp".
@@ -27,6 +33,8 @@ public static class ImageProcessor
                 if (IsOrphanedTempFileName(Path.GetFileName(tempFile)))
                     try
                     {
+                        if (File.GetLastWriteTimeUtc(tempFile) > cutoffUtc) continue;
+
                         File.Delete(tempFile);
                     }
                     catch (Exception ex)
@@ -36,7 +44,8 @@ public static class ImageProcessor
         }
         catch (Exception ex)
         {
-            LogService.Error(ex, $"Failed to enumerate temp files in directory: {directoryPath}");
+            // A revoked ACL or a disconnected network mount is environmental.
+            LogService.WarningTransient(ex, $"Failed to enumerate temp files in directory: {directoryPath}");
         }
     }
 

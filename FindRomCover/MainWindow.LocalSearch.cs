@@ -17,17 +17,41 @@ public partial class MainWindow
     private Task _aiAutoPickQueue = Task.CompletedTask;
 
     /// <summary>
+    ///     Cancels and disposes the supplied token source without awaiting. Awaiting
+    ///     <c>CancelAsync</c> before clearing the field let a second selection replace the
+    ///     field, and the first resumer then disposed the newer run's source.
+    /// </summary>
+    private static void CancelAndDispose(ref CancellationTokenSource? source)
+    {
+        var cts = Interlocked.Exchange(ref source, null);
+        if (cts == null) return;
+
+        try
+        {
+            cts.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+            // Already disposed by its owner.
+        }
+
+        cts.Dispose();
+    }
+
+    /// <summary>
     ///     Queues an automatic AI pick behind any pick already running. Both the local and
     ///     the API search auto-run a pick; without serialization the second one saw
     ///     <see cref="IsAiBusy"/> and was silently dropped.
     /// </summary>
     private void QueueAutoAiPick(Func<Task> pick)
     {
+        if (_disposed) return;
+
         var previous = _aiAutoPickQueue;
         _aiAutoPickQueue = RunQueuedAiPickAsync(previous, pick);
     }
 
-    private static async Task RunQueuedAiPickAsync(Task previous, Func<Task> pick)
+    private async Task RunQueuedAiPickAsync(Task previous, Func<Task> pick)
     {
         try
         {
@@ -37,6 +61,9 @@ public partial class MainWindow
         {
             // Each pick observes its own failures; keep the queue alive.
         }
+
+        // The window may have been disposed while this pick waited behind another one.
+        if (_disposed) return;
 
         try
         {
@@ -86,8 +113,7 @@ public partial class MainWindow
 
                 SetApiSearching(true);
                 StatusMessage.Text = "Searching Google API...";
-                _webSearchCts?.Cancel();
-                _webSearchCts?.Dispose();
+                CancelAndDispose(ref _webSearchCts);
                 _webSearchCts = new CancellationTokenSource();
                 LblApiSearchQuery.Content = BuildQueryLabel("API search for: ", searchQuery);
                 _ = HandleApiSearchAsync(searchQuery, _webSearchCts);
@@ -133,8 +159,7 @@ public partial class MainWindow
 
             SetApiSearching(true);
             StatusMessage.Text = "Searching Google API...";
-            if (_webSearchCts != null) await _webSearchCts.CancelAsync();
-            _webSearchCts?.Dispose();
+            CancelAndDispose(ref _webSearchCts);
             _webSearchCts = new CancellationTokenSource();
             LblApiSearchQuery.Content = BuildQueryLabel("API search for: ", searchQuery);
             _ = HandleApiSearchAsync(searchQuery, _webSearchCts);
@@ -184,12 +209,7 @@ public partial class MainWindow
             return;
         }
 
-        if (_findSimilarCts != null)
-        {
-            await _findSimilarCts.CancelAsync();
-            _findSimilarCts.Dispose();
-            _findSimilarCts = null;
-        }
+        CancelAndDispose(ref _findSimilarCts);
 
         var cts = new CancellationTokenSource();
         _findSimilarCts = cts;
@@ -235,11 +255,17 @@ public partial class MainWindow
                         {
                             _ = Dispatcher.UIThread.InvokeAsync(() =>
                             {
-                                if (!cancellationToken.IsCancellationRequested)
+                                if (cancellationToken.IsCancellationRequested)
                                 {
-                                    SimilarImages.Add(imageData);
-                                    HasSearchedSimilar = true;
+                                    // The search was superseded after the image was
+                                    // decoded; it never reached the bound collection, so
+                                    // release its native bitmap here.
+                                    imageData.Dispose();
+                                    return;
                                 }
+
+                                SimilarImages.Add(imageData);
+                                HasSearchedSimilar = true;
                             });
                         },
                         Settings.IgnoreBracketedText
@@ -313,6 +339,8 @@ public partial class MainWindow
 
     private async Task RunAiPickAsync()
     {
+        if (_disposed) return;
+
         if (!Settings.AiAssistEnabled)
         {
             await Dialogs.ShowMessageAsync(this,
@@ -324,8 +352,10 @@ public partial class MainWindow
         if (LstMissingImages.SelectedItem is not MissingImageItem selectedItem) return;
         if (SimilarImages.Count == 0 || IsAiBusy) return;
 
-        if (_aiAssistCts != null) await _aiAssistCts.CancelAsync();
-        _aiAssistCts?.Dispose();
+        // Capture both the selection and its generation: the pick may run after the
+        // user selected another ROM while it waited in the auto-pick queue.
+        var generation = _selectionGeneration;
+        CancelAndDispose(ref _aiAssistCts);
         _aiAssistCts = new CancellationTokenSource();
         var cancellationToken = _aiAssistCts.Token;
 
@@ -353,7 +383,10 @@ public partial class MainWindow
                 candidates,
                 cancellationToken);
 
-            if (cancellationToken.IsCancellationRequested) return;
+            if (_disposed || cancellationToken.IsCancellationRequested ||
+                generation != _selectionGeneration ||
+                !ReferenceEquals(LstMissingImages.SelectedItem, selectedItem))
+                return;
 
             if (result is null)
             {
@@ -425,6 +458,8 @@ public partial class MainWindow
 
     private async Task UseImageAsync(string romName, string? imagePath)
     {
+        if (_disposed) return;
+
         var imageFolderPath = GetValidatedImageFolderPath(false);
         if (string.IsNullOrEmpty(romName) || string.IsNullOrEmpty(imagePath) ||
             string.IsNullOrEmpty(imageFolderPath))
@@ -441,8 +476,24 @@ public partial class MainWindow
             if (choice != MessageResult.Yes) return;
         }
 
+        if (_disposed) return;
+
         var safeFileName = SearchQueryHelper.SanitizeFileName(romName);
         var newFileName = Path.Combine(imageFolderPath, safeFileName + ".png");
+
+        // Clicking the candidate that is already the saved cover is a no-op; otherwise
+        // ask before replacing a cover that appeared after the missing-covers scan.
+        if (AppConstants.FilePathComparer.Equals(imagePath, newFileName))
+            return;
+
+        if (File.Exists(newFileName))
+        {
+            var replace = await Dialogs.ShowQuestionAsync(this,
+                $"A cover named '{Path.GetFileName(newFileName)}' already exists.\n\nReplace it?",
+                "Cover Exists", MessageIcon.Question, MessageResult.No);
+            if (replace != MessageResult.Yes) return;
+        }
+
         _imageFolderWatcher?.PreRegisterExpectedFile(newFileName);
 
         try

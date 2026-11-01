@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using Avalonia.Controls;
 using Avalonia.Input.Platform;
@@ -13,6 +14,11 @@ namespace FindRomCover.Services;
 /// </summary>
 public static class ButtonFactory
 {
+    // Context menus are recreated for every realized image cell; loading a new Bitmap
+    // for each item leaked native memory. The bitmap itself can be shared by Image
+    // controls (only the controls are single-parent).
+    private static readonly ConcurrentDictionary<string, Bitmap?> IconCache = new(StringComparer.Ordinal);
+
     /// <summary>
     ///     Calculates similarity for the images in a folder and loads the best matches for display.
     /// </summary>
@@ -114,21 +120,26 @@ public static class ButtonFactory
 
     private static Image CreateIcon(string fileName)
     {
+        return new Image
+        {
+            Source = IconCache.GetOrAdd(fileName, LoadIcon),
+            Width = 16,
+            Height = 16,
+            Margin = new Avalonia.Thickness(2)
+        };
+    }
+
+    private static Bitmap? LoadIcon(string fileName)
+    {
         try
         {
-            return new Image
-            {
-                Source = new Bitmap(AssetLoader.Open(
-                    new Uri($"avares://FindRomCover/Assets/images/{fileName}"))),
-                Width = 16,
-                Height = 16,
-                Margin = new Avalonia.Thickness(2)
-            };
+            return new Bitmap(AssetLoader.Open(
+                new Uri($"avares://FindRomCover/Assets/images/{fileName}")));
         }
         catch (Exception ex)
         {
             LogService.WarningTransient(ex, $"Could not load context menu icon '{fileName}'.");
-            return new Image { Width = 16, Height = 16 };
+            return null;
         }
     }
 

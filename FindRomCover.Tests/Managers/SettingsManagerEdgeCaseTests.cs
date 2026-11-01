@@ -146,6 +146,50 @@ public class SettingsManagerEdgeCaseTests : IDisposable
     }
 
     [Fact]
+    public void DeletingTheMigratedDatabaseShouldNotResurrectLegacySettings()
+    {
+        var legacyData = new SettingsData
+        {
+            SimilarityThreshold = 91,
+            SearchEngine = "Google"
+        };
+
+        var json = JsonSerializer.Serialize(legacyData);
+        File.WriteAllBytes(_settingsDatabasePath, SettingsManager.Encrypt(Encoding.UTF8.GetBytes(json)));
+
+        var migrated = new SettingsManager(_settingsDirectory);
+        migrated.SimilarityThreshold.Should().Be(91);
+        File.Delete(_settingsDatabasePath);
+
+        var reset = new SettingsManager(_settingsDirectory);
+
+        reset.SimilarityThreshold.Should().Be(70);
+        reset.SearchEngine.Should().Be("BingWeb");
+    }
+
+    [Fact]
+    public void LegacySettingsWithNullStringsShouldStillSave()
+    {
+        var legacyData = new SettingsData
+        {
+            SimilarityAlgorithm = null!,
+            SearchEngine = null!,
+            LastImageFolder = null!,
+            GoogleKey = null!,
+            SupportedExtensions = [null!]
+        };
+
+        var json = JsonSerializer.Serialize(legacyData);
+        File.WriteAllBytes(_settingsDatabasePath, SettingsManager.Encrypt(Encoding.UTF8.GetBytes(json)));
+
+        var settings = new SettingsManager(_settingsDirectory);
+
+        settings.SearchEngine.Should().BeEmpty();
+        settings.GoogleKey.Should().BeEmpty();
+        settings.SaveSettings().Should().BeTrue();
+    }
+
+    [Fact]
     public void MultipleSaveAndLoadShouldPreserveSettings()
     {
         var settings = new SettingsManager(_settingsDirectory)

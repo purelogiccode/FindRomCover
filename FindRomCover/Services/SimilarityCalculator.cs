@@ -18,6 +18,7 @@ public static class SimilarityCalculator
     public const int DefaultMaxImagesToLoad = 30;
 
     private const int NgramIndexMinFileCount = 50;
+    private const int NgramIndexMinQueryLength = 4;
     private const double NgramIndexFallbackRatio = 0.05;
 
     /// <summary>
@@ -217,7 +218,10 @@ public static class SimilarityCalculator
         HashSet<string>? jaccardQueryBigrams = null;
 
         var filesToProcess = allImageFiles;
-        if (allImageFiles.Count > NgramIndexMinFileCount)
+        // Very short queries have too few trigrams for the index's two-match minimum;
+        // a genuine candidate such as "A1" for "AI" would be filtered out before scoring.
+        if (selectedFileName.Length >= NgramIndexMinQueryLength &&
+            allImageFiles.Count > NgramIndexMinFileCount)
         {
             var index = new NgramIndex();
             index.Build(allImageFiles, ignoreBracketedText ? StripAnnotations : null);

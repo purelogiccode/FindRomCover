@@ -156,4 +156,15 @@ public class SearchQueryHelperSanitizeTests
 
         result.Should().Be("unnamed");
     }
+
+    [Theory]
+    [InlineData("CON .txt")]
+    [InlineData("PRN .png")]
+    [InlineData("AUX.")]
+    public void SanitizeFileNameShouldEscapeReservedDeviceNamesWithTrailingSpaceOrDot(string input)
+    {
+        var result = SearchQueryHelper.SanitizeFileName(input);
+
+        result.Should().StartWith("_");
+    }
 }

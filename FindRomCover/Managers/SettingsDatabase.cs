@@ -75,6 +75,7 @@ public sealed class SettingsDatabase
                 }
                 catch (Exception readOnlyEx)
                 {
+                    isCorrupt = IsCorruptionException(readOnlyEx);
                     LogService.WarningTransient(readOnlyEx,
                         "Settings database could not be read even in read-only mode.");
                     values = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -112,7 +113,10 @@ public sealed class SettingsDatabase
     private static bool IsCorruptionException(Exception exception)
     {
         for (var current = exception; current != null; current = current.InnerException)
-            if (current is SqliteException { SqliteErrorCode: 11 or 26 })
+            // 1 (SQLITE_ERROR) on our fixed SELECT means the Settings table has an
+            // incompatible/missing schema, which is permanent, not a transient lock.
+            // 11 (SQLITE_CORRUPT) and 26 (SQLITE_NOTADB) are corruption.
+            if (current is SqliteException { SqliteErrorCode: 1 or 11 or 26 })
                 return true;
 
         return false;

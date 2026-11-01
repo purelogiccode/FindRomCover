@@ -1042,21 +1042,33 @@ public sealed class ImageFolderWatcher : IDisposable
             try
             {
                 // Keep the sharing mode permissive so the browser can finish writing;
-                // readiness is determined by a stable file size (1 s by default).
-                await using var stream = File.Open(filePath, FileMode.Open, FileAccess.Read,
-                    FileShare.ReadWrite | FileShare.Delete);
-                if (stream.Length > 0)
+                // readiness is determined by a stable file size (1 s by default) plus
+                // a writer-free probe below.
+                long length;
+                await using (var stream = File.Open(filePath, FileMode.Open, FileAccess.Read,
+                                 FileShare.ReadWrite | FileShare.Delete))
+                    length = stream.Length;
+
+                if (length > 0)
                 {
-                    if (stream.Length == lastSize)
+                    if (length == lastSize)
                     {
                         stableCount++;
                         if (stableCount >= stableChecksRequired)
-                            return true;
+                        {
+                            // A pre-allocated file (download manager, sparse copy, SMB
+                            // cache) has a stable length while bytes are still arriving.
+                            // Only declare it ready when no writer holds an open handle.
+                            if (CanOpenExclusive(filePath)) return true;
+
+                            stableCount = 0;
+                            lastSize = -1;
+                        }
                     }
                     else
                     {
                         stableCount = 0;
-                        lastSize = stream.Length;
+                        lastSize = length;
                     }
                 }
                 else
@@ -1093,6 +1105,21 @@ public sealed class ImageFolderWatcher : IDisposable
         LogService.Debug(
             $"ImageFolderWatcher: file '{Path.GetFileName(filePath)}' was not stable after {maxWaitMs} ms (last size: {lastSize}).");
         return false;
+    }
+
+    private static bool CanOpenExclusive(string filePath)
+    {
+        try
+        {
+            // Deny writers but allow concurrent readers: a viewer holding the file
+            // open must not make the watcher wait the full 20 seconds.
+            using var stream = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            return stream.Length > 0;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
     }
 
     private static string GetFreeRenameTargetPath(string preferredPath)
@@ -1208,11 +1235,16 @@ public sealed class ImageFolderWatcher : IDisposable
         // Use the shared ImageProcessor path so the watcher gets the same tolerant
         // fallback as manual saves: content sniffing for lying extensions, PNG CRC
         // tolerance, atomic temp writes and retry handling (issues #68280, #68282).
-        var result = await ImageProcessor.ConvertAndSaveImageAsync(sourcePath, targetPath, CancellationToken.None);
+        // Never overwrite a cover that appeared while the image was being decoded:
+        // the earlier File.Exists check is only a fast path, not a lock.
+        var result = await ImageProcessor.ConvertAndSaveImageAsync(sourcePath, targetPath, CancellationToken.None,
+            overwrite: false);
         if (!result.Success)
         {
             LogService.Debug($"ImageFolderWatcher: conversion failed for '{sourcePath}': {result.ErrorMessage}");
-            TryDeleteFile(targetPath);
+            // For a non-PNG source targetPath is the final cover path; deleting it on
+            // failure would destroy an existing cover (especially for "Cover Exists").
+            if (isPng) TryDeleteFile(targetPath);
             return (null, result.ErrorMessage);
         }
 

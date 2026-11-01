@@ -16,11 +16,13 @@ public static class AppConstants
     public const string QueryHistoryFileName = "QueryHistory.dat";
 
     /// <summary>
-    ///     String comparer for file-system paths: case-insensitive on Windows,
-    ///     case-sensitive on Linux and macOS where paths are case-sensitive.
+    ///     String comparer for file-system paths: case-insensitive on Windows and on
+    ///     macOS's default case-insensitive volumes, case-sensitive on Linux.
     /// </summary>
     public static StringComparer FilePathComparer { get; } =
-        OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+        OperatingSystem.IsWindows() || OperatingSystem.IsMacOS()
+            ? StringComparer.OrdinalIgnoreCase
+            : StringComparer.Ordinal;
 
     /// <summary>Default memory limit in bytes (512 MB).</summary>
     public const long DefaultMemoryLimit = 512L * 1024 * 1024;

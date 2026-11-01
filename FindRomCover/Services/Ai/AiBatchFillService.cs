@@ -171,6 +171,12 @@ public sealed class AiBatchFillService
                     _unregisterExpectedFile?.Invoke(targetPath);
                     throw;
                 }
+                catch
+                {
+                    // Same for any other escaping failure (unexpected image/OOM error).
+                    _unregisterExpectedFile?.Invoke(targetPath);
+                    throw;
+                }
             }
         }
 
@@ -213,17 +219,25 @@ public sealed class AiBatchFillService
             .ConfigureAwait(false);
 
         var pickedApiImage = IsUsablePick(apiPick, apiResults.Count) ? apiResults[apiPick!.BestIndex] : null;
-        if (pickedApiImage != null && IsConfident(apiPick) && pickedApiImage.ImagePath is { } imageUrl)
+        if (pickedApiImage != null && IsConfident(apiPick))
         {
+            if (pickedApiImage.ImagePath is not { } imageUrl)
+                return new AiBatchItemResult(item.RomName, item.SearchName, AiBatchOutcome.Failed,
+                    "The AI pick did not include a downloadable image URL.", targetPath);
+
             // Download to a temporary path first: an existing cover must not be replaced
             // (or deleted by a verification rejection) until the download is verified.
             // The ".tmp<hex>" suffix keeps the watcher away and lets startup cleanup
             // remove the file if the app crashes mid-download.
             var tempPath = targetPath + ".tmp" + Guid.NewGuid().ToString("N")[..8];
             _preRegisterExpectedFile?.Invoke(targetPath);
+            // Bound each remote download like AiAssistService does; the shared
+            // HttpClient timeout is 5 minutes, which made a stuck batch look frozen.
+            using var downloadCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            downloadCts.CancelAfter(TimeSpan.FromSeconds(15));
             var saved = await ImageSaveService
                 .DownloadAndSaveImageAsync(imageUrl, pickedApiImage.ThumbnailUrl, tempPath,
-                    _settings.AiMinCoverWidth, cancellationToken)
+                    _settings.AiMinCoverWidth, downloadCts.Token)
                 .ConfigureAwait(false);
 
             if (saved)

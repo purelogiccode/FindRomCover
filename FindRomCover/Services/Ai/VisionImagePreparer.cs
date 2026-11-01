@@ -19,6 +19,10 @@ public static class VisionImagePreparer
     /// </summary>
     private const int JpegQuality = 80;
 
+    // A small, highly compressed PNG can declare enormous dimensions. Reject those
+    // before decoding, otherwise the 50 MB download cap does not bound native memory.
+    private const long MaxSourcePixels = 100_000_000;
+
     /// <summary>
     ///     Prepares the image at the given file path for a vision request.
     /// </summary>
@@ -33,6 +37,7 @@ public static class VisionImagePreparer
         if (!File.Exists(filePath))
             throw new FileNotFoundException("Image file was not found.", filePath);
 
+        EnsureReasonableDimensions(new MagickImageInfo(filePath));
         using var image = new MagickImage(filePath, ImageProcessor.GetMagickReadSettings(filePath));
         return PrepareCore(image, maxDimension);
     }
@@ -49,8 +54,16 @@ public static class VisionImagePreparer
         if (imageBytes.Length == 0)
             throw new ArgumentException("Image data is empty.", nameof(imageBytes));
 
+        EnsureReasonableDimensions(new MagickImageInfo(imageBytes));
         using var image = new MagickImage(imageBytes);
         return PrepareCore(image, maxDimension);
+    }
+
+    private static void EnsureReasonableDimensions(MagickImageInfo info)
+    {
+        if ((long)info.Width * info.Height > MaxSourcePixels)
+            throw new InvalidOperationException(
+                $"Image dimensions are too large to analyze safely ({info.Width}x{info.Height}).");
     }
 
     /// <summary>

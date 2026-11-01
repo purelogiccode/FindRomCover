@@ -42,7 +42,11 @@ public partial class DebugWindow : Window
 
         LogTextBox.PropertyChanged += (_, args) =>
         {
-            if (string.Equals(args.Property.Name, "SelectedText", StringComparison.Ordinal))
+            // Avalonia's TextBox exposes SelectionStart/SelectionEnd as styled
+            // properties; SelectedText is a plain CLR property and never raises
+            // PropertyChanged, which left "Copy Selection" permanently disabled.
+            if (args.Property == TextBox.SelectionStartProperty ||
+                args.Property == TextBox.SelectionEndProperty)
                 LogTextBox_SelectionChanged();
         };
 

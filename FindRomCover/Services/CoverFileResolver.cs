@@ -12,6 +12,7 @@ public static class CoverFileResolver
         new(AppConstants.FilePathComparer);
 
     private static readonly TimeSpan CacheLifetime = TimeSpan.FromSeconds(5);
+    private const int MaxCacheEntries = 64;
 
     private static readonly string[] RecognizedImageExtensions =
     [
@@ -64,12 +65,22 @@ public static class CoverFileResolver
 
     private static Dictionary<string, string> GetDirectoryFiles(string imageFolderPath)
     {
+        string cacheKey;
+        try
+        {
+            cacheKey = Path.GetFullPath(imageFolderPath);
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            cacheKey = imageFolderPath;
+        }
+
         var now = DateTime.UtcNow;
         var lastWriteUtc = GetDirectoryLastWriteUtc(imageFolderPath);
 
         // The 5-second window alone could hide a cover saved by the app itself; the
         // directory timestamp invalidates the listing as soon as a file is added/removed.
-        if (DirectoryCache.TryGetValue(imageFolderPath, out var cached) &&
+        if (DirectoryCache.TryGetValue(cacheKey, out var cached) &&
             cached.ExpiresUtc > now &&
             cached.LastWriteUtc == lastWriteUtc)
             return cached.Files;
@@ -83,11 +94,26 @@ public static class CoverFileResolver
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException
                                        or NotSupportedException)
         {
+            // A momentary lock (AV/sync) must not be cached as "folder is empty":
+            // that would make an existing cover look missing for the next 5 seconds.
             LogService.WarningTransient(ex, $"Could not enumerate the image folder '{imageFolderPath}'.");
+            return files;
         }
 
-        DirectoryCache[imageFolderPath] = new CachedDirectory(now.Add(CacheLifetime), lastWriteUtc, files);
+        DirectoryCache[cacheKey] = new CachedDirectory(now.Add(CacheLifetime), lastWriteUtc, files);
+        PruneCache(now);
         return files;
+    }
+
+    private static void PruneCache(DateTime now)
+    {
+        foreach (var pair in DirectoryCache)
+            if (pair.Value.ExpiresUtc <= now)
+                DirectoryCache.TryRemove(pair.Key, out _);
+
+        // Bound the cache: switching between many folders must not grow the process
+        // forever. Clearing is cheap and only happens after 64 distinct folders.
+        if (DirectoryCache.Count > MaxCacheEntries) DirectoryCache.Clear();
     }
 
     private static DateTime GetDirectoryLastWriteUtc(string imageFolderPath)

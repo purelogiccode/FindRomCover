@@ -118,6 +118,13 @@ public sealed class AnthropicVisionClient : VisionModelClientBase
     {
         using var doc = JsonDocument.Parse(responseJson);
 
+        // A max_tokens stop reason means the JSON may be cut off mid-object, even when
+        // the response still contains partial text.
+        if (doc.RootElement.TryGetProperty("stop_reason", out var truncatedReason) &&
+            truncatedReason.ValueKind == JsonValueKind.String &&
+            string.Equals(truncatedReason.GetString(), "max_tokens", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException(OutputBudgetExhaustedMessage);
+
         if (!doc.RootElement.TryGetProperty("content", out var content) ||
             content.ValueKind != JsonValueKind.Array)
             throw new InvalidOperationException("AI response did not contain any content.");

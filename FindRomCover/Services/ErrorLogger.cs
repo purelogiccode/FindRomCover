@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using FindRomCover.Managers;
@@ -46,7 +47,12 @@ public static class ErrorLogger
     private static readonly SemaphoreSlim LogFileLock = new(1, 1);
     private static readonly SemaphoreSlim PendingQueueLock = new(1, 1);
     private static readonly SemaphoreSlim InternalLogSemaphore = new(1, 1);
+    // A named Semaphore (not Mutex) is safe to hold across await: semaphores are not
+    // thread-affine, so the continuation may resume on a different thread pool thread.
+    private static readonly Lazy<Semaphore> PendingQueueMutex = new(CreatePendingQueueMutex,
+        LazyThreadSafetyMode.ExecutionAndPublication);
     private const long MaxLogFileBytes = 4L * 1024 * 1024;
+    private static readonly UTF8Encoding Utf8NoBom = new(false);
 
     private static readonly JsonSerializerOptions CachedJsonSerializerOptions = new()
     {
@@ -112,8 +118,8 @@ public static class ErrorLogger
                 {
                     if (IsDisposed) return;
 
-                    await File.AppendAllTextAsync(UserLogFilePath, currentErrorMessage);
-                    await File.AppendAllTextAsync(ApiLogFilePath, currentErrorMessage);
+                    await AppendAllTextSharedAsync(UserLogFilePath, currentErrorMessage);
+                    await AppendAllTextSharedAsync(ApiLogFilePath, currentErrorMessage);
                     await TrimLogFileAsync(UserLogFilePath);
                     await TrimLogFileAsync(ApiLogFilePath);
                 }
@@ -127,17 +133,18 @@ public static class ErrorLogger
                 _ = WriteInternalLogAsync("Failed to write log files.", loggingEx);
             }
 
-            var sendSuccess = false;
+            var sendResult = ApiSendResult.TransientFailure;
             try
             {
-                sendSuccess = await SendLogToApiAsync(bugReport, apiTimeoutSeconds);
+                sendResult = await SendLogToApiCoreAsync(bugReport, apiTimeoutSeconds);
             }
             catch (Exception loggingEx)
             {
                 _ = WriteInternalLogAsync("Failed to send log to API.", loggingEx);
             }
 
-            if (sendSuccess)
+            if (sendResult == ApiSendResult.Success)
+            {
                 try
                 {
                     await RemovePendingReportAsync(pendingId);
@@ -147,6 +154,20 @@ public static class ErrorLogger
                 {
                     _ = WriteInternalLogAsync("Failed to clear the sent report from the API log file.", loggingEx);
                 }
+            }
+            else if (sendResult == ApiSendResult.PermanentFailure)
+            {
+                try
+                {
+                    // The API will never accept this payload; do not retry it forever.
+                    await RemovePendingReportAsync(pendingId);
+                }
+                catch (Exception loggingEx)
+                {
+                    _ = WriteInternalLogAsync("Failed to drop a permanently rejected report from the queue.",
+                        loggingEx);
+                }
+            }
         }
         finally
         {
@@ -177,6 +198,7 @@ public static class ErrorLogger
 
         var timeout = ResolveApiTimeoutSeconds(DefaultApiTimeoutSeconds);
         var delivered = new HashSet<string>(StringComparer.Ordinal);
+        var rejected = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var entry in pending)
         {
@@ -184,50 +206,84 @@ public static class ErrorLogger
 
             try
             {
-                if (await SendLogToApiAsync(entry.Report, timeout)) delivered.Add(entry.Id);
+                var result = await SendLogToApiCoreAsync(entry.Report, timeout);
+                if (result == ApiSendResult.Success)
+                {
+                    delivered.Add(entry.Id);
+                    continue;
+                }
+
+                if (result == ApiSendResult.PermanentFailure)
+                {
+                    // A 4xx rejection (invalid payload, deleted endpoint) will never
+                    // succeed; keep it out of the queue instead of retrying forever.
+                    rejected.Add(entry.Id);
+                    continue;
+                }
+
+                // Transient network/timeout failure: stop hammering the API at startup.
+                // The remaining entries stay queued for the next launch.
+                break;
             }
             catch (Exception ex)
             {
                 _ = WriteInternalLogAsync("A pending bug report could not be re-sent.", ex);
+                break;
             }
         }
 
-        if (delivered.Count == 0) return;
+        if (delivered.Count == 0 && rejected.Count == 0) return;
 
-        await PendingQueueLock.WaitAsync();
+        var ownsQueueMutex = TryEnterPendingQueueMutex();
         try
         {
-            var current = await ReadPendingReportsAsync();
-            current.RemoveAll(entry => delivered.Contains(entry.Id));
-            await WritePendingReportsAsync(current);
+            await PendingQueueLock.WaitAsync();
+            try
+            {
+                var current = await ReadPendingReportsAsync();
+                current.RemoveAll(entry => delivered.Contains(entry.Id) || rejected.Contains(entry.Id));
+                await WritePendingReportsAsync(current);
+            }
+            finally
+            {
+                PendingQueueLock.Release();
+            }
         }
         finally
         {
-            PendingQueueLock.Release();
+            ExitPendingQueueMutex(ownsQueueMutex);
         }
     }
 
     private static async Task<string?> EnqueuePendingReportAsync(BugReportModel report)
     {
         var id = Guid.NewGuid().ToString("N");
+        var ownsQueueMutex = TryEnterPendingQueueMutex();
 
-        await PendingQueueLock.WaitAsync();
         try
         {
-            var entries = await ReadPendingReportsAsync();
-            entries.Add(new PendingReport { Id = id, Report = report });
+            await PendingQueueLock.WaitAsync();
+            try
+            {
+                var entries = await ReadPendingReportsAsync();
+                entries.Add(new PendingReport { Id = id, Report = report });
 
-            // Bound the queue so a long offline period cannot grow it without limit.
-            const int maxEntries = 200;
-            if (entries.Count > maxEntries)
-                entries.RemoveRange(0, entries.Count - maxEntries);
+                // Bound the queue so a long offline period cannot grow it without limit.
+                const int maxEntries = 200;
+                if (entries.Count > maxEntries)
+                    entries.RemoveRange(0, entries.Count - maxEntries);
 
-            await WritePendingReportsAsync(entries);
-            return id;
+                await WritePendingReportsAsync(entries);
+                return id;
+            }
+            finally
+            {
+                PendingQueueLock.Release();
+            }
         }
         finally
         {
-            PendingQueueLock.Release();
+            ExitPendingQueueMutex(ownsQueueMutex);
         }
     }
 
@@ -235,16 +291,25 @@ public static class ErrorLogger
     {
         if (string.IsNullOrEmpty(id)) return;
 
-        await PendingQueueLock.WaitAsync();
+        var ownsQueueMutex = TryEnterPendingQueueMutex();
+
         try
         {
-            var entries = await ReadPendingReportsAsync();
-            if (entries.RemoveAll(entry => string.Equals(entry.Id, id, StringComparison.Ordinal)) > 0)
-                await WritePendingReportsAsync(entries);
+            await PendingQueueLock.WaitAsync();
+            try
+            {
+                var entries = await ReadPendingReportsAsync();
+                if (entries.RemoveAll(entry => string.Equals(entry.Id, id, StringComparison.Ordinal)) > 0)
+                    await WritePendingReportsAsync(entries);
+            }
+            finally
+            {
+                PendingQueueLock.Release();
+            }
         }
         finally
         {
-            PendingQueueLock.Release();
+            ExitPendingQueueMutex(ownsQueueMutex);
         }
     }
 
@@ -254,7 +319,7 @@ public static class ErrorLogger
         {
             if (!File.Exists(PendingReportsFilePath)) return [];
 
-            var json = await File.ReadAllTextAsync(PendingReportsFilePath);
+            var json = await ReadAllTextSharedAsync(PendingReportsFilePath);
             if (string.IsNullOrWhiteSpace(json)) return [];
 
             return JsonSerializer.Deserialize<List<PendingReport>>(json, CachedJsonSerializerOptions) ?? [];
@@ -290,6 +355,42 @@ public static class ErrorLogger
         public BugReportModel Report { get; init; } = new();
     }
 
+    private static Semaphore CreatePendingQueueMutex()
+    {
+        // A named semaphore serializes the read-modify-write queue across processes;
+        // the in-process semaphore alone let a second instance overwrite the first
+        // instance's queued reports.
+        var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(PendingReportsFilePath)));
+        return new Semaphore(1, 1, "FindRomCover.PendingBugReports." + hash[..16]);
+    }
+
+    private static bool TryEnterPendingQueueMutex()
+    {
+        try
+        {
+            return PendingQueueMutex.Value.WaitOne(TimeSpan.FromSeconds(5));
+        }
+        catch (Exception ex)
+        {
+            _ = WriteInternalLogAsync("Could not acquire the cross-process bug-report queue lock.", ex);
+            return false;
+        }
+    }
+
+    private static void ExitPendingQueueMutex(bool acquired)
+    {
+        if (!acquired) return;
+
+        try
+        {
+            PendingQueueMutex.Value.Release();
+        }
+        catch (Exception ex)
+        {
+            Debug.Print($"Failed to release the bug-report queue semaphore: {ex.Message}");
+        }
+    }
+
     /// <summary>
     ///     Keeps the diagnostic log files bounded. The oldest half is removed at a report
     ///     boundary when the file grows past <see cref="MaxLogFileBytes" />.
@@ -301,7 +402,7 @@ public static class ErrorLogger
             var info = new FileInfo(path);
             if (!info.Exists || info.Length <= MaxLogFileBytes) return;
 
-            var content = await File.ReadAllTextAsync(path);
+            var content = await ReadAllTextSharedAsync(path);
             var keepCharacters = content.Length / 2;
             var searchStart = Math.Max(0, content.Length - keepCharacters);
             var cut = content.IndexOf("BUG REPORT - FindRomCover", searchStart, StringComparison.Ordinal);
@@ -331,7 +432,13 @@ public static class ErrorLogger
         }
         catch (Exception ex)
         {
-            _ = WriteInternalLogAsync("Failed to trim a diagnostic log file.", ex);
+            // Never route an internal-log trim failure back through WriteInternalLogAsync:
+            // that method appends to and trims the same file, creating an unbounded
+            // write/trim retry loop when the trim keeps failing.
+            if (string.Equals(path, InternalLogFilePath, StringComparison.Ordinal))
+                Debug.Print($"Failed to trim the internal log file: {ex}");
+            else
+                _ = WriteInternalLogAsync("Failed to trim a diagnostic log file.", ex);
         }
     }
 
@@ -349,7 +456,7 @@ public static class ErrorLogger
         {
             if (!File.Exists(ApiLogFilePath)) return;
 
-            var content = await File.ReadAllTextAsync(ApiLogFilePath);
+            var content = await ReadAllTextSharedAsync(ApiLogFilePath);
             var index = content.IndexOf(sentReport, StringComparison.Ordinal);
             if (index < 0) return;
 
@@ -398,11 +505,21 @@ public static class ErrorLogger
         }
     }
 
-    private static async Task<bool> SendLogToApiAsync(BugReportModel bugReport, int apiTimeoutSeconds)
+    private enum ApiSendResult
     {
-        if (IsDisposed) return false;
+        Success,
+        TransientFailure,
+        PermanentFailure
+    }
 
-        if (SendToApiOverride != null) return await SendToApiOverride(bugReport, apiTimeoutSeconds);
+    private static async Task<ApiSendResult> SendLogToApiCoreAsync(BugReportModel bugReport, int apiTimeoutSeconds)
+    {
+        if (IsDisposed) return ApiSendResult.TransientFailure;
+
+        if (SendToApiOverride != null)
+            return await SendToApiOverride(bugReport, apiTimeoutSeconds)
+                ? ApiSendResult.Success
+                : ApiSendResult.TransientFailure;
 
         try
         {
@@ -471,33 +588,69 @@ public static class ErrorLogger
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(apiTimeoutSeconds));
             using var response = await HttpClientHelper.Client.SendAsync(request, cts.Token);
 
-            if (response.IsSuccessStatusCode) return true;
+            if (response.IsSuccessStatusCode) return ApiSendResult.Success;
 
             var errorContent = await response.Content.ReadAsStringAsync(cts.Token);
             _ = WriteInternalLogAsync(
                 $"API returned non-success status code: {response.StatusCode}. Response: {errorContent}");
-            return false;
+            return IsPermanentApiFailure(response.StatusCode)
+                ? ApiSendResult.PermanentFailure
+                : ApiSendResult.TransientFailure;
         }
         catch (HttpRequestException httpEx)
         {
             _ = WriteInternalLogAsync("HTTP request failed when sending log to API.", httpEx);
-            return false;
+            return ApiSendResult.TransientFailure;
         }
         catch (TaskCanceledException tcEx) when (tcEx.CancellationToken.IsCancellationRequested)
         {
             _ = WriteInternalLogAsync("HTTP Request timed out when sending log to API.");
-            return false;
+            return ApiSendResult.TransientFailure;
         }
         catch (TaskCanceledException)
         {
             _ = WriteInternalLogAsync("HTTP Request was cancelled or timed out (HttpClient internal timeout).");
-            return false;
+            return ApiSendResult.TransientFailure;
         }
         catch (Exception ex)
         {
             _ = WriteInternalLogAsync("An unexpected error occurred when sending log to API.", ex);
-            return false;
+            return ApiSendResult.TransientFailure;
         }
+    }
+
+    private static bool IsPermanentApiFailure(System.Net.HttpStatusCode statusCode)
+    {
+        var code = (int)statusCode;
+        if (code is < 400 or >= 500) return false;
+
+        // These 4xx codes are explicitly retryable; every other 4xx is a permanent
+        // payload/auth rejection.
+        return code is not (408 or 425 or 429);
+    }
+
+    /// <summary>
+    ///     Appends text without taking an exclusive lock, so a second instance can write
+    ///     the same diagnostic file instead of failing with a sharing violation.
+    /// </summary>
+    private static async Task AppendAllTextSharedAsync(string path, string content)
+    {
+        await using var stream = new FileStream(path, FileMode.Append, FileAccess.Write,
+            FileShare.ReadWrite | FileShare.Delete, 4096, FileOptions.Asynchronous);
+        await using var writer = new StreamWriter(stream, Utf8NoBom);
+        await writer.WriteAsync(content);
+    }
+
+    /// <summary>
+    ///     Reads a file while allowing concurrent writers, instead of failing with a
+    ///     sharing violation when another instance is appending to it.
+    /// </summary>
+    private static async Task<string> ReadAllTextSharedAsync(string path)
+    {
+        await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read,
+            FileShare.ReadWrite | FileShare.Delete, 4096, FileOptions.Asynchronous);
+        using var reader = new StreamReader(stream, Encoding.UTF8, true);
+        return await reader.ReadToEndAsync();
     }
 
     private static async Task WriteInternalLogAsync(string message, Exception? exception = null)
@@ -517,7 +670,7 @@ public static class ErrorLogger
             await InternalLogSemaphore.WaitAsync();
             try
             {
-                await File.AppendAllTextAsync(InternalLogFilePath, logMessage.ToString());
+                await AppendAllTextSharedAsync(InternalLogFilePath, logMessage.ToString());
                 // Unlike the two report logs, this file used to grow without bound on a
                 // machine that stays offline.
                 await TrimLogFileAsync(InternalLogFilePath);

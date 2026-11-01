@@ -96,6 +96,7 @@ public class UpdateCheckServiceTests : IDisposable
 
         var result = UpdateCheckService.ParseReleaseResponse(json, currentVersion);
 
+        result.Succeeded.Should().BeTrue();
         result.IsUpdateAvailable.Should().BeTrue();
         result.CurrentVersion.Should().Be("1.0.0");
         result.LatestVersion.Should().Be("2.0.0");
@@ -240,6 +241,7 @@ public class UpdateCheckServiceTests : IDisposable
 
         var result = await UpdateCheckService.CheckForUpdateAsync(httpClient);
 
+        result.Succeeded.Should().BeFalse();
         result.IsUpdateAvailable.Should().BeFalse();
     }
 

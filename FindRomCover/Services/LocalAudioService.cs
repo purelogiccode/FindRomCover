@@ -49,11 +49,20 @@ public sealed class LocalAudioService : IAudioService
     /// <summary>Releases resources used by the audio service.</summary>
     public void Dispose()
     {
-        lock (_playbackLock)
-        {
-            _disposed = true;
-            if (OperatingSystem.IsWindows()) CloseWindowsAlias();
-        }
+        _disposed = true;
+
+        // Never block the UI thread on the playback worker: it can hold the lock for
+        // the whole sound (or indefinitely if the MCI device hangs). If it is busy,
+        // the worker closes the alias itself when playback finishes.
+        if (OperatingSystem.IsWindows() && _playbackLock.TryEnter())
+            try
+            {
+                CloseWindowsAlias();
+            }
+            finally
+            {
+                _playbackLock.Exit();
+            }
     }
 
     private static void Play(string path, Lock playbackLock, Func<bool> isDisposed)

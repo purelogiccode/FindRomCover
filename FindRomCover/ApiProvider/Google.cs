@@ -67,11 +67,11 @@ public static class Google
                 {
                     ImagePath = item.Link,
                     ThumbnailUrl = item.Image?.ThumbnailLink,
-                    ImageName = FormatImageName(item.Title),
+                    ImageName = FormatImageName(item.Title ?? string.Empty),
                     ImageFileSize = item.Image is { ByteSize: > 0 }
                         ? Math.Round(item.Image.ByteSize / 1024.0, 2).ToString(CultureInfo.InvariantCulture) + " KB"
                         : "Unknown",
-                    ImageEncodingFormat = item.Mime,
+                    ImageEncodingFormat = item.Mime ?? "Unknown",
                     ImageWidth = item.Image is { Width: > 0 } ? item.Image.Width : 1,
                     ImageHeight = item.Image is { Height: > 0 } ? item.Image.Height : 1,
                     ThumbnailWidth = 0,
@@ -233,11 +233,18 @@ public static class Google
 
     private static string MaskApiKey(string url)
     {
-        const string keyParam = "&key=";
-        var keyIndex = url.IndexOf(keyParam, StringComparison.OrdinalIgnoreCase);
+        // The key can be the first query parameter ("?key=") or a later one ("&key=");
+        // masking only "&key=" would leak it if BuildRequestUrl ever reorders the query.
+        var queryIndex = url.IndexOf("?key=", StringComparison.OrdinalIgnoreCase);
+        var ampersandIndex = url.IndexOf("&key=", StringComparison.OrdinalIgnoreCase);
+        var keyIndex = queryIndex < 0
+            ? ampersandIndex
+            : ampersandIndex < 0
+                ? queryIndex
+                : Math.Min(queryIndex, ampersandIndex);
         if (keyIndex < 0) return url;
 
-        var keyStart = keyIndex + keyParam.Length;
+        var keyStart = keyIndex + (queryIndex == keyIndex ? "?key=".Length : "&key=".Length);
         var keyEnd = url.IndexOf('&', keyStart);
         if (keyEnd < 0) keyEnd = url.Length;
 

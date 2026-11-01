@@ -109,6 +109,22 @@ public partial class SettingsWindow : Window
     {
         try
         {
+            await SaveSettingsAsync();
+        }
+        catch (Exception ex)
+        {
+            // Last-resort guard: an exception escaping an async void event handler
+            // would crash the process instead of being shown to the user.
+            LogService.Error(ex, "Unhandled error in settings save.");
+        }
+    }
+
+    private async Task SaveSettingsAsync()
+    {
+        var previousExtensions = _settingsManager.SupportedExtensions;
+
+        try
+        {
             // Validate all extensions before saving
             var invalidExtensions = _supportedExtensions
                 .Where(static ext => !IsValidExtension(ext))
@@ -149,12 +165,17 @@ public partial class SettingsWindow : Window
                 .ToList();
 
             _settingsManager.SupportedExtensions = normalizedExtensions;
-            if (!_settingsManager.SaveSettings()) return;
+            if (!_settingsManager.SaveSettings())
+            {
+                _settingsManager.SupportedExtensions = previousExtensions;
+                return;
+            }
 
             Close(true);
         }
         catch (Exception ex)
         {
+            _settingsManager.SupportedExtensions = previousExtensions;
             LogService.Error(ex, "Error in BtnSave_ClickAsync");
             await Dialogs.ShowMessageAsync(this,
                 "An error occurred while saving settings. Your changes were not saved.",

@@ -38,17 +38,24 @@ public partial class ApiSettingsWindow : Window
 
     private void BtnSave_Click(object? sender, RoutedEventArgs e)
     {
+        var previousKey = _settingsManager.GoogleKey;
+
         try
         {
             _settingsManager.GoogleKey = TxtGoogleKey.Text?.Trim() ?? string.Empty;
 
-            if (!_settingsManager.SaveSettings()) return;
+            if (!_settingsManager.SaveSettings())
+            {
+                _settingsManager.GoogleKey = previousKey;
+                return;
+            }
 
             LogService.Information("API settings saved successfully.");
             Close(true);
         }
         catch (Exception ex)
         {
+            _settingsManager.GoogleKey = previousKey;
             Dialogs.ShowMessage(this, "There was an error saving the settings.\n\n" +
                                       "The developer will try to fix this.", "Error", MessageIcon.Error);
             LogService.Error(ex, "Error saving API settings.");

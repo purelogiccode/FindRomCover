@@ -9,10 +9,21 @@ public static class AppDataPaths
 {
     /// <summary>
     ///     Gets the per-user application data folder (%LocalAppData%\FindRomCover).
+    ///     Falls back to the user profile or the temp folder when the platform does
+    ///     not report a local application-data directory (minimal Linux sessions).
     /// </summary>
-    public static string BaseDirectory => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "FindRomCover");
+    public static string BaseDirectory => Path.Combine(GetWritableRoot(), "FindRomCover");
+
+    private static string GetWritableRoot()
+    {
+        var root = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        if (string.IsNullOrWhiteSpace(root))
+            root = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        if (string.IsNullOrWhiteSpace(root))
+            root = Path.GetTempPath();
+
+        return root;
+    }
 
     /// <summary>
     ///     Gets the full path of a file inside the per-user application data folder.

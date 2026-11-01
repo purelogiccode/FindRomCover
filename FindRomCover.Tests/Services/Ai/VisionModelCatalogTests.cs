@@ -90,6 +90,18 @@ public class VisionModelCatalogTests
     }
 
     [Fact]
+    public void BuildModelsUrlShouldRequestLargePagesAndFollowPaginationTokens()
+    {
+        VisionModelCatalog.BuildModelsUrl("https://generativelanguage.googleapis.com/v1beta",
+                AppConstants.AiProviders.Gemini, "next-token", null)
+            .Should().Be("https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000&pageToken=next-token");
+
+        VisionModelCatalog.BuildModelsUrl("https://api.anthropic.com/v1",
+                AppConstants.AiProviders.Anthropic, null, "last-id")
+            .Should().Be("https://api.anthropic.com/v1/models?limit=1000&after_id=last-id");
+    }
+
+    [Fact]
     public async Task FetchModelsAsyncShouldSendBearerTokenForOpenRouter()
     {
         string? authorization = null;

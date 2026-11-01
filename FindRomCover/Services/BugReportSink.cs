@@ -15,9 +15,10 @@ namespace FindRomCover.Services;
 /// </summary>
 internal sealed class BugReportSink : ILogEventSink
 {
-    private static readonly long ThrottleWindowTicks = TimeSpan.FromMinutes(1).Ticks;
+    private static readonly long ThrottleWindowTicks = (long)(Stopwatch.Frequency * 60.0);
     private readonly ITextFormatter? _formatter;
     private readonly ConcurrentDictionary<string, long> _recentReports = new(StringComparer.Ordinal);
+    private readonly Lock _throttleLock = new();
 
     /// <summary>
     ///     Creates the sink.
@@ -60,13 +61,19 @@ internal sealed class BugReportSink : ILogEventSink
                 return;
 
             var throttleKey = BuildThrottleKey(logEvent, contextMessage);
-            var nowTicks = DateTime.UtcNow.Ticks;
-            if (_recentReports.TryGetValue(throttleKey, out var lastTicks) &&
-                nowTicks - lastTicks < ThrottleWindowTicks)
-                return;
+            // Stopwatch timestamps are monotonic (an NTP/DST correction cannot make
+            // the window negative) and the lock makes the check-and-set atomic so a
+            // burst of identical events cannot file duplicate reports.
+            var nowTicks = Stopwatch.GetTimestamp();
+            lock (_throttleLock)
+            {
+                if (_recentReports.TryGetValue(throttleKey, out var lastTicks) &&
+                    nowTicks - lastTicks < ThrottleWindowTicks)
+                    return;
 
-            _recentReports[throttleKey] = nowTicks;
-            PruneThrottleEntries(nowTicks);
+                _recentReports[throttleKey] = nowTicks;
+                PruneThrottleEntries(nowTicks);
+            }
 
             if (ex == null && logEvent.Level >= LogEventLevel.Error) ex = new InvalidOperationException(contextMessage);
 

@@ -29,10 +29,15 @@ public static class MameManager
         {
             using var stream = File.OpenRead(datPath);
 
-            // MessagePack returns null for a nil/empty payload; keep the non-nullable
-            // contract of this method and treat it as an empty catalog.
-            var data = MessagePackSerializer.Deserialize<List<MameData>?>(stream);
-            return data ?? [];
+            // MessagePack returns null for a nil/empty payload. Silently treating that
+            // as an empty catalog disabled MAME descriptions without any diagnostic.
+            var data = MessagePackSerializer.Deserialize<List<MameData?>?>(stream);
+            if (data == null)
+                throw new MameDatCorruptError("The mame.dat file contains no machine data.");
+
+            // A corrupt payload can contain nil entries; drop them instead of letting
+            // a later GroupBy/ToDictionary throw.
+            return data.OfType<MameData>().ToList();
         }
         catch (MessagePackSerializationException ex)
         {

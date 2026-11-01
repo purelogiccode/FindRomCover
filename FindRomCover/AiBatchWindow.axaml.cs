@@ -207,8 +207,15 @@ public partial class AiBatchWindow : Window
         if (!_running) return;
 
         _closeRequested = true;
-        e.Cancel = true;
         _cts?.Cancel();
+
+        // An OS shutdown/logoff or an application-wide shutdown must not be vetoed by
+        // the "cancel after the current item" behavior. The token is cancelled and the
+        // window closes immediately.
+        if (e.CloseReason is WindowCloseReason.OSShutdown or WindowCloseReason.ApplicationShutdown)
+            return;
+
+        e.Cancel = true;
         BtnClose.IsEnabled = false;
         TxtSummary.Text = "Canceling after the current item...";
     }

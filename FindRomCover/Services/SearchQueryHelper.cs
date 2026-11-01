@@ -60,7 +60,10 @@ internal static partial class SearchQueryHelper
             sanitized.All(static c => c == '.' || char.IsWhiteSpace(c)))
             return "unnamed";
 
-        var baseName = sanitized.Split('.', 2)[0];
+        // Windows ignores trailing spaces and dots when resolving a file name, so
+        // "CON .txt" still targets the console device even though the raw base name
+        // is not in the reserved-name set.
+        var baseName = sanitized.Split('.', 2)[0].TrimEnd(' ', '.');
         if (ReservedDeviceNames.Contains(baseName))
             sanitized = "_" + sanitized;
 

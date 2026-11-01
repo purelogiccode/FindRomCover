@@ -171,6 +171,12 @@ public sealed class ImageData : INotifyPropertyChanged, IDisposable
         var source = _imageSource;
         _imageSource = null;
         (source as IDisposable)?.Dispose();
+
+        if (source == null) return;
+
+        // A still-bound item must not keep displaying the disposed bitmap.
+        OnPropertyChanged(nameof(ImageSource));
+        OnPropertyChanged(nameof(DisplayImage));
     }
 
     /// <summary>

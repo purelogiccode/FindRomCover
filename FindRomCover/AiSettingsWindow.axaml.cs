@@ -147,6 +147,22 @@ public partial class AiSettingsWindow : Window
     {
         try
         {
+            await SaveSettingsAsync();
+        }
+        catch (Exception ex)
+        {
+            // Last-resort guard: an exception escaping an async void event handler
+            // would crash the process instead of being shown to the user.
+            LogService.Error(ex, "Unhandled error in AI settings save.");
+        }
+    }
+
+    private async Task SaveSettingsAsync()
+    {
+        var previousSettings = _settingsManager.CreateSnapshot();
+
+        try
+        {
             var provider = SelectedProvider;
             var baseUrl = (TxtBaseUrl.Text ?? string.Empty).Trim();
             var apiKey = (TxtApiKey.Text ?? string.Empty).Trim();
@@ -234,13 +250,20 @@ public partial class AiSettingsWindow : Window
             _settingsManager.AiVerifyOnSave = ChkVerifyOnSave.IsChecked == true;
             _settingsManager.AiSkipPreviouslyQueried = ChkSkipQueried.IsChecked == true;
 
-            if (!_settingsManager.SaveSettings()) return;
+            if (!_settingsManager.SaveSettings())
+            {
+                // The save failed; do not leave the session running with values the
+                // user thinks were rejected (Cancel would otherwise keep them).
+                _settingsManager.RestoreSnapshot(previousSettings);
+                return;
+            }
 
             LogService.Information("AI settings saved successfully.");
             Close(true);
         }
         catch (Exception ex)
         {
+            _settingsManager.RestoreSnapshot(previousSettings);
             await Dialogs.ShowMessageAsync(this,
                 "There was an error saving the AI settings.\n\n" +
                 "The developer will try to fix this.", "Error", MessageIcon.Error);

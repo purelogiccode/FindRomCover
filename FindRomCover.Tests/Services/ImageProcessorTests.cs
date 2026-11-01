@@ -71,11 +71,27 @@ public class ImageProcessorTests : IDisposable
         var tmp2 = Path.Combine(dir, "file2.png.tmp1a2b3c4d");
         File.WriteAllText(tmp1, "temp1");
         File.WriteAllText(tmp2, "temp2");
+        var oldUtc = DateTime.UtcNow.AddHours(-1);
+        File.SetLastWriteTimeUtc(tmp1, oldUtc);
+        File.SetLastWriteTimeUtc(tmp2, oldUtc);
 
         ImageProcessor.CleanupOrphanedTempFiles(dir);
 
         File.Exists(tmp1).Should().BeFalse();
         File.Exists(tmp2).Should().BeFalse();
+    }
+
+    [Fact]
+    public void CleanupOrphanedTempFilesShouldKeepFreshTempFiles()
+    {
+        var dir = Path.Combine(_testDir, "freshtemp");
+        Directory.CreateDirectory(dir);
+        var freshTemp = Path.Combine(dir, $"{Guid.NewGuid():N}.tmp");
+        File.WriteAllText(freshTemp, "in flight");
+
+        ImageProcessor.CleanupOrphanedTempFiles(dir);
+
+        File.Exists(freshTemp).Should().BeTrue();
     }
 
     [Fact]
@@ -118,6 +134,7 @@ public class ImageProcessorTests : IDisposable
         var currentTemp = Path.Combine(dir, "target.png.tmp1a2b3c4d");
         File.WriteAllText(userFile, "user");
         File.WriteAllText(currentTemp, "temp");
+        File.SetLastWriteTimeUtc(currentTemp, DateTime.UtcNow.AddHours(-1));
 
         ImageProcessor.CleanupOrphanedTempFiles(dir);
 

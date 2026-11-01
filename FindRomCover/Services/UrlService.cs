@@ -17,6 +17,16 @@ public static class UrlService
     {
         if (string.IsNullOrWhiteSpace(url)) return false;
 
+        // Only hand web links to the shell. A file:// or custom scheme could launch
+        // an arbitrary local handler with attacker-controlled arguments.
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
+            (!string.Equals(uri.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) &&
+             !string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)))
+        {
+            LogService.Debug($"Refusing to open a non-HTTP(S) URL: {url}");
+            return false;
+        }
+
         try
         {
             using var _ = Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });

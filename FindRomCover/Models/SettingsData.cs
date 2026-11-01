@@ -9,16 +9,16 @@ public class SettingsData
     public double SimilarityThreshold { get; init; } = 70;
 
     /// <summary>Name of the algorithm used to compare ROM and image names.</summary>
-    public string SimilarityAlgorithm { get; init; } = "Jaro-Winkler Distance";
+    public string? SimilarityAlgorithm { get; init; } = "Jaro-Winkler Distance";
 
     /// <summary>Whether bracketed text is ignored when comparing names.</summary>
     public bool IgnoreBracketedText { get; init; } = true;
 
     /// <summary>Name of the base UI theme.</summary>
-    public string BaseTheme { get; init; } = "Dark";
+    public string? BaseTheme { get; init; } = "Dark";
 
     /// <summary>Name of the UI accent color.</summary>
-    public string AccentColor { get; init; } = "Blue";
+    public string? AccentColor { get; init; } = "Blue";
 
     /// <summary>Default display width of cover images in pixels.</summary>
     public int ImageWidth { get; init; } = 300;
@@ -39,43 +39,43 @@ public class SettingsData
     public int ApiTimeoutSeconds { get; init; } = 30;
 
     /// <summary>Selected web search provider.</summary>
-    public string SearchEngine { get; init; } = "BingWeb";
+    public string? SearchEngine { get; init; } = "BingWeb";
 
     /// <summary>API key for the bug report service.</summary>
-    public string BugReportApiKey { get; init; } = AppConstants.BugReportApiKey;
+    public string? BugReportApiKey { get; init; } = AppConstants.BugReportApiKey;
 
     /// <summary>API URL for the bug report service.</summary>
-    public string BugReportApiUrl { get; init; } = AppConstants.BugReportApiUrl;
+    public string? BugReportApiUrl { get; init; } = AppConstants.BugReportApiUrl;
 
     /// <summary>Google Custom Search API key.</summary>
-    public string GoogleKey { get; init; } = string.Empty;
+    public string? GoogleKey { get; init; } = string.Empty;
 
     /// <summary>Whether MAME descriptions are used as search names.</summary>
     public bool UseMameDescriptions { get; init; }
 
     /// <summary>Last image folder selected by the user.</summary>
-    public string LastImageFolder { get; init; } = string.Empty;
+    public string? LastImageFolder { get; init; } = string.Empty;
 
     /// <summary>File extensions treated as supported images.</summary>
-    public List<string> SupportedExtensions { get; init; } = [];
+    public List<string>? SupportedExtensions { get; init; } = [];
 
     /// <summary>Whether AI assistance is enabled.</summary>
     public bool AiAssistEnabled { get; init; }
 
     /// <summary>Selected AI provider.</summary>
-    public string AiProvider { get; init; } = AppConstants.AiProviders.OpenRouter;
+    public string? AiProvider { get; init; } = AppConstants.AiProviders.OpenRouter;
 
     /// <summary>Base URL of the AI API.</summary>
-    public string AiBaseUrl { get; init; } = string.Empty;
+    public string? AiBaseUrl { get; init; } = string.Empty;
 
     /// <summary>API key for the AI provider.</summary>
-    public string AiApiKey { get; init; } = string.Empty;
+    public string? AiApiKey { get; init; } = string.Empty;
 
     /// <summary>Identifier of the AI model to use.</summary>
-    public string AiModel { get; init; } = string.Empty;
+    public string? AiModel { get; init; } = string.Empty;
 
     /// <summary>Optional JSON request parameters merged into AI provider requests.</summary>
-    public string AiRequestParameters { get; init; } = string.Empty;
+    public string? AiRequestParameters { get; init; } = string.Empty;
 
     /// <summary>Timeout in seconds for AI requests.</summary>
     public int AiTimeoutSeconds { get; init; } = 90;

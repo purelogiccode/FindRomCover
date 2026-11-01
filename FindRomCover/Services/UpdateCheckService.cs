@@ -136,6 +136,7 @@ public static class UpdateCheckService
 
         return new UpdateInfo
         {
+            Succeeded = true,
             IsUpdateAvailable = isUpdateAvailable,
             CurrentVersion = currentVersion.ToString(),
             LatestVersion = latestVersion.ToString(),

@@ -67,7 +67,8 @@ public static class LogService
                 var logFilePath = AppDataPaths.LogFilePath("app.log");
 
                 // shared: allow a second instance (or a tool that holds the file) without
-                // aborting startup with an IOException.
+                // aborting startup with an IOException. Serilog's default 1 GB cap silently
+                // drops events once reached, so roll at 32 MB instead.
                 _logger = new LoggerConfiguration()
                     .MinimumLevel.Debug()
                     .WriteTo.File(
@@ -76,6 +77,8 @@ public static class LogService
                         formatProvider: CultureInfo.InvariantCulture,
                         rollingInterval: RollingInterval.Day,
                         retainedFileCountLimit: 7,
+                        fileSizeLimitBytes: 32L * 1024 * 1024,
+                        rollOnFileSizeLimit: true,
                         shared: true)
                     .WriteTo.Observers(events => events.Subscribe(new LogEventObserver()))
                     .WriteTo.Sink(new BugReportSink(new MessageTextTemplateFormatter()))
@@ -189,6 +192,8 @@ public static class LogService
     ///     Writes an error-level message.
     /// </summary>
     /// <param name="message">The message to log.</param>
+    [SuppressMessage("ReSharper", "UnusedMember.Global",
+        Justification = "Public logging API; kept for symmetry with the other levels.")]
     public static void Error(string message)
     {
         _logger.Error(message);

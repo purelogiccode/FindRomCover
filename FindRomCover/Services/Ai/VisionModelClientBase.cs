@@ -165,8 +165,8 @@ public abstract class VisionModelClientBase : IVisionModelClient
 
     /// <summary>
     ///     Extracts the JSON verdict object from the model response. When the response
-    ///     contains several valid JSON objects (for example an example object printed
-    ///     before the real answer), the first object carrying verdict fields wins.
+    ///     contains several valid JSON objects (for example a schema example printed
+    ///     before the real answer), the last object carrying verdict fields wins.
     /// </summary>
     /// <param name="content">The raw model response text.</param>
     /// <returns>The JSON object text.</returns>
@@ -177,9 +177,11 @@ public abstract class VisionModelClientBase : IVisionModelClient
 
         // Models sometimes wrap the JSON in prose or a markdown fence, and reasoning
         // models can mention braces (or example JSON) before the real answer. Try every
-        // balanced brace group: prefer one that carries verdict fields, otherwise fall
-        // back to the first valid JSON object.
+        // balanced brace group: prefer the last one that carries verdict fields (the
+        // answer normally follows the reasoning/example), otherwise fall back to the
+        // first valid JSON object.
         string? firstValid = null;
+        string? verdict = null;
 
         for (var start = content.IndexOf('{'); start >= 0; start = content.IndexOf('{', start + 1))
         {
@@ -197,7 +199,7 @@ public abstract class VisionModelClientBase : IVisionModelClient
                      root.TryGetProperty("match", out _) ||
                      root.TryGetProperty("isMatch", out _) ||
                      root.TryGetProperty("confidence", out _)))
-                    return candidate;
+                    verdict = candidate;
 
                 firstValid ??= candidate;
             }
@@ -207,6 +209,7 @@ public abstract class VisionModelClientBase : IVisionModelClient
             }
         }
 
+        if (verdict != null) return verdict;
         if (firstValid != null) return firstValid;
 
         throw new InvalidOperationException("AI response did not contain a JSON object.");

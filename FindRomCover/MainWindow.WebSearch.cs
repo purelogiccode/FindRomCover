@@ -214,6 +214,8 @@ public partial class MainWindow
 
     private async Task SaveApiImageAsync(string romName, ImageData imageData)
     {
+        if (_disposed) return;
+
         var imageFolderPath = GetValidatedImageFolderPath(false);
         if (string.IsNullOrEmpty(romName) || string.IsNullOrEmpty(imageFolderPath) ||
             string.IsNullOrEmpty(imageData.ImagePath))
@@ -240,6 +242,8 @@ public partial class MainWindow
                 return;
             }
 
+            if (_disposed) return;
+
             var verification = await TryVerifyImageAsync(romName, tempFileName);
             if (verification is { IsMatch: false })
             {
@@ -250,6 +254,8 @@ public partial class MainWindow
 
                 if (choice != MessageResult.Yes) return;
             }
+
+            if (_disposed) return;
 
             if (File.Exists(newFileName))
             {
@@ -383,6 +389,8 @@ public partial class MainWindow
 
     private async Task RunAiPickApiAsync()
     {
+        if (_disposed) return;
+
         if (!Settings.AiAssistEnabled)
         {
             await Dialogs.ShowMessageAsync(this,
@@ -394,8 +402,10 @@ public partial class MainWindow
         if (LstMissingImages.SelectedItem is not MissingImageItem selectedItem) return;
         if (PanelImages.Count == 0 || IsAiBusy) return;
 
-        if (_aiAssistCts != null) await _aiAssistCts.CancelAsync();
-        _aiAssistCts?.Dispose();
+        // Capture both the selection and its generation: the pick may run after the
+        // user selected another ROM while it waited in the auto-pick queue.
+        var generation = _selectionGeneration;
+        CancelAndDispose(ref _aiAssistCts);
         _aiAssistCts = new CancellationTokenSource();
         var cancellationToken = _aiAssistCts.Token;
 
@@ -413,7 +423,10 @@ public partial class MainWindow
                 candidates,
                 cancellationToken);
 
-            if (cancellationToken.IsCancellationRequested) return;
+            if (_disposed || cancellationToken.IsCancellationRequested ||
+                generation != _selectionGeneration ||
+                !ReferenceEquals(LstMissingImages.SelectedItem, selectedItem))
+                return;
 
             if (result is null)
             {

@@ -20,6 +20,19 @@ public class VisionModelClientParsingTests
     }
 
     [Fact]
+    public void ExtractJsonObjectShouldPreferTheLastVerdictObject()
+    {
+        const string content = """
+                               Example: {"bestIndex": 0, "confidence": 0.9, "reason": "example"}
+                               Answer: {"bestIndex": 3, "confidence": 0.8, "reason": "real"}
+                               """;
+
+        var json = VisionModelClientBase.ExtractJsonObject(content);
+
+        json.Should().Contain("\"bestIndex\": 3");
+    }
+
+    [Fact]
     public void ExtractJsonObjectShouldFallBackToTheFirstValidObjectWithoutVerdictFields()
     {
         const string content = "prefix {\"note\":\"only example\"} suffix {\"other\":1}";

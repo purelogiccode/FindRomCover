@@ -25,8 +25,7 @@ public class SettingsManager : INotifyPropertyChanged
     private static SettingsManager? _currentInstance;
     private static readonly Lock InstanceLock = new();
 
-    private static readonly string DefaultSettingsDirectory = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FindRomCover");
+    private static readonly string DefaultSettingsDirectory = AppDataPaths.BaseDirectory;
 
     /// <summary>
     ///     Overrides the default settings directory. Used by tests so they never touch the
@@ -45,6 +44,12 @@ public class SettingsManager : INotifyPropertyChanged
         Path.Combine(_settingsDirectory ?? DefaultSettingsDirectoryOverride ?? DefaultSettingsDirectory,
             AppConstants.SettingsDatabaseFileName);
 
+    /// <summary>
+    ///     Marker written after a successful legacy migration. While it exists, deleting
+    ///     the database (the documented reset) must not re-import an old .legacy backup.
+    /// </summary>
+    private string MigrationMarkerPath => SettingsDatabasePath + ".migrated";
+
     private static readonly byte[] SqliteHeader = "SQLite format 3\0"u8.ToArray();
 
     // --- Theme settings ---
@@ -60,6 +65,8 @@ public class SettingsManager : INotifyPropertyChanged
 
     private readonly Lock _ioLock = new();
     private bool _databaseUnavailable;
+    private bool _migrationPending;
+    private Dictionary<string, string>? _lastSavedValues;
 
     private bool _aiAssistEnabled;
 
@@ -157,12 +164,14 @@ public class SettingsManager : INotifyPropertyChanged
     {
         _settingsDirectory = settingsDirectory;
 
+        LoadSettings();
+
+        // Publish only after loading: logging from LoadSettings (or another thread)
+        // must not observe a half-initialized instance with zero/default values.
         lock (InstanceLock)
         {
             _currentInstance = this;
         }
-
-        LoadSettings();
     }
 
     /// <summary>
@@ -824,6 +833,63 @@ public class SettingsManager : INotifyPropertyChanged
     }
 
     /// <summary>
+    ///     Creates a snapshot of every persisted setting so a settings window can roll
+    ///     back its in-memory changes when <see cref="SaveSettings" /> fails.
+    /// </summary>
+    /// <returns>A detached snapshot of the current settings.</returns>
+    internal SettingsData CreateSnapshot()
+    {
+        return new SettingsData
+        {
+            SimilarityThreshold = SimilarityThreshold,
+            SimilarityAlgorithm = SelectedSimilarityAlgorithm,
+            IgnoreBracketedText = IgnoreBracketedText,
+            BaseTheme = BaseTheme,
+            AccentColor = AccentColor,
+            ImageWidth = ImageWidth,
+            ImageHeight = ImageHeight,
+            MaxImagesToLoad = MaxImagesToLoad,
+            ImageLoaderMaxRetries = ImageLoaderMaxRetries,
+            ImageLoaderRetryDelayMilliseconds = ImageLoaderRetryDelayMilliseconds,
+            ApiTimeoutSeconds = ApiTimeoutSeconds,
+            SearchEngine = SearchEngine,
+            BugReportApiKey = BugReportApiKey,
+            BugReportApiUrl = BugReportApiUrl,
+            GoogleKey = GoogleKey,
+            UseMameDescriptions = UseMameDescriptions,
+            LastImageFolder = LastImageFolder,
+            SupportedExtensions = [.. SupportedExtensions],
+            AiAssistEnabled = AiAssistEnabled,
+            AiProvider = AiProvider,
+            AiBaseUrl = AiBaseUrl,
+            AiApiKey = AiApiKey,
+            AiModel = AiModel,
+            AiRequestParameters = AiRequestParameters,
+            AiTimeoutSeconds = AiTimeoutSeconds,
+            AiMaxCandidates = AiMaxCandidates,
+            AiImageMaxDimension = AiImageMaxDimension,
+            AiMinCoverWidth = AiMinCoverWidth,
+            AiCandidateThreshold = AiCandidateThreshold,
+            AiAutoSaveThreshold = AiAutoSaveThreshold,
+            AiAutoSave = AiAutoSave,
+            AiAutoRun = AiAutoRun,
+            AiVerifyOnSave = AiVerifyOnSave,
+            AiSkipPreviouslyQueried = AiSkipPreviouslyQueried
+        };
+    }
+
+    /// <summary>
+    ///     Restores the settings captured by <see cref="CreateSnapshot" />. Used when a
+    ///     settings window cannot persist its changes.
+    /// </summary>
+    /// <param name="snapshot">The snapshot to restore.</param>
+    internal void RestoreSnapshot(SettingsData snapshot)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        ApplyData(snapshot);
+    }
+
+    /// <summary>
     ///     Occurs when a settings property value changes.
     /// </summary>
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -916,6 +982,10 @@ public class SettingsManager : INotifyPropertyChanged
     {
         lock (_ioLock)
         {
+            _databaseUnavailable = false;
+            _migrationPending = false;
+            _lastSavedValues = null;
+
             try
             {
                 if (TryLoadFromDatabase()) return;
@@ -975,6 +1045,9 @@ public class SettingsManager : INotifyPropertyChanged
 
         SetDefaultSettings();
         ApplyStoredValues(values);
+        _databaseUnavailable = false;
+        _migrationPending = false;
+        _lastSavedValues = BuildPlainValues();
         return true;
     }
 
@@ -983,18 +1056,19 @@ public class SettingsManager : INotifyPropertyChanged
         var legacyPaths = GetLegacySettingsFilePaths();
         if (legacyPaths.Count == 0) return false;
 
+        var transientFailure = false;
+
         foreach (var legacyPath in legacyPaths)
         {
             if (!TryLoadAndDecryptSettings(legacyPath, out var data))
             {
                 // A transient I/O failure (lock, sync client, permissions) must not be
-                // mistaken for corruption: keep the file and skip saving defaults so the
-                // migration is retried on the next start.
+                // mistaken for corruption. Keep looking at the other candidates; if none
+                // works, keep the files and skip saving defaults so migration is retried.
                 LogService.WarningTransient(
                     $"Legacy settings file '{legacyPath}' could not be read right now; the migration will be retried on the next start.");
-                // Keep usable in-memory defaults for this session without persisting them.
-                SetDefaultSettings();
-                return true;
+                transientFailure = true;
+                continue;
             }
 
             if (data == null)
@@ -1032,7 +1106,16 @@ public class SettingsManager : INotifyPropertyChanged
                 return true;
             }
 
+            WriteMigrationMarker();
             LogService.Information($"Migrated legacy settings from '{legacyPath}' into the SQLite settings database.");
+            return true;
+        }
+
+        if (transientFailure)
+        {
+            // Keep usable in-memory defaults for this session without persisting them.
+            _migrationPending = true;
+            SetDefaultSettings();
             return true;
         }
 
@@ -1042,35 +1125,38 @@ public class SettingsManager : INotifyPropertyChanged
     private void ApplyData(SettingsData data)
     {
         SimilarityThreshold = data.SimilarityThreshold;
-        SelectedSimilarityAlgorithm = data.SimilarityAlgorithm;
+        SelectedSimilarityAlgorithm = data.SimilarityAlgorithm ?? string.Empty;
         IgnoreBracketedText = data.IgnoreBracketedText;
-        BaseTheme = data.BaseTheme;
-        AccentColor = data.AccentColor;
+        BaseTheme = data.BaseTheme ?? string.Empty;
+        AccentColor = data.AccentColor ?? string.Empty;
         ImageWidth = data.ImageWidth;
         ImageHeight = data.ImageHeight;
         MaxImagesToLoad = data.MaxImagesToLoad;
         ImageLoaderMaxRetries = data.ImageLoaderMaxRetries;
         ImageLoaderRetryDelayMilliseconds = data.ImageLoaderRetryDelayMilliseconds;
         ApiTimeoutSeconds = data.ApiTimeoutSeconds;
-        SearchEngine = data.SearchEngine;
+        SearchEngine = data.SearchEngine ?? string.Empty;
         BugReportApiKey = string.IsNullOrWhiteSpace(data.BugReportApiKey)
             ? AppConstants.BugReportApiKey
             : data.BugReportApiKey;
         BugReportApiUrl = string.IsNullOrWhiteSpace(data.BugReportApiUrl)
             ? AppConstants.BugReportApiUrl
             : data.BugReportApiUrl;
-        GoogleKey = data.GoogleKey;
+        GoogleKey = data.GoogleKey ?? string.Empty;
         UseMameDescriptions = data.UseMameDescriptions;
-        LastImageFolder = data.LastImageFolder;
-        SupportedExtensions = data.SupportedExtensions is { Count: > 0 }
-            ? data.SupportedExtensions
-            : GetDefaultExtensions();
+        LastImageFolder = data.LastImageFolder ?? string.Empty;
+
+        var extensions = data.SupportedExtensions?
+            .Where(static extension => !string.IsNullOrWhiteSpace(extension))
+            .ToList();
+        SupportedExtensions = extensions is { Count: > 0 } ? extensions : GetDefaultExtensions();
+
         AiAssistEnabled = data.AiAssistEnabled;
-        AiProvider = data.AiProvider;
-        AiBaseUrl = data.AiBaseUrl;
-        AiApiKey = data.AiApiKey;
-        AiModel = data.AiModel;
-        AiRequestParameters = data.AiRequestParameters;
+        AiProvider = data.AiProvider ?? string.Empty;
+        AiBaseUrl = data.AiBaseUrl ?? string.Empty;
+        AiApiKey = data.AiApiKey ?? string.Empty;
+        AiModel = data.AiModel ?? string.Empty;
+        AiRequestParameters = data.AiRequestParameters ?? string.Empty;
         AiTimeoutSeconds = data.AiTimeoutSeconds;
         AiMaxCandidates = data.AiMaxCandidates;
         AiImageMaxDimension = data.AiImageMaxDimension;
@@ -1161,7 +1247,10 @@ public class SettingsManager : INotifyPropertyChanged
 
         try
         {
-            return JsonSerializer.Deserialize<List<string>>(value);
+            return JsonSerializer.Deserialize<List<string?>>(value)?
+                .Where(static extension => !string.IsNullOrWhiteSpace(extension))
+                .Select(static extension => extension!)
+                .ToList();
         }
         catch (JsonException)
         {
@@ -1254,6 +1343,8 @@ public class SettingsManager : INotifyPropertyChanged
 
     private bool TryMigrateFromLegacyXml()
     {
+        if (File.Exists(MigrationMarkerPath)) return false;
+
         var legacyPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "settings.xml");
         if (!File.Exists(legacyPath))
             return false;
@@ -1355,6 +1446,7 @@ public class SettingsManager : INotifyPropertyChanged
                 LogService.Debug($"Could not rename migrated legacy settings file '{legacyPath}': {ex.Message}");
             }
 
+            WriteMigrationMarker();
             LogService.Information("Successfully migrated settings from settings.xml to Settings.dat");
             return true;
         }
@@ -1364,18 +1456,36 @@ public class SettingsManager : INotifyPropertyChanged
             // database that shadows the still-valid XML on the next start.
             LogService.WarningTransient(ex,
                 "Could not read legacy settings.xml right now; the migration will be retried on the next start.");
+            _migrationPending = true;
             SetDefaultSettings();
             return true;
         }
         catch (Exception ex)
         {
-            _ = ErrorLogger.LogAsync(ex, "Failed to migrate settings from settings.xml");
+            // Malformed XML is a permanent environment problem (truncated sync copy).
+            // Preserve the bytes under .corrupt, report it as transient (not an app
+            // bug) and let a fresh defaults database be created.
+            LogService.WarningTransient(ex, "Failed to migrate settings from settings.xml; the file was preserved.");
+            try
+            {
+                File.Move(legacyPath, legacyPath + ".corrupt", true);
+            }
+            catch (Exception backupEx)
+            {
+                LogService.WarningTransient(backupEx,
+                    $"Could not preserve the malformed legacy settings file '{legacyPath}'.");
+            }
+
             return false;
         }
     }
 
     private List<string> GetLegacySettingsFilePaths()
     {
+        // A previous migration succeeded. Deleting Settings.dat is the documented
+        // reset; it must not resurrect the old .legacy backup or app-dir copy.
+        if (File.Exists(MigrationMarkerPath)) return [];
+
         var directory = _settingsDirectory ?? DefaultSettingsDirectoryOverride ?? DefaultSettingsDirectory;
         var dataDirLegacyPath = Path.Combine(directory, AppConstants.SettingsFileName);
 
@@ -1433,6 +1543,13 @@ public class SettingsManager : INotifyPropertyChanged
         try
         {
             var backupPath = filePath + ".legacy";
+            if (File.Exists(backupPath))
+            {
+                // Never destroy the last known-good backup with a newly found
+                // unreadable/truncated file; keep both.
+                backupPath += "." + DateTime.UtcNow.ToString("yyyyMMddHHmmssfff", CultureInfo.InvariantCulture);
+            }
+
             File.Move(filePath, backupPath, true);
             LogService.Information($"Backed up legacy settings file to: {backupPath}");
             return backupPath;
@@ -1441,6 +1558,19 @@ public class SettingsManager : INotifyPropertyChanged
         {
             LogService.WarningTransient(ex, $"Failed to back up legacy settings file: {filePath}");
             return null;
+        }
+    }
+
+    private void WriteMigrationMarker()
+    {
+        try
+        {
+            File.WriteAllText(MigrationMarkerPath, DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture));
+        }
+        catch (Exception ex)
+        {
+            // Best effort: without the marker a reset may re-import the backup.
+            LogService.WarningTransient(ex, $"Could not write the settings migration marker: {MigrationMarkerPath}");
         }
     }
 
@@ -1454,6 +1584,25 @@ public class SettingsManager : INotifyPropertyChanged
         {
             var corruptPath = SettingsDatabasePath + ".corrupt";
             File.Move(SettingsDatabasePath, corruptPath, true);
+
+            // SQLite sidecars must be quarantined too: a hot rollback journal left next
+            // to a fresh database would replay the corrupt pages back into it.
+            foreach (var suffix in new[] { "-journal", "-wal", "-shm" })
+            {
+                var sidecarPath = SettingsDatabasePath + suffix;
+                if (!File.Exists(sidecarPath)) continue;
+
+                try
+                {
+                    File.Move(sidecarPath, corruptPath + suffix, true);
+                }
+                catch (Exception sidecarEx)
+                {
+                    LogService.WarningTransient(sidecarEx,
+                        $"Could not quarantine the settings database sidecar: {sidecarPath}");
+                }
+            }
+
             LogService.WarningTransient($"Quarantined unreadable settings database to: {corruptPath}");
         }
         catch (Exception quarantineEx)
@@ -1488,49 +1637,45 @@ public class SettingsManager : INotifyPropertyChanged
             return false;
         }
 
-        var values = new Dictionary<string, string>(StringComparer.Ordinal)
+        if (_migrationPending)
         {
-            [nameof(SimilarityThreshold)] = SimilarityThreshold.ToString(CultureInfo.InvariantCulture),
-            [nameof(SelectedSimilarityAlgorithm)] = SelectedSimilarityAlgorithm,
-            [nameof(IgnoreBracketedText)] = IgnoreBracketedText.ToString(CultureInfo.InvariantCulture),
-            [nameof(BaseTheme)] = BaseTheme,
-            [nameof(AccentColor)] = AccentColor,
-            [nameof(ImageWidth)] = ImageWidth.ToString(CultureInfo.InvariantCulture),
-            [nameof(ImageHeight)] = ImageHeight.ToString(CultureInfo.InvariantCulture),
-            [nameof(MaxImagesToLoad)] = MaxImagesToLoad.ToString(CultureInfo.InvariantCulture),
-            [nameof(ImageLoaderMaxRetries)] = ImageLoaderMaxRetries.ToString(CultureInfo.InvariantCulture),
-            [nameof(ImageLoaderRetryDelayMilliseconds)] =
-                ImageLoaderRetryDelayMilliseconds.ToString(CultureInfo.InvariantCulture),
-            [nameof(ApiTimeoutSeconds)] = ApiTimeoutSeconds.ToString(CultureInfo.InvariantCulture),
-            [nameof(SearchEngine)] = SearchEngine,
-            [nameof(BugReportApiUrl)] = BugReportApiUrl,
-            [nameof(UseMameDescriptions)] = UseMameDescriptions.ToString(CultureInfo.InvariantCulture),
-            [nameof(LastImageFolder)] = LastImageFolder,
-            [nameof(SupportedExtensions)] = JsonSerializer.Serialize(SupportedExtensions),
-            [nameof(AiAssistEnabled)] = AiAssistEnabled.ToString(CultureInfo.InvariantCulture),
-            [nameof(AiProvider)] = AiProvider,
-            [nameof(AiBaseUrl)] = AiBaseUrl,
-            [nameof(AiModel)] = AiModel,
-            [nameof(AiRequestParameters)] = AiRequestParameters,
-            [nameof(AiTimeoutSeconds)] = AiTimeoutSeconds.ToString(CultureInfo.InvariantCulture),
-            [nameof(AiMaxCandidates)] = AiMaxCandidates.ToString(CultureInfo.InvariantCulture),
-            [nameof(AiImageMaxDimension)] = AiImageMaxDimension.ToString(CultureInfo.InvariantCulture),
-            [nameof(AiMinCoverWidth)] = AiMinCoverWidth.ToString(CultureInfo.InvariantCulture),
-            [nameof(AiCandidateThreshold)] = AiCandidateThreshold.ToString(CultureInfo.InvariantCulture),
-            [nameof(AiAutoSaveThreshold)] = AiAutoSaveThreshold.ToString(CultureInfo.InvariantCulture),
-            [nameof(AiAutoSave)] = AiAutoSave.ToString(CultureInfo.InvariantCulture),
-            [nameof(AiAutoRun)] = AiAutoRun.ToString(CultureInfo.InvariantCulture),
-            [nameof(AiVerifyOnSave)] = AiVerifyOnSave.ToString(CultureInfo.InvariantCulture),
-            [nameof(AiSkipPreviouslyQueried)] = AiSkipPreviouslyQueried.ToString(CultureInfo.InvariantCulture)
-        };
+            LogService.WarningTransient(
+                "Settings were not saved because a legacy settings file could not be read; the existing files were left untouched.");
+            ShowSaveError(
+                "Settings could not be saved because an older settings file could not be read.\n\n" +
+                "The existing files were left untouched; restart the application and try again.");
+            return false;
+        }
+
+        var currentValues = BuildPlainValues();
+
+        // Two running instances share one database. Writing the whole snapshot on every
+        // save made the last writer silently revert every key the other instance had
+        // changed. Only write keys whose in-memory value differs from the loaded one.
+        var writeAll = _lastSavedValues == null || !File.Exists(SettingsDatabasePath);
+        var values = writeAll
+            ? new Dictionary<string, string>(currentValues, StringComparer.Ordinal)
+            : currentValues
+                .Where(pair => !_lastSavedValues!.TryGetValue(pair.Key, out var previous) ||
+                               !string.Equals(previous, pair.Value, StringComparison.Ordinal))
+                .ToDictionary(static pair => pair.Key, static pair => pair.Value, StringComparer.Ordinal);
+
+        if (values.Count == 0)
+        {
+            _lastSavedValues = currentValues;
+            return true;
+        }
 
         // Secret values are only written when encryption succeeds, so a transient
         // crypto failure cannot overwrite the stored ciphertext with an empty value.
         // Report the failure instead of silently saving everything except the new key.
-        var secretsProtected =
-            AddProtectedSecret(values, nameof(BugReportApiKey), BugReportApiKey) &
-            AddProtectedSecret(values, nameof(GoogleKey), GoogleKey) &
-            AddProtectedSecret(values, nameof(AiApiKey), AiApiKey);
+        var secretsProtected = true;
+        if (values.ContainsKey(nameof(BugReportApiKey)))
+            secretsProtected &= AddProtectedSecret(values, nameof(BugReportApiKey), BugReportApiKey);
+        if (values.ContainsKey(nameof(GoogleKey)))
+            secretsProtected &= AddProtectedSecret(values, nameof(GoogleKey), GoogleKey);
+        if (values.ContainsKey(nameof(AiApiKey)))
+            secretsProtected &= AddProtectedSecret(values, nameof(AiApiKey), AiApiKey);
 
         if (!secretsProtected)
         {
@@ -1546,7 +1691,50 @@ public class SettingsManager : INotifyPropertyChanged
             return false;
         }
 
+        _lastSavedValues = currentValues;
         return true;
+    }
+
+    private Dictionary<string, string> BuildPlainValues()
+    {
+        return new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            [nameof(SimilarityThreshold)] = SimilarityThreshold.ToString(CultureInfo.InvariantCulture),
+            [nameof(SelectedSimilarityAlgorithm)] = SelectedSimilarityAlgorithm,
+            [nameof(IgnoreBracketedText)] = IgnoreBracketedText.ToString(CultureInfo.InvariantCulture),
+            [nameof(BaseTheme)] = BaseTheme,
+            [nameof(AccentColor)] = AccentColor,
+            [nameof(ImageWidth)] = ImageWidth.ToString(CultureInfo.InvariantCulture),
+            [nameof(ImageHeight)] = ImageHeight.ToString(CultureInfo.InvariantCulture),
+            [nameof(MaxImagesToLoad)] = MaxImagesToLoad.ToString(CultureInfo.InvariantCulture),
+            [nameof(ImageLoaderMaxRetries)] = ImageLoaderMaxRetries.ToString(CultureInfo.InvariantCulture),
+            [nameof(ImageLoaderRetryDelayMilliseconds)] =
+                ImageLoaderRetryDelayMilliseconds.ToString(CultureInfo.InvariantCulture),
+            [nameof(ApiTimeoutSeconds)] = ApiTimeoutSeconds.ToString(CultureInfo.InvariantCulture),
+            [nameof(SearchEngine)] = SearchEngine,
+            [nameof(BugReportApiKey)] = BugReportApiKey,
+            [nameof(BugReportApiUrl)] = BugReportApiUrl,
+            [nameof(GoogleKey)] = GoogleKey,
+            [nameof(UseMameDescriptions)] = UseMameDescriptions.ToString(CultureInfo.InvariantCulture),
+            [nameof(LastImageFolder)] = LastImageFolder,
+            [nameof(SupportedExtensions)] = JsonSerializer.Serialize(SupportedExtensions),
+            [nameof(AiAssistEnabled)] = AiAssistEnabled.ToString(CultureInfo.InvariantCulture),
+            [nameof(AiProvider)] = AiProvider,
+            [nameof(AiBaseUrl)] = AiBaseUrl,
+            [nameof(AiApiKey)] = AiApiKey,
+            [nameof(AiModel)] = AiModel,
+            [nameof(AiRequestParameters)] = AiRequestParameters,
+            [nameof(AiTimeoutSeconds)] = AiTimeoutSeconds.ToString(CultureInfo.InvariantCulture),
+            [nameof(AiMaxCandidates)] = AiMaxCandidates.ToString(CultureInfo.InvariantCulture),
+            [nameof(AiImageMaxDimension)] = AiImageMaxDimension.ToString(CultureInfo.InvariantCulture),
+            [nameof(AiMinCoverWidth)] = AiMinCoverWidth.ToString(CultureInfo.InvariantCulture),
+            [nameof(AiCandidateThreshold)] = AiCandidateThreshold.ToString(CultureInfo.InvariantCulture),
+            [nameof(AiAutoSaveThreshold)] = AiAutoSaveThreshold.ToString(CultureInfo.InvariantCulture),
+            [nameof(AiAutoSave)] = AiAutoSave.ToString(CultureInfo.InvariantCulture),
+            [nameof(AiAutoRun)] = AiAutoRun.ToString(CultureInfo.InvariantCulture),
+            [nameof(AiVerifyOnSave)] = AiVerifyOnSave.ToString(CultureInfo.InvariantCulture),
+            [nameof(AiSkipPreviouslyQueried)] = AiSkipPreviouslyQueried.ToString(CultureInfo.InvariantCulture)
+        };
     }
 
     private static bool AddProtectedSecret(Dictionary<string, string> values, string key, string secret)

@@ -78,12 +78,15 @@ public sealed class OpenAiCompatibleVisionClient : VisionModelClientBase
                 image_url = new { url = "data:image/jpeg;base64," + Convert.ToBase64String(image.Image.JpegBytes) }
             });
 
+        // OpenAI's o-series/gpt-5 reasoning models reject the legacy "system" role;
+        // they use "developer" for the same instruction channel.
+        var systemRole = IsOpenAiReasoningModel(options) ? "developer" : "system";
         var payload = new Dictionary<string, object?>(StringComparer.Ordinal)
         {
             ["model"] = options.Model,
             ["messages"] = new object[]
             {
-                new { role = "system", content = systemPrompt },
+                new { role = systemRole, content = systemPrompt },
                 new { role = "user", content = userContent }
             }
         };
@@ -152,6 +155,10 @@ public sealed class OpenAiCompatibleVisionClient : VisionModelClientBase
             choices.ValueKind != JsonValueKind.Array ||
             choices.GetArrayLength() == 0)
             throw new InvalidOperationException("AI response did not contain any choices.");
+
+        // A truncated answer is common with reasoning models: the finish reason is the
+        // only reliable signal once the JSON is cut off mid-object.
+        ThrowIfOutputBudgetExhausted(choices[0]);
 
         if (!choices[0].TryGetProperty("message", out var message) ||
             !message.TryGetProperty("content", out var content))

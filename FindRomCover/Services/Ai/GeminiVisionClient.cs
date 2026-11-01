@@ -135,6 +135,13 @@ public sealed class GeminiVisionClient : VisionModelClientBase
             candidates.GetArrayLength() == 0)
             throw new InvalidOperationException("AI response did not contain any candidates.");
 
+        // A MAX_TOKENS finish reason means the JSON may be cut off mid-object, even
+        // when the response still contains partial text.
+        if (candidates[0].TryGetProperty("finishReason", out var truncatedReason) &&
+            truncatedReason.ValueKind == JsonValueKind.String &&
+            string.Equals(truncatedReason.GetString(), "MAX_TOKENS", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException(OutputBudgetExhaustedMessage);
+
         if (!candidates[0].TryGetProperty("content", out var content) ||
             !content.TryGetProperty("parts", out var parts) ||
             parts.ValueKind != JsonValueKind.Array)

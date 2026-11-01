@@ -9,6 +9,13 @@ namespace FindRomCover.Models;
     Justification = "Update information is mutable by design and tests exercise the setters.")]
 public class UpdateInfo
 {
+    /// <summary>
+    ///     Whether the update check completed successfully. When <see langword="false" />,
+    ///     <see cref="IsUpdateAvailable" /> being <see langword="false" /> only means the
+    ///     check failed, not that the installed version is current.
+    /// </summary>
+    public bool Succeeded { get; set; }
+
     /// <summary>Whether a newer version is available.</summary>
     public bool IsUpdateAvailable { get; set; }
 

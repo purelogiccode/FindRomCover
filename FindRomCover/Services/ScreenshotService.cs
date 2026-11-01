@@ -108,7 +108,7 @@ public static class ScreenshotService
             }
         }
 
-        LogService.Error("Screenshot: could not be saved to any candidate folder.");
+        LogService.WarningTransient("Screenshot: could not be saved to any candidate folder.");
         return null;
     }
 

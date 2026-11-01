@@ -26,22 +26,59 @@ internal static class VisionModelCatalog
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeoutCts.CancelAfter(TimeSpan.FromSeconds(Math.Max(1, options.TimeoutSeconds)));
 
-        using var request = new HttpRequestMessage(HttpMethod.Get, BuildModelsUrl(options.BaseUrl));
-        VisionModelClientBase.ApplyAuthHeaders(request, options);
-
         try
         {
-            using var response = await httpClient
-                .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeoutCts.Token)
-                .ConfigureAwait(false);
+            var models = new List<VisionModelInfo>();
+            string? pageToken = null;
+            string? afterId = null;
 
-            var body = await response.Content.ReadAsStringAsync(timeoutCts.Token).ConfigureAwait(false);
+            // Gemini defaults to 50 models and Anthropic to 20. Follow their pagination
+            // tokens so "Test / Load Models" cannot report an existing model as missing.
+            for (var page = 0; page < 20; page++)
+            {
+                using var request = new HttpRequestMessage(HttpMethod.Get,
+                    BuildModelsUrl(options.BaseUrl, options.Provider, pageToken, afterId));
+                VisionModelClientBase.ApplyAuthHeaders(request, options);
 
-            if (!response.IsSuccessStatusCode)
-                throw new InvalidOperationException(
-                    VisionModelClientBase.BuildHttpErrorMessage(response.StatusCode, body));
+                using var response = await httpClient
+                    .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeoutCts.Token)
+                    .ConfigureAwait(false);
 
-            return ParseModels(body);
+                var body = await response.Content.ReadAsStringAsync(timeoutCts.Token).ConfigureAwait(false);
+
+                if (!response.IsSuccessStatusCode)
+                    throw new InvalidOperationException(
+                        VisionModelClientBase.BuildHttpErrorMessage(response.StatusCode, body));
+
+                models.AddRange(ParseModels(body));
+
+                using var doc = JsonDocument.Parse(body);
+                var root = doc.RootElement;
+
+                if (string.Equals(options.Provider, AppConstants.AiProviders.Gemini, StringComparison.Ordinal))
+                {
+                    pageToken = GetString(root, "nextPageToken");
+                    if (string.IsNullOrWhiteSpace(pageToken)) break;
+                }
+                else if (string.Equals(options.Provider, AppConstants.AiProviders.Anthropic,
+                             StringComparison.Ordinal))
+                {
+                    if (!GetBool(root, "has_more")) break;
+
+                    afterId = GetString(root, "last_id");
+                    if (string.IsNullOrWhiteSpace(afterId)) break;
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            return models
+                .GroupBy(static model => model.Id, StringComparer.OrdinalIgnoreCase)
+                .Select(static group => group.First())
+                .OrderBy(static model => model.Id, StringComparer.OrdinalIgnoreCase)
+                .ToList();
         }
         catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested)
         {
@@ -62,10 +99,31 @@ internal static class VisionModelCatalog
     /// <returns>The absolute models endpoint URL.</returns>
     internal static string BuildModelsUrl(string baseUrl)
     {
+        return BuildModelsUrl(baseUrl, string.Empty, null, null);
+    }
+
+    internal static string BuildModelsUrl(string baseUrl, string provider, string? pageToken, string? afterId)
+    {
         if (string.IsNullOrWhiteSpace(baseUrl))
             throw new InvalidOperationException("AI Base URL is not configured.");
 
-        return baseUrl.Trim().TrimEnd('/') + "/models";
+        var url = baseUrl.Trim().TrimEnd('/') + "/models";
+        var query = new List<string>();
+
+        if (string.Equals(provider, AppConstants.AiProviders.Gemini, StringComparison.Ordinal))
+        {
+            query.Add("pageSize=1000");
+            if (!string.IsNullOrWhiteSpace(pageToken))
+                query.Add("pageToken=" + Uri.EscapeDataString(pageToken));
+        }
+        else if (string.Equals(provider, AppConstants.AiProviders.Anthropic, StringComparison.Ordinal))
+        {
+            query.Add("limit=1000");
+            if (!string.IsNullOrWhiteSpace(afterId))
+                query.Add("after_id=" + Uri.EscapeDataString(afterId));
+        }
+
+        return query.Count == 0 ? url : url + "?" + string.Join("&", query);
     }
 
     /// <summary>
@@ -232,5 +290,11 @@ internal static class VisionModelCatalog
         return element.TryGetProperty(propertyName, out var value) && value.ValueKind == JsonValueKind.String
             ? value.GetString()
             : null;
+    }
+
+    private static bool GetBool(JsonElement element, string propertyName)
+    {
+        return element.TryGetProperty(propertyName, out var value) &&
+               value.ValueKind == JsonValueKind.True;
     }
 }

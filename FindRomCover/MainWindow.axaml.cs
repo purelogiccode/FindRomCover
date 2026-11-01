@@ -57,6 +57,7 @@ public sealed partial class MainWindow : Window, INotifyPropertyChanged, IDispos
     private readonly Task? _mameLoadTask;
     private Dictionary<string, string>? _mameLookup;
     private string _selectedRomFileName = string.Empty;
+    private int _selectionGeneration;
     private TrayIconManager? _systemTrayIcon;
     private string? _watchedFolderPath;
     private bool _webView2NotificationShown;
@@ -375,23 +376,13 @@ public sealed partial class MainWindow : Window, INotifyPropertyChanged, IDispos
         _folderTextDebounce = null;
         _pendingWatcherMessages.Clear();
 
-        _findSimilarCts?.Cancel();
-        _loadMissingCts?.Cancel();
-        _aiAssistCts?.Cancel();
-        _webSearchCts?.Cancel();
-
         // NOTE: never block the UI thread on the search/scan tasks here — they post
-        // continuations back to this dispatcher. Cancellation is requested above and
+        // continuations back to this dispatcher. Cancellation is requested here and
         // SettleBackgroundTasksAsync (invoked from OnWindowClosed) awaits them off-thread.
-
-        _findSimilarCts?.Dispose();
-        _findSimilarCts = null;
-        _loadMissingCts?.Dispose();
-        _loadMissingCts = null;
-        _aiAssistCts?.Dispose();
-        _aiAssistCts = null;
-        _webSearchCts?.Dispose();
-        _webSearchCts = null;
+        CancelAndDispose(ref _findSimilarCts);
+        CancelAndDispose(ref _loadMissingCts);
+        CancelAndDispose(ref _aiAssistCts);
+        CancelAndDispose(ref _webSearchCts);
         // Stop the watcher before the AI service: an in-flight verification must not
         // run against a disposed client (it would "fail open" and accept the image).
         _imageFolderWatcher?.Dispose();
@@ -645,9 +636,20 @@ public sealed partial class MainWindow : Window, INotifyPropertyChanged, IDispos
         {
             var machines = await Task.Run(MameManager.LoadFromDat);
             _mameLookup = machines
+                .Where(static m => !string.IsNullOrWhiteSpace(m.MachineName))
                 .GroupBy(static m => m.MachineName, StringComparer.OrdinalIgnoreCase)
-                .ToDictionary(static g => g.Key, static g => g.First().Description, StringComparer.OrdinalIgnoreCase);
+                .ToDictionary(static g => g.Key, static g => g.First().Description,
+                    StringComparer.OrdinalIgnoreCase);
             ToggleMameDescriptions.IsEnabled = true;
+        }
+        catch (Exception ex) when (ex is MameDatNotFoundException or MameDatCorruptError)
+        {
+            // A missing or corrupt bundled data file is an installation/packaging
+            // problem, not an application bug; do not file an automatic report.
+            _mameLookup = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            ToggleMameDescriptions.IsEnabled = false;
+            ToggleMameDescriptions.IsChecked = false;
+            LogService.WarningTransient(ex, "Failed to load MAME data");
         }
         catch (Exception ex)
         {
@@ -882,11 +884,17 @@ public sealed partial class MainWindow : Window, INotifyPropertyChanged, IDispos
                 if (choice == MessageResult.Yes)
                     UrlService.TryOpenUrl(updateInfo.ReleaseUrl);
             }
-            else
+            else if (updateInfo.Succeeded)
             {
                 await Dialogs.ShowMessageAsync(this,
                     $"You are running the latest version (v{updateInfo.CurrentVersion}).",
                     "No Updates Available");
+            }
+            else
+            {
+                await Dialogs.ShowMessageAsync(this,
+                    "The update check could not be completed. Check your internet connection and try again.",
+                    "Update Check Failed", MessageIcon.Warning);
             }
         }
         catch (Exception ex)
@@ -980,27 +988,19 @@ public sealed partial class MainWindow : Window, INotifyPropertyChanged, IDispos
     {
         PersistWindowSettings();
 
+        // An OS shutdown/logoff must not be vetoed by the tray-style close handling.
+        // Cancel the work, then let Avalonia close the window and exit.
+        if (e.CloseReason is WindowCloseReason.OSShutdown or WindowCloseReason.ApplicationShutdown)
+        {
+            _isExiting = true;
+            CancelBackgroundWorkForClose();
+            return;
+        }
+
         if (_isExiting)
         {
             // Allow close when explicitly exiting
-            try
-            {
-                _findSimilarCts?.Cancel();
-            }
-            catch (Exception ex)
-            {
-                LogService.Debug($"Cancelling find-similar task during close failed: {ex.Message}");
-            }
-
-            try
-            {
-                _loadMissingCts?.Cancel();
-            }
-            catch (Exception ex)
-            {
-                LogService.Debug($"Cancelling missing-covers scan during close failed: {ex.Message}");
-            }
-
+            CancelBackgroundWorkForClose();
             return;
         }
 
@@ -1009,6 +1009,26 @@ public sealed partial class MainWindow : Window, INotifyPropertyChanged, IDispos
         // handler re-enters Closing/Exit and saves/disposes everything twice.
         e.Cancel = true;
         Dispatcher.UIThread.Post(ExitApplication);
+    }
+
+    private void CancelBackgroundWorkForClose()
+    {
+        CancelForClose(_findSimilarCts, "find-similar");
+        CancelForClose(_loadMissingCts, "missing-covers scan");
+        CancelForClose(_aiAssistCts, "AI assist");
+        CancelForClose(_webSearchCts, "API search");
+    }
+
+    private static void CancelForClose(CancellationTokenSource? source, string operation)
+    {
+        try
+        {
+            source?.Cancel();
+        }
+        catch (Exception ex)
+        {
+            LogService.Debug($"Cancelling {operation} during close failed: {ex.Message}");
+        }
     }
 
     /// <summary>
@@ -1166,13 +1186,15 @@ public sealed partial class MainWindow : Window, INotifyPropertyChanged, IDispos
             var imageFolderPath = GetValidatedImageFolderPath();
             if (string.IsNullOrEmpty(imageFolderPath)) return;
 
+            // Wait for an in-progress scan first: checking the count before the await
+            // reported "no missing covers" while the scan was still filling the list.
+            if (_loadMissingTask is { } pendingScan) await pendingScan;
+
             if (MissingImages.Count == 0)
             {
                 await Dialogs.ShowMessageAsync(this, "There are no missing covers to process.", "AI Batch Fill");
                 return;
             }
-
-            if (_loadMissingTask is { } pendingScan) await pendingScan;
 
             var resolvedCount = 0;
             var window = new AiBatchWindow(
@@ -1234,12 +1256,7 @@ public sealed partial class MainWindow : Window, INotifyPropertyChanged, IDispos
 
     private async Task RefreshMissingImagesListAsync()
     {
-        if (_loadMissingCts != null)
-        {
-            await _loadMissingCts.CancelAsync();
-            _loadMissingCts.Dispose();
-            _loadMissingCts = null;
-        }
+        CancelAndDispose(ref _loadMissingCts);
 
         var cts = new CancellationTokenSource();
         _loadMissingCts = cts;
@@ -1711,20 +1728,19 @@ public sealed partial class MainWindow : Window, INotifyPropertyChanged, IDispos
         {
             if (_aiBatchRunning) return;
 
-            // Cancel any pending searches
-            if (_findSimilarCts != null) await _findSimilarCts.CancelAsync();
-            _findSimilarCts?.Dispose();
-            _findSimilarCts = null;
-            if (_webSearchCts != null) await _webSearchCts.CancelAsync();
-            _webSearchCts?.Dispose();
-            _webSearchCts = null;
-            if (_aiAssistCts != null) await _aiAssistCts.CancelAsync();
-            _aiAssistCts?.Dispose();
-            _aiAssistCts = null;
+            // Invalidate queued AI picks and cancel every running search before the
+            // first await. Otherwise a queued pick can start while this handler is
+            // suspended and combine the previous ROM's images with the new selection.
+            var generation = ++_selectionGeneration;
+            var selectedItem = LstMissingImages.SelectedItem as MissingImageItem;
+
+            CancelAndDispose(ref _findSimilarCts);
+            CancelAndDispose(ref _webSearchCts);
+            CancelAndDispose(ref _aiAssistCts);
             SetApiSearching(false);
             SetWebSearching(false);
 
-            if (LstMissingImages.SelectedItem is not MissingImageItem selectedItem)
+            if (selectedItem == null)
             {
                 // No ROM selected anymore — the watcher must not rename a future dropped
                 // file onto the previously selected (possibly already filled) ROM.
@@ -1764,6 +1780,10 @@ public sealed partial class MainWindow : Window, INotifyPropertyChanged, IDispos
                 // Clipboard may be locked by another process
                 LogService.Debug($"Could not copy ROM name to clipboard: {ex.Message}");
             }
+
+            // A newer selection may have superseded this handler while the clipboard
+            // write was in progress.
+            if (_disposed || generation != _selectionGeneration) return;
 
             // Always do local search
             _findSimilarTask = RunLocalSearchAsync(selectedItemSearchName, selectedItemRomName);
@@ -2167,7 +2187,11 @@ public sealed partial class MainWindow : Window, INotifyPropertyChanged, IDispos
     private async Task<bool> VerifyImageWithAiAsync(string filePath, string romName,
         CancellationToken cancellationToken)
     {
-        if (_disposed || !Settings.AiAssistEnabled || !Settings.AiVerifyOnSave) return true;
+        if (!Settings.AiAssistEnabled || !Settings.AiVerifyOnSave) return true;
+
+        // Shutting down: reject the rename instead of letting an unverified image
+        // become a cover (the catch path below makes the same choice).
+        if (_disposed) return false;
 
         try
         {
@@ -2293,6 +2317,17 @@ public sealed partial class MainWindow : Window, INotifyPropertyChanged, IDispos
         catch (Exception ex)
         {
             LogService.Debug($"Missing-covers task did not settle cleanly: {ex.Message}");
+        }
+
+        try
+        {
+            // A queued pick may still be waiting behind the cancelled one; Dispose
+            // marks the window disposed and the queue exits without writing a cover.
+            await Task.WhenAny(_aiAutoPickQueue, timeout);
+        }
+        catch (Exception ex)
+        {
+            LogService.Debug($"AI pick queue did not settle cleanly: {ex.Message}");
         }
     }
 }
