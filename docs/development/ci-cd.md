@@ -4,7 +4,7 @@ FindRomCover uses GitHub Actions for continuous integration, code scanning, docu
 
 | Workflow | Purpose |
 |----------|---------|
-| `ci.yml` | Build, test, formatting, and dependency review |
+| `ci.yml` | Build, test, formatting, InspectCode, and dependency review |
 | `codeql.yml` | CodeQL code scanning |
 | `docs.yml` | GitHub Pages and GitHub wiki |
 | `release.yml` | Validate, test, and publish a tagged release |
@@ -47,6 +47,24 @@ It verifies whitespace, style, and analyzer fixes together. Run the same command
 
 ```bash
 dotnet format CSharp_FindRomCover.sln
+```
+
+### InspectCode job
+
+A Windows job installs the pinned JetBrains ReSharper command-line tools package
+(`JetBrains.ReSharper.GlobalTools`), restores the solution, and runs:
+
+```bash
+jb inspectcode CSharp_FindRomCover.sln --output=inspectcode.txt --format=Text --no-updates
+```
+
+The job fails when the report contains any finding, so errors, warnings, and
+suggestions stay at zero. The text report is uploaded as the `inspectcode-report`
+artifact for 7 days. Run the same command locally after installing the tool:
+
+```bash
+dotnet tool install --global JetBrains.ReSharper.GlobalTools --version 2026.2.3.1
+jb inspectcode CSharp_FindRomCover.sln --output=inspectcode.txt --format=Text --no-updates
 ```
 
 ### Dependency review job
@@ -179,6 +197,7 @@ Every Dependabot pull request runs the same CI, CodeQL, and dependency-review ch
   - `Build app (ubuntu-latest)`
   - `Build app (macos-latest)`
   - `Formatting and analyzers`
+  - `InspectCode`
   - `Analyze C#` (CodeQL)
   - `Build documentation site`
   - `Generate wiki pages`

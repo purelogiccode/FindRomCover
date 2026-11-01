@@ -43,6 +43,7 @@ dotnet restore CSharp_FindRomCover.sln
 dotnet build CSharp_FindRomCover.sln -c Release -warnaserror
 dotnet test CSharp_FindRomCover.sln -c Release --no-build
 dotnet format CSharp_FindRomCover.sln --verify-no-changes
+jb inspectcode CSharp_FindRomCover.sln --output=inspectcode.txt --format=Text --no-updates
 mkdocs build --strict
 pwsh ./scripts/Sync-Wiki.ps1 -OutputPath wiki-out
 actionlint .github/workflows/*.yml   # when actionlint is available

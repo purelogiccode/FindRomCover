@@ -34,9 +34,10 @@ Include:
    dotnet build CSharp_FindRomCover.sln -warnaserror
    dotnet test CSharp_FindRomCover.sln
    dotnet format CSharp_FindRomCover.sln --verify-no-changes
+   jb inspectcode CSharp_FindRomCover.sln --output=inspectcode.txt --format=Text --no-updates
    ```
 
-   The test project targets `net10.0-windows`, so run the test suite on Windows even though the application itself builds and runs cross-platform.
+   The test project targets `net10.0-windows`, so run the test suite on Windows even though the application itself builds and runs cross-platform. Install the pinned InspectCode tool with `dotnet tool install --global JetBrains.ReSharper.GlobalTools --version 2026.2.3.1` if `jb` is not available.
 
 3. Keep changes focused: one logical change per pull request.
 4. Add or update tests for behavior changes.

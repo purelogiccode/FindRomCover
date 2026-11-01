@@ -106,7 +106,7 @@ CSharp_FindRomCover/
 ├── .github/
 │   ├── dependabot.yml                # Weekly grouped dependency updates
 │   └── workflows/
-│       ├── ci.yml                    # Build, test, formatting, dependency review
+│       ├── ci.yml                    # Build, test, formatting, InspectCode, dependency review
 │       ├── codeql.yml                # CodeQL code scanning
 │       ├── docs.yml                  # Validate, publish Pages, sync wiki
 │       └── release.yml               # Validate, test, build bundles, publish release

@@ -132,7 +132,7 @@ AiAssistService ──uses──> IVisionModelClient
 
 ## Testing and CI
 
-The test project covers services, managers, models, and AI clients with xUnit, FluentAssertions, and Moq. GitHub Actions builds and tests every push and pull request on Windows, enforces formatting and analyzer rules, and scans the code with CodeQL. See [Testing](testing.md) and [CI/CD](ci-cd.md).
+The test project covers services, managers, models, and AI clients with xUnit, FluentAssertions, and Moq. GitHub Actions builds and tests every push and pull request on Windows, enforces formatting and analyzer rules, runs InspectCode, and scans the code with CodeQL. See [Testing](testing.md) and [CI/CD](ci-cd.md).
 
 ## Related pages
 

@@ -43,7 +43,7 @@ It supports **Local Similarity Search** across your existing image folder, plus 
 - **Custom AI request parameters** — merge an advanced JSON object into every AI request to tune temperature, token budgets, reasoning options, or provider-specific fields from AI Settings.
 - **Reliable web-tab saves** — Google Web and Bing Web images now convert through the same tolerant Magick.NET pipeline as manual saves, including mislabeled, truncated, `.jfif`, `.jpe`, and `.apng` files.
 - **Missing WebView2 runtime handled** — the app shows the runtime prompt once instead of a generic error dialog or automatic bug report.
-- **Protected CI/CD** — required build, formatting, CodeQL, documentation, and wiki checks are enforced through branch rulesets.
+- **Protected CI/CD** — required build, formatting, InspectCode, CodeQL, documentation, and wiki checks are enforced through branch rulesets.
 
 ## Documentation
 

@@ -136,6 +136,56 @@ jobs:
       - name: Verify formatting, style, and analyzers
         run: dotnet format ${{ env.SOLUTION }} --verify-no-changes --no-restore --verbosity minimal
 
+  inspectcode:
+    name: InspectCode
+    runs-on: windows-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+          cache: true
+          cache-dependency-path: '**/*.csproj'
+
+      - name: Install InspectCode
+        shell: pwsh
+        run: |
+          dotnet tool install --global JetBrains.ReSharper.GlobalTools --version 2026.2.3.1
+          "$env:USERPROFILE\.dotnet\tools" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8NoBOM
+
+      - name: Restore
+        run: dotnet restore ${{ env.SOLUTION }}
+
+      - name: Run InspectCode
+        shell: pwsh
+        run: |
+          jb inspectcode $env:SOLUTION --output=inspectcode.txt --format=Text --no-updates
+          if ($LASTEXITCODE -ne 0) {
+            throw "InspectCode failed with exit code $LASTEXITCODE."
+          }
+
+          $findings = @(Get-Content -LiteralPath 'inspectcode.txt' |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+            Select-Object -Skip 1)
+          Get-Content -LiteralPath 'inspectcode.txt'
+          if ($findings.Count -gt 0) {
+            throw "InspectCode reported $($findings.Count) finding(s)."
+          }
+
+      - name: Upload InspectCode report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: inspectcode-report
+          path: inspectcode.txt
+          if-no-files-found: ignore
+          retention-days: 7
+
   dependency-review:
     name: Dependency review
     if: github.event_name == 'pull_request'
