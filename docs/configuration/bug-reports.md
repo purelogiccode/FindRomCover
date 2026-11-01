@@ -23,7 +23,7 @@ A repeating problem is reported at most once per minute: the throttle compares t
 |-------|-------------|
 | Date | Local date and time the report was created |
 | Application name | `FindRomCover` |
-| Application version | Running version, for example `3.4.0` |
+| Application version | Running version, for example `3.5.0` |
 | OS version | Runtime OS description |
 | Architecture | For example `X64` or `Arm64` |
 | Bitness | `32-bit` or `64-bit` |

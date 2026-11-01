@@ -23,7 +23,7 @@
 [![Top language](https://img.shields.io/github/languages/top/purelogiccode/FindRomCover)](https://github.com/purelogiccode/FindRomCover)
 [![C# 14](https://img.shields.io/badge/C%23-14-239120?logo=csharp&logoColor=white)](https://learn.microsoft.com/dotnet/csharp/)
 [![UI: Avalonia 12](https://img.shields.io/badge/UI-Avalonia%2012-8B44AC)](https://avaloniaui.net)
-[![Tests](https://img.shields.io/badge/tests-930%20passing-brightgreen)](https://github.com/purelogiccode/FindRomCover/actions/workflows/ci.yml)
+[![Tests](https://img.shields.io/badge/tests-973%20passing-brightgreen)](https://github.com/purelogiccode/FindRomCover/actions/workflows/ci.yml)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](https://github.com/purelogiccode/FindRomCover/blob/master/docs/development/contributing.md)
 [![Maintained](https://img.shields.io/badge/maintained-yes-brightgreen)](https://github.com/purelogiccode/FindRomCover/commits/master)
 [![Discussions](https://img.shields.io/badge/discussions-available-blue?logo=github)](https://github.com/purelogiccode/FindRomCover/discussions)
@@ -32,24 +32,25 @@
 # FindRomCover
 
 A powerful cross-platform desktop application (Windows, Linux, and macOS) designed to help you automatically find and download missing cover art for your retro gaming ROM collection.
-It supports **Local Similarity Search** across your existing image folder, plus **Google Web Image Search**, **Bing Web Image Search**, and the **Google Custom Search API** to fetch high-quality game cover images. Version **3.3** migrated the app to Avalonia and added an optional **AI Vision Assist** that looks at the candidates and picks the best cover for you. Version **3.4** adds custom AI request parameters and hardens web-tab image handling.
+It supports **Local Similarity Search** across your existing image folder, plus **Google Web Image Search**, **Bing Web Image Search**, and the **Google Custom Search API** to fetch high-quality game cover images. Version **3.3** migrated the app to Avalonia and added an optional **AI Vision Assist** that looks at the candidates and picks the best cover for you. Version **3.4** added custom AI request parameters and hardened web-tab image handling. Version **3.5** focuses on reliability, settings safety, AI robustness, and CI hardening.
 
 ![Main Window](screenshot.png)
 
 ![Main Window](screenshot2.png)
 
-## What's New in 3.4
+## What's New in 3.5
 
-- **Custom AI request parameters** — merge an advanced JSON object into every AI request to tune temperature, token budgets, reasoning options, or provider-specific fields from AI Settings.
-- **Reliable web-tab saves** — Google Web and Bing Web images now convert through the same tolerant Magick.NET pipeline as manual saves, including mislabeled, truncated, `.jfif`, `.jpe`, and `.apng` files.
-- **Missing WebView2 runtime handled** — the app shows the runtime prompt once instead of a generic error dialog or automatic bug report.
-- **Protected CI/CD** — required build, formatting, InspectCode, CodeQL, documentation, and wiki checks are enforced through branch rulesets.
+- **Covers stay on the right game** — fixed search and AI-pick races that could show the previous ROM's candidates after a selection change, plus cancellation leaks that could repopulate stale results.
+- **Existing covers are protected** — manual saves ask before replacing a cover, the watcher never overwrites a cover that appeared during conversion, and files that are still being written are left alone.
+- **Settings survive upgrades and resets** — migration retries, real resets after a successful migration, SQLite sidecar quarantine, cross-instance save merging, and rollback when a settings window cannot persist its changes.
+- **More reliable AI and update checks** — truncated responses, model-list pagination, custom request parameters in the verdict cache, batch download timeouts, oversized-image protection, and honest "update check failed" messages.
+- **Security and CI hardening** — `SECURITY.md` plus private vulnerability reporting, Dependabot security updates, secret scanning, push protection, and InspectCode as a required CI gate.
 
 ## Documentation
 
 - **Documentation site**: [purelogiccode.github.io/FindRomCover](https://purelogiccode.github.io/FindRomCover/)
 - **Wiki**: [github.com/purelogiccode/FindRomCover/wiki](https://github.com/purelogiccode/FindRomCover/wiki)
-- **What's New in 3.4.0**: [WhatsNew.md](WhatsNew.md)
+- **What's New in 3.5.0**: [WhatsNew.md](WhatsNew.md)
 - **Source**: [`docs/`](docs/) — built with MkDocs Material and synced to the wiki by CI
 - **Recommended AI models**: [RecommendedModels.md](RecommendedModels.md)
 
@@ -93,7 +94,7 @@ You can add or remove supported extensions through the `Settings > Edit Supporte
 ### Prerequisites
 
 - Windows 10 or later, a mainstream Linux distribution, or macOS 11 or later (x64 and ARM64 on Windows and Linux; Apple Silicon on macOS)
-- **.NET 10.0 Runtime**: The released builds are framework-dependent. If it is not already installed, download it from [dotnet.microsoft.com](https://dotnet.microsoft.com/download/dotnet/10.0) (choose ".NET Desktop Runtime" on Windows).
+- **.NET 10.0 Runtime**: The released builds are framework-dependent. If it is not already installed, download it from [dotnet.microsoft.com](https://dotnet.microsoft.com/download/dotnet/10.0) (the base runtime; the Windows Desktop Runtime is not required because the UI is Avalonia).
 - **Native web view runtime**: Essential for Bing and Google Web Image Search — Microsoft Edge WebView2 on Windows (pre-installed on most systems), WebKitGTK on Linux, WKWebView on macOS (part of the OS). If missing, the application prompts you with a download link and falls back to the system browser.
 - (Optional) Valid API key for Google Custom Search API if you choose to use that search method.
 

@@ -142,7 +142,7 @@ Then copy the contents of `wiki-out` into a clone of the wiki repository and pus
 
 ## Release process
 
-Releases are produced by `release.yml`, which runs when a tag named `release_*` (for example `release_3.4.0`) is pushed.
+Releases are produced by `release.yml`, which runs when a tag named `release_*` (for example `release_3.5.0`) is pushed.
 
 ### Before tagging
 
@@ -152,8 +152,8 @@ Releases are produced by `release.yml`, which runs when a tag named `release_*` 
 4. Create and push the tag:
 
    ```bash
-   git tag release_3.4.0
-   git push origin release_3.4.0
+   git tag release_3.5.0
+   git push origin release_3.5.0
    ```
 
 ### Release workflow jobs
@@ -208,7 +208,7 @@ The status-check ruleset has an administrator bypass so direct pushes keep worki
 
 ## Versioning
 
-Versions follow a `major.minor.patch` scheme. Tags use the `release_` prefix (for example `release_3.4.0`). The application version lives in the project file, and the documentation release notes mirror the GitHub releases. `release.yml` refuses to publish a tag that does not match the project files.
+Versions follow a `major.minor.patch` scheme. Tags use the `release_` prefix (for example `release_3.5.0`). The application version lives in the project file, and the documentation release notes mirror the GitHub releases. `release.yml` refuses to publish a tag that does not match the project files.
 
 ## Related pages
 

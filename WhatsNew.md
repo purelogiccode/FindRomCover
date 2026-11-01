@@ -1,3 +1,48 @@
+# FindRomCover 3.5.0 - What's New
+
+## Reliability & Safety
+
+- **Covers always land on the selected game** - fixed a race where a queued AI pick could combine the previous ROM's candidates with the newly selected ROM, and a cancellation race that could let a superseded local search repopulate the results. AI picks now capture the selection generation and abort if it changed.
+- **Existing covers are protected** - manual local saves now ask before replacing a cover, the folder watcher never overwrites a cover that appeared during conversion, and files that are still being written are left alone until the writer releases them.
+- **Settings survive upgrades and resets** - legacy migration is retried after transient I/O, a successful migration leaves a marker so deleting `Settings.dat` is a real reset, SQLite sidecars are quarantined together with a corrupt database, and two running instances no longer overwrite each other's settings.
+- **Failed settings saves roll back** - AI, API-key, and extension changes are restored when persistence fails instead of silently staying active for the session.
+- **Update checks report failures honestly** - offline, rate-limited, or timed-out checks now say the check could not be completed instead of claiming the app is up to date.
+
+## AI & Search
+
+- **More robust AI responses** - truncated output is reported as an output-budget problem, the last verdict object wins over reasoning examples, model lists follow Gemini/Anthropic pagination, and cached verdicts honor custom request parameters and candidate names.
+- **Safer AI downloads** - response bodies are streamed with size limits, batch downloads have a 15-second timeout, and oversized decoded images are rejected before they can exhaust memory.
+- **Better OpenAI reasoning support** - o-series and gpt-5 requests use the `developer` system role.
+- **Cleaner API key handling** - request logging masks both `?key=` and `&key=`.
+
+## Diagnostics & Platform
+
+- **Logging stays bounded and reliable** - app logs roll at 32 MB, bug-report retries distinguish permanent from transient failures, cross-process queues and shared log writes are safe, and trim failures can no longer recurse.
+- **Cleaner shutdown** - OS shutdown/logoff is no longer vetoed by the tray close handling, and audio disposal no longer blocks the UI thread.
+- **macOS path handling** - the default case-insensitive macOS filesystem is now treated consistently.
+
+## Under the Hood
+
+- **973 passing tests** (up from 930).
+- **InspectCode is now a required CI gate** - CI runs JetBrains InspectCode on every push and pull request and fails on any finding; the check is required on `master`.
+- **Security hardening** - added `SECURITY.md` and enabled private vulnerability reporting, Dependabot security updates, secret scanning, and push protection.
+- Dependency updates: Meziantou.Analyzer 3.0.320 and mkdocs-material 9.7.7.
+- Version bumped to **3.5.0**.
+
+## Download
+
+- `release_3.5.0_win-x64.zip` - Windows x64
+- `release_3.5.0_win-arm64.zip` - Windows ARM64
+- `release_3.5.0_linux-x64.zip` - Linux x64
+- `release_3.5.0_linux-arm64.zip` - Linux ARM64
+- `release_3.5.0_osx-arm64.zip` - macOS Apple Silicon
+
+> **Note:** there is no Intel-Mac build: Magick.NET 15 (the image conversion engine) no longer ships a macOS x64 native library.
+
+All builds are framework-dependent single-file executables and require the [.NET 10.0 runtime](https://dotnet.microsoft.com/download/dotnet/10.0) (the base runtime; the Windows Desktop Runtime is not required because the UI is Avalonia). Extract and run `FindRomCover.exe` on Windows or `FindRomCover` on Linux/macOS. Each archive also contains `LICENSE.txt`, `README.md`, and `WhatsNew.md`.
+
+---
+
 # FindRomCover 3.4.0 - What's New
 
 ## New
