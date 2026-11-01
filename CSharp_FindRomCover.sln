@@ -3,11 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.9.34310.174
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FindRomCover.Tests", "FindRomCover.Tests\FindRomCover.Tests.csproj", "{720B4E4C-8AD5-4F74-9EDA-E4737ED1D6C4}"
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "FindRomCover", "FindRomCover", "{C9F3FD73-EA90-413B-2B1E-8E93E365A4E9}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FindRomCover", "FindRomCover\FindRomCover.csproj", "{8F5AF0A4-6E13-44D9-88E0-F32899FD7593}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FindRomCover.Tests", "FindRomCover.Tests\FindRomCover.Tests.csproj", "{720B4E4C-8AD5-4F74-9EDA-E4737ED1D6C4}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -46,9 +44,6 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
-	EndGlobalSection
-	GlobalSection(NestedProjects) = preSolution
-		{8F5AF0A4-6E13-44D9-88E0-F32899FD7593} = {C9F3FD73-EA90-413B-2B1E-8E93E365A4E9}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {09AC9990-E877-433C-A4F8-14E5B3ABAAD6}
