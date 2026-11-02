@@ -32,17 +32,22 @@ public static class ErrorLogger
     /// </summary>
     internal static readonly Lock DisposeLock = new();
 
+    // The paths are resolved on every use instead of being cached in static fields:
+    // a static field is initialized when the type is first touched, which can happen
+    // before AppDataPaths.BaseDirectoryOverride is set (tests) and would then pin the
+    // real %LocalAppData% folder for the rest of the process.
+
     /// <summary>Path of the log file holding reports not yet accepted by the API.</summary>
-    internal static readonly string ApiLogFilePath = AppDataPaths.LogFilePath("ApiLogError.txt");
+    internal static string ApiLogFilePath => AppDataPaths.LogFilePath("ApiLogError.txt");
 
     /// <summary>Path of the log file holding all user-facing error reports.</summary>
-    private static readonly string UserLogFilePath = AppDataPaths.LogFilePath("UserLogError.txt");
+    private static string UserLogFilePath => AppDataPaths.LogFilePath("UserLogError.txt");
 
     /// <summary>Path of the log file holding internal diagnostics of the logger itself.</summary>
-    private static readonly string InternalLogFilePath = AppDataPaths.LogFilePath("InternalLog.txt");
+    private static string InternalLogFilePath => AppDataPaths.LogFilePath("InternalLog.txt");
 
     /// <summary>Path of the JSON queue used to retry reports that could not be sent.</summary>
-    private static readonly string PendingReportsFilePath = AppDataPaths.LogFilePath("PendingBugReports.json");
+    private static string PendingReportsFilePath => AppDataPaths.LogFilePath("PendingBugReports.json");
 
     private static readonly SemaphoreSlim LogFileLock = new(1, 1);
     private static readonly SemaphoreSlim PendingQueueLock = new(1, 1);

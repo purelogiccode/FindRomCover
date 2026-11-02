@@ -8,11 +8,22 @@ namespace FindRomCover.Services;
 public static class AppDataPaths
 {
     /// <summary>
+    ///     Test seam that redirects every writable path to a temporary directory. Exposed
+    ///     for tests: without it a test run writes its fake bug reports into the real
+    ///     pending-report queue, and the next application launch uploads them to the
+    ///     production bug tracker.
+    /// </summary>
+    internal static string? BaseDirectoryOverride { get; set; }
+
+    /// <summary>
     ///     Gets the per-user application data folder (%LocalAppData%\FindRomCover).
     ///     Falls back to the user profile or the temp folder when the platform does
     ///     not report a local application-data directory (minimal Linux sessions).
     /// </summary>
-    public static string BaseDirectory => Path.Combine(GetWritableRoot(), "FindRomCover");
+    public static string BaseDirectory =>
+        BaseDirectoryOverride is { Length: > 0 } overrideDirectory
+            ? overrideDirectory
+            : Path.Combine(GetWritableRoot(), "FindRomCover");
 
     private static string GetWritableRoot()
     {

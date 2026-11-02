@@ -114,4 +114,15 @@ public class ErrorLoggerTests : IDisposable
 
         act.Should().NotThrow();
     }
+
+    [Fact]
+    public void LogFilePathsShouldStayInsideTheTestApplicationDataFolder()
+    {
+        // Regression test: the log files and the pending bug-report queue must never be
+        // written to the real %LocalAppData%\FindRomCover folder. The app re-sends that
+        // queue at startup, so leaked test reports became real tracker entries.
+        var expectedDirectory = AppDataPaths.BaseDirectory;
+
+        ErrorLogger.ApiLogFilePath.Should().Be(Path.Combine(expectedDirectory, "ApiLogError.txt"));
+    }
 }

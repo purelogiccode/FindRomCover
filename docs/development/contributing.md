@@ -58,7 +58,7 @@ Include:
 ## Tests
 
 - New tests must be deterministic and independent of collection parallelization: `xunit.runner.json` disables parallel test collections, so do not rely on tests running concurrently.
-- Do not depend on the real settings folder or the bug-report API; use the seams set up by `TestBootstrap` (`SettingsManager.DefaultSettingsDirectoryOverride`, `ErrorLogger.SendToApiOverride`).
+- Do not depend on the real settings folder, the real per-user data folder, or the bug-report API; use the seams set up by `TestBootstrap` (`SettingsManager.DefaultSettingsDirectoryOverride`, `AppDataPaths.BaseDirectoryOverride`, `ErrorLogger.SendToApiOverride`).
 - Every bug fix should come with a regression test. See [Testing](testing.md) for the full conventions.
 
 ## Commit messages

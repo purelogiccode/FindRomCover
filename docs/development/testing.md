@@ -69,10 +69,11 @@ Coverage is currently reported for visibility and is not a merge gate. The Cober
 
 ## Test isolation
 
-Settings tests never touch your real configuration. `TestBootstrap` runs as a `[ModuleInitializer]` and sets `SettingsManager.DefaultSettingsDirectoryOverride` to a unique temporary directory, so:
+Settings tests never touch your real configuration. `TestBootstrap` runs as a `[ModuleInitializer]` and sets `SettingsManager.DefaultSettingsDirectoryOverride` and `AppDataPaths.BaseDirectoryOverride` to unique temporary directories, so:
 
 - `%LocalAppData%\FindRomCover` is not modified by test runs;
 - every run uses its own unique temporary directory under the system temp path;
+- the log files and `PendingBugReports.json` queue are written to the temporary directory. This matters: the application re-sends that queue at startup, so reports queued by a test run would otherwise be uploaded to the production bug tracker as real bugs;
 - `ErrorLogger.SendToApiOverride` replaces the real bug-report API call, so tests never contact the production endpoint.
 
 Tests that write corrupt or empty files operate inside those temporary directories.
