@@ -53,7 +53,7 @@ Coverage highlights:
 - **Similarity** — all three algorithms, edge cases such as empty strings, and n-gram indexing.
 - **Services** — image processing and saving, screenshot saving, query cleaning, URL generation, update checks, logging, and bug-report suppression. The watcher conversion path is covered for JPEG, WebP, mislabeled `.png` files, and corrupt input.
 
-The suite currently contains **973 test cases** across 71 files, all expected to pass.
+The suite currently contains **988 test cases** across 75 files, all expected to pass.
 
 ## Coverage
 
@@ -74,7 +74,10 @@ Settings tests never touch your real configuration. `TestBootstrap` runs as a `[
 - `%LocalAppData%\FindRomCover` is not modified by test runs;
 - every run uses its own unique temporary directory under the system temp path;
 - the log files and `PendingBugReports.json` queue are written to the temporary directory. This matters: the application re-sends that queue at startup, so reports queued by a test run would otherwise be uploaded to the production bug tracker as real bugs;
-- `ErrorLogger.SendToApiOverride` replaces the real bug-report API call, so tests never contact the production endpoint.
+- `ErrorLogger.SendToApiOverride` replaces the real bug-report API call, so tests never contact the production endpoint;
+- the application data override cannot be cleared once set. A test used to clear it to exercise the fallback path, which let concurrently running logger tests queue fake reports in the real `%LocalAppData%\FindRomCover` folder. Use `AppDataPaths.DefaultBaseDirectory` to assert the fallback instead.
+
+The application also refuses to upload any report whose recorded base directory belongs to a test host, so stale test reports left in a queue are dropped instead of being re-sent to the production tracker.
 
 Tests that write corrupt or empty files operate inside those temporary directories.
 

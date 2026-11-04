@@ -7,13 +7,28 @@ namespace FindRomCover.Services;
 /// </summary>
 public static class AppDataPaths
 {
+    private static string? _baseDirectoryOverride;
+
     /// <summary>
     ///     Test seam that redirects every writable path to a temporary directory. Exposed
     ///     for tests: without it a test run writes its fake bug reports into the real
     ///     pending-report queue, and the next application launch uploads them to the
     ///     production bug tracker.
     /// </summary>
-    internal static string? BaseDirectoryOverride { get; set; }
+    /// <remarks>
+    ///     Once a temporary directory has been assigned the override cannot be cleared.
+    ///     A test that cleared it used to make concurrent logger tests write their fake
+    ///     "test"/marker reports into the real %LocalAppData%\FindRomCover queue, which
+    ///     the installed application then uploaded to the production tracker.
+    /// </remarks>
+    internal static string? BaseDirectoryOverride
+    {
+        get => _baseDirectoryOverride;
+        set
+        {
+            if (value is { Length: > 0 }) _baseDirectoryOverride = value;
+        }
+    }
 
     /// <summary>
     ///     Gets the per-user application data folder (%LocalAppData%\FindRomCover).
@@ -21,9 +36,15 @@ public static class AppDataPaths
     ///     not report a local application-data directory (minimal Linux sessions).
     /// </summary>
     public static string BaseDirectory =>
-        BaseDirectoryOverride is { Length: > 0 } overrideDirectory
+        _baseDirectoryOverride is { Length: > 0 } overrideDirectory
             ? overrideDirectory
-            : Path.Combine(GetWritableRoot(), "FindRomCover");
+            : DefaultBaseDirectory;
+
+    /// <summary>
+    ///     Gets the real per-user application data folder, ignoring the test override.
+    ///     Exposed for tests so the fallback can be verified without clearing the seam.
+    /// </summary>
+    internal static string DefaultBaseDirectory => Path.Combine(GetWritableRoot(), "FindRomCover");
 
     private static string GetWritableRoot()
     {

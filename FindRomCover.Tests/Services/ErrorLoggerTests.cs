@@ -1,3 +1,4 @@
+using FindRomCover.Models;
 using FindRomCover.Services;
 using FluentAssertions;
 using Xunit;
@@ -124,5 +125,41 @@ public class ErrorLoggerTests : IDisposable
         var expectedDirectory = AppDataPaths.BaseDirectory;
 
         ErrorLogger.ApiLogFilePath.Should().Be(Path.Combine(expectedDirectory, "ApiLogError.txt"));
+    }
+
+    [Theory]
+    [InlineData(@"C:\repos\FindRomCover.Tests\bin\Release\net10.0-windows")]
+    [InlineData("/home/user/repos/FindRomCover.Tests/bin/Release/net10.0-windows")]
+    [InlineData(@"C:\Users\user\.nuget\packages\microsoft.testplatform.testhost\18.0.0\lib\net8.0\testhost")]
+    public void IsTestHostBaseDirectoryShouldRecognizeTestHostFolders(string baseDirectory)
+    {
+        ErrorLogger.IsTestHostBaseDirectory(baseDirectory).Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData(@"C:\Program Files\FindRomCover")]
+    [InlineData(@"D:\Emulators\Simple Launcher\tools\FindRomCover\win-x64")]
+    [InlineData("/opt/findromcover")]
+    [InlineData("")]
+    [InlineData(null)]
+    public void IsTestHostBaseDirectoryShouldAcceptApplicationFolders(string? baseDirectory)
+    {
+        ErrorLogger.IsTestHostBaseDirectory(baseDirectory).Should().BeFalse();
+    }
+
+    [Fact]
+    public void IsTestHostReportShouldUseTheReportBaseDirectory()
+    {
+        var testReport = new BugReportModel
+        {
+            BaseDirectory = Path.Combine("C:", "repos", "FindRomCover.Tests", "bin", "Release")
+        };
+        var applicationReport = new BugReportModel
+        {
+            BaseDirectory = Path.Combine("C:", "Program Files", "FindRomCover")
+        };
+
+        ErrorLogger.IsTestHostReport(testReport).Should().BeTrue();
+        ErrorLogger.IsTestHostReport(applicationReport).Should().BeFalse();
     }
 }

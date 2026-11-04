@@ -27,16 +27,30 @@ public class AppDataPathsTests
     }
 
     [Fact]
-    public void BaseDirectoryShouldFallBackToThePerUserFolderWhenTheOverrideIsCleared()
+    public void DefaultBaseDirectoryShouldPointToThePerUserFolder()
+    {
+        // The default is asserted directly instead of clearing the process-wide
+        // override: clearing it made a concurrent logger test queue fake reports in the
+        // real %LocalAppData%\FindRomCover folder, which the installed application later
+        // uploaded to the production bug tracker.
+        AppDataPaths.DefaultBaseDirectory.Should().NotBeNullOrWhiteSpace();
+        AppDataPaths.DefaultBaseDirectory.Should().EndWith("FindRomCover");
+    }
+
+    [Fact]
+    public void ClearingTheOverrideShouldBeIgnored()
     {
         var original = AppDataPaths.BaseDirectoryOverride;
+        var overrideDirectory = Path.Combine(
+            Path.GetTempPath(), "FindRomCover_Tests", Guid.NewGuid().ToString("N"));
 
         try
         {
+            AppDataPaths.BaseDirectoryOverride = overrideDirectory;
             AppDataPaths.BaseDirectoryOverride = null;
 
-            AppDataPaths.BaseDirectory.Should().NotBeNullOrWhiteSpace();
-            AppDataPaths.BaseDirectory.Should().EndWith("FindRomCover");
+            AppDataPaths.BaseDirectory.Should().Be(overrideDirectory,
+                "a test run must never fall back to the real per-user application data folder");
         }
         finally
         {

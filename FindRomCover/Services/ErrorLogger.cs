@@ -517,6 +517,40 @@ public static class ErrorLogger
         PermanentFailure
     }
 
+    /// <summary>
+    ///     Directory names that identify a test host. Reports created there must never
+    ///     reach the production bug tracker.
+    /// </summary>
+    private static readonly string[] TestHostDirectoryNames = ["FindRomCover.Tests", "testhost"];
+
+    /// <summary>
+    ///     Gets a value indicating whether the given report was created by a test host.
+    ///     Exposed for tests.
+    /// </summary>
+    /// <param name="report">The report to inspect.</param>
+    /// <returns><see langword="true" /> when the report comes from a test host.</returns>
+    internal static bool IsTestHostReport(BugReportModel report)
+    {
+        ArgumentNullException.ThrowIfNull(report);
+        return IsTestHostBaseDirectory(report.BaseDirectory);
+    }
+
+    /// <summary>
+    ///     Gets a value indicating whether a base directory belongs to a test host.
+    ///     Exposed for tests.
+    /// </summary>
+    /// <param name="baseDirectory">The base directory recorded in a bug report.</param>
+    /// <returns><see langword="true" /> when a path segment names a test host.</returns>
+    internal static bool IsTestHostBaseDirectory(string? baseDirectory)
+    {
+        if (string.IsNullOrWhiteSpace(baseDirectory)) return false;
+
+        return baseDirectory
+            .Split([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
+                StringSplitOptions.RemoveEmptyEntries)
+            .Any(segment => TestHostDirectoryNames.Contains(segment, StringComparer.OrdinalIgnoreCase));
+    }
+
     private static async Task<ApiSendResult> SendLogToApiCoreAsync(BugReportModel bugReport, int apiTimeoutSeconds)
     {
         if (IsDisposed) return ApiSendResult.TransientFailure;
@@ -525,6 +559,11 @@ public static class ErrorLogger
             return await SendToApiOverride(bugReport, apiTimeoutSeconds)
                 ? ApiSendResult.Success
                 : ApiSendResult.TransientFailure;
+
+        // Reports produced by a test host are fake ("test", marker GUIDs) and used to be
+        // uploaded by the installed application when it retried a queue leaked by a test
+        // run. Treat them as permanently rejected so they are dropped from the queue.
+        if (IsTestHostReport(bugReport)) return ApiSendResult.PermanentFailure;
 
         try
         {
