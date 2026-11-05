@@ -108,6 +108,13 @@ public static class ErrorLogger
             apiTimeoutSeconds = ResolveApiTimeoutSeconds(apiTimeoutSeconds);
 
             var bugReport = BugReportModel.FromException(ex, contextMessage);
+
+            // Test-host reports are fake ("test", marker GUIDs). Drop them before they
+            // are queued or written: they must never reach an older installed build,
+            // which re-sends the pending queue at startup. The SendToApiOverride seam is
+            // used by tests to inspect the generated report, so it must keep seeing them.
+            if (SendToApiOverride == null && IsTestHostReport(bugReport)) return;
+
             var currentErrorMessage = bugReport.ToString();
             var pendingId = await EnqueuePendingReportAsync(bugReport);
 

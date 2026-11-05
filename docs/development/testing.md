@@ -77,7 +77,7 @@ Settings tests never touch your real configuration. `TestBootstrap` runs as a `[
 - `ErrorLogger.SendToApiOverride` replaces the real bug-report API call, so tests never contact the production endpoint;
 - the application data override cannot be cleared once set. A test used to clear it to exercise the fallback path, which let concurrently running logger tests queue fake reports in the real `%LocalAppData%\FindRomCover` folder. Use `AppDataPaths.DefaultBaseDirectory` to assert the fallback instead.
 
-The application also refuses to upload any report whose recorded base directory belongs to a test host, so stale test reports left in a queue are dropped instead of being re-sent to the production tracker.
+The application also refuses to queue, log or upload any report whose recorded base directory belongs to a test host, so stale test reports left in an older queue are dropped instead of being re-sent to the production tracker.
 
 Tests that write corrupt or empty files operate inside those temporary directories.
 

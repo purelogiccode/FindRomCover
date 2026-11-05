@@ -162,4 +162,37 @@ public class ErrorLoggerTests : IDisposable
         ErrorLogger.IsTestHostReport(testReport).Should().BeTrue();
         ErrorLogger.IsTestHostReport(applicationReport).Should().BeFalse();
     }
+
+    [Fact]
+    public async Task LogAsyncFromTestHostShouldNotQueueOrWriteTheReport()
+    {
+        // Regression test: test-host reports used to be queued in the real
+        // PendingBugReports.json before the API rejected them. The installed application
+        // then re-sent that queue and filed the fake test reports as real bugs.
+        ErrorLogger.IsTestHostBaseDirectory(AppContext.BaseDirectory).Should().BeTrue(
+            "the regression test relies on running from the test output folder");
+
+        var originalOverride = ErrorLogger.SendToApiOverride;
+        var marker = $"testhost-{Guid.NewGuid():N}";
+
+        try
+        {
+            ErrorLogger.SendToApiOverride = null;
+
+            await ErrorLogger.LogAsync(new InvalidOperationException(marker), marker);
+
+            ReadIfExists(ErrorLogger.ApiLogFilePath).Should().NotContain(marker);
+            ReadIfExists(Path.Combine(AppDataPaths.BaseDirectory, "PendingBugReports.json"))
+                .Should().NotContain(marker);
+        }
+        finally
+        {
+            ErrorLogger.SendToApiOverride = originalOverride;
+        }
+    }
+
+    private static string ReadIfExists(string path)
+    {
+        return File.Exists(path) ? File.ReadAllText(path) : string.Empty;
+    }
 }
