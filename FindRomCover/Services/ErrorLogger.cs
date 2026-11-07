@@ -210,11 +210,18 @@ public static class ErrorLogger
 
         var timeout = ResolveApiTimeoutSeconds(DefaultApiTimeoutSeconds);
         var delivered = new HashSet<string>(StringComparer.Ordinal);
-        var rejected = new HashSet<string>(StringComparer.Ordinal);
+
+        // Stale reports queued by an older test run must be dropped without attempting a
+        // send. When an earlier real report failed transiently the loop stopped before
+        // reaching them, so fake reports could stay in the bounded queue across launches.
+        var rejected = new HashSet<string>(
+            pending.Where(entry => IsTestHostReport(entry.Report)).Select(entry => entry.Id),
+            StringComparer.Ordinal);
 
         foreach (var entry in pending)
         {
             if (IsDisposed) break;
+            if (rejected.Contains(entry.Id)) continue;
 
             try
             {
