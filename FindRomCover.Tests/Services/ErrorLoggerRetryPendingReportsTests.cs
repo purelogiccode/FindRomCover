@@ -87,4 +87,59 @@ public class ErrorLoggerRetryPendingReportsTests : IDisposable
             ErrorLogger.SendToApiOverride = originalOverride;
         }
     }
+
+    [Fact]
+    public async Task RetryShouldDropMalformedEntriesWithoutThrowing()
+    {
+        // Regression test: a hand-edited or truncated queue can contain "report": null.
+        // The retry used to throw from the pre-filter before the queue was rewritten.
+        var marker = $"malformed-{Guid.NewGuid():N}";
+        var malformedId = Guid.NewGuid().ToString("N");
+        object[] queue =
+        [
+            new
+            {
+                id = malformedId,
+                report = (object?)null
+            },
+            new
+            {
+                id = Guid.NewGuid().ToString("N"),
+                report = new
+                {
+                    applicationName = "FindRomCover",
+                    baseDirectory = @"C:\Program Files\FindRomCover",
+                    errorMessage = marker,
+                    exception = new
+                    {
+                        type = "System.InvalidOperationException",
+                        message = marker
+                    }
+                }
+            }
+        ];
+
+        await File.WriteAllTextAsync(PendingReportsPath, JsonSerializer.Serialize(queue));
+
+        var originalOverride = ErrorLogger.SendToApiOverride;
+
+        try
+        {
+            ErrorLogger.SendToApiOverride = static (_, _) => Task.FromResult(false);
+
+            var act = ErrorLogger.RetryPendingReportsAsync;
+
+            await act.Should().NotThrowAsync();
+
+            var remainingQueue = File.Exists(PendingReportsPath)
+                ? await File.ReadAllTextAsync(PendingReportsPath)
+                : string.Empty;
+            remainingQueue.Should().Contain(marker, "a valid entry must stay queued for the next launch");
+            remainingQueue.Should().NotContain(malformedId, "the malformed entry must be dropped");
+        }
+        finally
+        {
+            ErrorLogger.SendToApiOverride = originalOverride;
+        }
+    }
 }

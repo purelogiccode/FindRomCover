@@ -53,7 +53,7 @@ dotnet publish FindRomCover/FindRomCover.csproj -c Release -r osx-arm64 --self-c
 
 Add `-p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true` to produce a single executable with the native libraries (Skia, HarfBuzz, Magick.NET, SQLite) embedded inside it. The .NET runtime itself is never bundled — releases stay framework-dependent. The archive also carries `mame.dat`, `audio/click.mp3`, and `FindRomCover.xml` next to the executable.
 
-Zip the contents as `release_<version>_<rid>.zip` (for example `release_3.5.0_win-x64.zip`) to match the naming used on the Releases page.
+Zip the contents as `release_<version>_<rid>.zip` (for example `release_3.5.1_win-x64.zip`) to match the naming used on the Releases page.
 
 ### Release bundles
 
@@ -74,8 +74,8 @@ Do not embed the .NET runtime, and do not delete existing archives in `FindRomCo
 | Target framework | `net10.0` |
 | Language version | C# 14 |
 | Nullable | Enabled |
-| UI framework | Avalonia `12.1.4` |
-| Assembly/file version | `3.5.0` (kept in `FindRomCover.csproj`) |
+| UI framework | Avalonia `12.1.5` |
+| Assembly/file version | `3.5.1` (kept in `FindRomCover.csproj`) |
 | `mame.dat` | Copied to the output directory on every build |
 | `settings.dat` | Never copied to the output directory |
 

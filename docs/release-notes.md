@@ -2,6 +2,24 @@
 
 Complete version history for FindRomCover. Download links for each release are available on the [Releases](https://github.com/purelogiccode/FindRomCover/releases) page.
 
+## 3.5.1 — 2026-11-09
+
+Maintenance release. Application behavior is unchanged apart from two diagnostics fixes and dependency updates.
+
+### Fixes & Improvements
+
+- **Test runs can no longer file fake bugs** - a test run used to write its synthetic "test"/marker reports into the real per-user `PendingBugReports.json` queue; the next application launch then uploaded them to the production bug tracker. Test runs now redirect every writable path to a temporary folder, and reports whose recorded base directory belongs to a test host are never queued, logged, or uploaded. Reports left in the queue by older test runs are dropped without an API call.
+- **A corrupt pending queue no longer stalls retries** - an entry with a missing report (`"report": null`, for example after a hand edit or a truncated write) made the startup retry throw before the queue could be cleaned up. Malformed entries are now discarded and the remaining reports are still retried.
+- **Test isolation cannot be undone accidentally** - the application-data test seam can no longer be cleared, which previously let a concurrently running logger test fall back to the real `%LocalAppData%\FindRomCover` folder.
+
+### Under the Hood
+
+- **991 passing tests** (up from 973), including regressions for the leaked test reports and malformed queue entries.
+- **Dependency updates**: Avalonia 12.1.5, Magick.NET 15.1.0 (ImageMagick 7.1.2-35 security fixes, including GHSA-67p3-xhc7-g797, GHSA-gr4q-6v79-qj3g, GHSA-q66g-3m63-78mh, and GHSA-xvqp-rcj6-3h2q), Meziantou.Analyzer 3.0.322, and mkdocs-material 9.8.0.
+- **Refactor**: Avalonia windows and dialogs moved to `FindRomCover/Views` under the `FindRomCover.Views` namespace; the solution no longer nests the application project in a redundant solution folder.
+- Documentation updated for the new project layout, test isolation rules, and dependencies.
+- Version bumped to **3.5.1**.
+
 ## 3.5.0 — 2026-11-01
 
 ### Reliability & Safety

@@ -23,7 +23,7 @@
 [![Top language](https://img.shields.io/github/languages/top/purelogiccode/FindRomCover)](https://github.com/purelogiccode/FindRomCover)
 [![C# 14](https://img.shields.io/badge/C%23-14-239120?logo=csharp&logoColor=white)](https://learn.microsoft.com/dotnet/csharp/)
 [![UI: Avalonia 12](https://img.shields.io/badge/UI-Avalonia%2012-8B44AC)](https://avaloniaui.net)
-[![Tests](https://img.shields.io/badge/tests-973%20passing-brightgreen)](https://github.com/purelogiccode/FindRomCover/actions/workflows/ci.yml)
+[![Tests](https://img.shields.io/badge/tests-991%20passing-brightgreen)](https://github.com/purelogiccode/FindRomCover/actions/workflows/ci.yml)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](https://github.com/purelogiccode/FindRomCover/blob/master/docs/development/contributing.md)
 [![Maintained](https://img.shields.io/badge/maintained-yes-brightgreen)](https://github.com/purelogiccode/FindRomCover/commits/master)
 [![Discussions](https://img.shields.io/badge/discussions-available-blue?logo=github)](https://github.com/purelogiccode/FindRomCover/discussions)
@@ -32,7 +32,7 @@
 # FindRomCover
 
 A powerful cross-platform desktop application (Windows, Linux, and macOS) designed to help you automatically find and download missing cover art for your retro gaming ROM collection.
-It supports **Local Similarity Search** across your existing image folder, plus **Google Web Image Search**, **Bing Web Image Search**, and the **Google Custom Search API** to fetch high-quality game cover images. Version **3.3** migrated the app to Avalonia and added an optional **AI Vision Assist** that looks at the candidates and picks the best cover for you. Version **3.4** added custom AI request parameters and hardened web-tab image handling. Version **3.5** focuses on reliability, settings safety, AI robustness, and CI hardening.
+It supports **Local Similarity Search** across your existing image folder, plus **Google Web Image Search**, **Bing Web Image Search**, and the **Google Custom Search API** to fetch high-quality game cover images. Version **3.3** migrated the app to Avalonia and added an optional **AI Vision Assist** that looks at the candidates and picks the best cover for you. Version **3.4** added custom AI request parameters and hardened web-tab image handling. Version **3.5** focuses on reliability, settings safety, AI robustness, and CI hardening; **3.5.1** is a maintenance release with diagnostics fixes and dependency updates.
 
 ![Main Window](screenshot.png)
 
@@ -40,6 +40,7 @@ It supports **Local Similarity Search** across your existing image folder, plus 
 
 ## What's New in 3.5
 
+- **3.5.1 maintenance** — test runs can no longer leak fake bug reports into the production tracker, a corrupt pending-report queue no longer stalls startup retries, and the bundled Avalonia and ImageMagick dependencies are updated (Magick.NET 15.1.0 includes ImageMagick security fixes).
 - **Covers stay on the right game** — fixed search and AI-pick races that could show the previous ROM's candidates after a selection change, plus cancellation leaks that could repopulate stale results.
 - **Existing covers are protected** — manual saves ask before replacing a cover, the watcher never overwrites a cover that appeared during conversion, and files that are still being written are left alone.
 - **Settings survive upgrades and resets** — migration retries, real resets after a successful migration, SQLite sidecar quarantine, cross-instance save merging, and rollback when a settings window cannot persist its changes.
@@ -50,7 +51,7 @@ It supports **Local Similarity Search** across your existing image folder, plus 
 
 - **Documentation site**: [purelogiccode.github.io/FindRomCover](https://purelogiccode.github.io/FindRomCover/)
 - **Wiki**: [github.com/purelogiccode/FindRomCover/wiki](https://github.com/purelogiccode/FindRomCover/wiki)
-- **What's New in 3.5.0**: [WhatsNew.md](WhatsNew.md)
+- **What's New in 3.5.1**: [WhatsNew.md](WhatsNew.md)
 - **Source**: [`docs/`](docs/) — built with MkDocs Material and synced to the wiki by CI
 - **Recommended AI models**: [RecommendedModels.md](RecommendedModels.md)
 

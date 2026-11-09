@@ -214,18 +214,21 @@ public static class ErrorLogger
         // Stale reports queued by an older test run must be dropped without attempting a
         // send. When an earlier real report failed transiently the loop stopped before
         // reaching them, so fake reports could stay in the bounded queue across launches.
+        // A malformed entry without a report can never be delivered, so it is rejected
+        // here instead of throwing before the queue is rewritten.
         var rejected = new HashSet<string>(
-            pending.Where(entry => IsTestHostReport(entry.Report)).Select(entry => entry.Id),
+            pending.Where(static entry => entry.Report is null || IsTestHostReport(entry.Report))
+                .Select(static entry => entry.Id),
             StringComparer.Ordinal);
 
         foreach (var entry in pending)
         {
             if (IsDisposed) break;
-            if (rejected.Contains(entry.Id)) continue;
+            if (rejected.Contains(entry.Id) || entry.Report is not { } report) continue;
 
             try
             {
-                var result = await SendLogToApiCoreAsync(entry.Report, timeout);
+                var result = await SendLogToApiCoreAsync(report, timeout);
                 if (result == ApiSendResult.Success)
                 {
                     delivered.Add(entry.Id);
@@ -371,7 +374,9 @@ public static class ErrorLogger
     {
         public string Id { get; init; } = string.Empty;
 
-        public BugReportModel Report { get; init; } = new();
+        // Nullable because a hand-edited or truncated queue can contain "report": null;
+        // such an entry is rejected when the queue is retried.
+        public BugReportModel? Report { get; init; }
     }
 
     private static Semaphore CreatePendingQueueMutex()

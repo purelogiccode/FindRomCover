@@ -53,7 +53,7 @@ Coverage highlights:
 - **Similarity** — all three algorithms, edge cases such as empty strings, and n-gram indexing.
 - **Services** — image processing and saving, screenshot saving, query cleaning, URL generation, update checks, logging, and bug-report suppression. The watcher conversion path is covered for JPEG, WebP, mislabeled `.png` files, and corrupt input.
 
-The suite currently contains **988 test cases** across 75 files, all expected to pass.
+The suite currently contains **991 test cases** across 75 files, all expected to pass.
 
 ## Coverage
 

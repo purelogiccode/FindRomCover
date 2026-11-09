@@ -1,6 +1,6 @@
 # Architecture
 
-FindRomCover is a cross-platform desktop application built with **Avalonia 12.1.4** and targeting `net10.0` (C# 14). The same codebase runs on Windows, Linux, and macOS. The design is pragmatic and layered: windows own presentation and orchestration, managers own persistence, and services own focused pieces of behavior. There is no heavyweight MVVM framework — views use code-behind together with `INotifyPropertyChanged` for bindable state.
+FindRomCover is a cross-platform desktop application built with **Avalonia 12.1.5** and targeting `net10.0` (C# 14). The same codebase runs on Windows, Linux, and macOS. The design is pragmatic and layered: windows own presentation and orchestration, managers own persistence, and services own focused pieces of behavior. There is no heavyweight MVVM framework — views use code-behind together with `INotifyPropertyChanged` for bindable state.
 
 ## High-level layers
 
